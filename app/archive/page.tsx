@@ -304,10 +304,10 @@ const [feedbackSent, setFeedbackSent] = useState(false)
 
               {/* 功能选项 */}
               {[
-                { id: 'title', label: '🏆 称号系统', desc: '记录你走过的每一次' },
-                { id: 'collect', label: '💎 稀有收藏物件', desc: '更多有意义的物件' },
-                { id: 'chart', label: '📊 情绪趋势图', desc: '看自己的情绪变化' },
-                { id: 'remind', label: '🔔 定期复查提醒', desc: '提醒你回来处理旧记录' },
+                { id: 'title', label: '称号系统', desc: '记录你走过的每一次' },
+                { id: 'collect', label: '稀有收藏物件', desc: '更多有意义的物件' },
+                { id: 'chart', label: '情绪趋势图', desc: '看自己的情绪变化' },
+                { id: 'remind', label: '定期复查提醒', desc: '提醒你回来处理旧记录' },
               ].map(f => (
                 <button
                   key={f.id}
