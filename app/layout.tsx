@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   title: '到此为止 · End Here',
   description: '写下来。到此为止。',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/favicon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

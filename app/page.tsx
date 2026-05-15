@@ -42,7 +42,12 @@ export default function Home() {
       }} />
 
       {/* 主文案 */}
-      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+        <img
+          src="/logo.png"
+          alt="End Here"
+          style={{ width: '72px', height: '72px', opacity: 0.9 }}
+        />
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.35em' }}>
           END HERE
         </p>
@@ -50,7 +55,7 @@ export default function Home() {
           color: 'var(--text-main)', fontSize: '32px',
           fontWeight: '300', letterSpacing: '0.15em', lineHeight: '1.8',
         }}>
-          写下来。<br />到此为止。
+          写下来 到此为止
         </h1>
       </div>
 
