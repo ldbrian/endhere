@@ -30,6 +30,11 @@ function getStatusColor(status: string) {
 }
 
 export default function ArchivePage() {
+  
+const [showFeedback, setShowFeedback] = useState(false)
+const [feedbackFeatures, setFeedbackFeatures] = useState<string[]>([])
+const [feedbackCustom, setFeedbackCustom] = useState('')
+const [feedbackSent, setFeedbackSent] = useState(false)  
   const [entries, setEntries] = useState<Entry[]>([])
   const [expanded, setExpanded] = useState<number | null>(null)
   const router = useRouter()
@@ -42,6 +47,21 @@ export default function ArchivePage() {
   const formatDate = (iso: string) => {
     const d = new Date(iso)
     return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+
+  const handleFeedback = async () => {
+    await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ features: feedbackFeatures, custom: feedbackCustom }),
+    })
+    setFeedbackSent(true)
+  }
+
+  const toggleFeature = (f: string) => {
+    setFeedbackFeatures(prev =>
+      prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
+    )
   }
 
   return (
@@ -254,6 +274,101 @@ export default function ArchivePage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* 反馈区块 */}
+      {!feedbackSent ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {!showFeedback ? (
+            <button
+              onClick={() => setShowFeedback(true)}
+              style={{
+                width: '100%', padding: '14px', borderRadius: '12px',
+                border: '1px solid var(--border)', background: 'transparent',
+                color: 'var(--text-muted)', fontSize: '12px',
+                letterSpacing: '0.15em', cursor: 'pointer', opacity: 0.5,
+              }}
+            >
+              你希望 End Here 还能做什么？
+            </button>
+          ) : (
+            <div style={{
+              padding: '20px', borderRadius: '12px',
+              border: '1px solid var(--border)',
+              background: 'rgba(255,255,255,0.02)',
+              display: 'flex', flexDirection: 'column', gap: '16px',
+            }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em' }}>
+                你希望哪个功能先上？
+              </p>
+
+              {/* 功能选项 */}
+              {[
+                { id: 'title', label: '🏆 称号系统', desc: '记录你走过的每一次' },
+                { id: 'collect', label: '💎 稀有收藏物件', desc: '更多有意义的物件' },
+                { id: 'chart', label: '📊 情绪趋势图', desc: '看自己的情绪变化' },
+                { id: 'remind', label: '🔔 定期复查提醒', desc: '提醒你回来处理旧记录' },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => toggleFeature(f.id)}
+                  style={{
+                    width: '100%', padding: '12px 16px', borderRadius: '10px',
+                    border: `1px solid ${feedbackFeatures.includes(f.id) ? 'rgba(245,200,66,0.4)' : 'var(--border)'}`,
+                    background: feedbackFeatures.includes(f.id) ? 'rgba(245,200,66,0.06)' : 'transparent',
+                    color: feedbackFeatures.includes(f.id) ? 'var(--warm-yellow)' : 'var(--text-muted)',
+                    cursor: 'pointer', transition: 'all 0.2s ease',
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px',
+                  }}
+                >
+                  <span style={{ fontSize: '13px' }}>{f.label}</span>
+                  <span style={{ fontSize: '11px', opacity: 0.6 }}>{f.desc}</span>
+                </button>
+              ))}
+
+              {/* 自定义输入 */}
+              <textarea
+                value={feedbackCustom}
+                onChange={(e) => setFeedbackCustom(e.target.value)}
+                placeholder="或者，你有别的想法？"
+                rows={3}
+                style={{
+                  width: '100%',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  color: 'var(--text-main)',
+                  fontSize: '13px',
+                  lineHeight: '1.8',
+                  fontFamily: 'inherit',
+                }}
+              />
+
+              <button
+                onClick={handleFeedback}
+                disabled={feedbackFeatures.length === 0 && !feedbackCustom.trim()}
+                style={{
+                  width: '100%', padding: '12px', borderRadius: '10px',
+                  border: '1px solid rgba(245,200,66,0.3)',
+                  background: 'rgba(245,200,66,0.08)',
+                  color: 'var(--warm-yellow)', fontSize: '13px',
+                  letterSpacing: '0.15em', cursor: 'pointer',
+                  opacity: feedbackFeatures.length > 0 || feedbackCustom.trim() ? 1 : 0.4,
+                }}
+              >
+                提交
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p style={{
+          textAlign: 'center', color: 'var(--text-muted)',
+          fontSize: '12px', opacity: 0.5, letterSpacing: '0.1em',
+        }}>
+          ✓ 收到了，谢谢你。
+        </p>
       )}
 
       <button
