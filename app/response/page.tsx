@@ -13,16 +13,24 @@ const EMOTION_LABELS: Record<string, string> = {
   regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
 }
 
+interface Action {
+  id: string
+  text: string
+  sub: string
+}
+
 export default function ResponsePage() {
   const [persona, setPersona] = useState('Rin')
   const [content, setContent] = useState('')
   const [emotion, setEmotion] = useState('sad')
   const [response, setResponse] = useState('')
+  const [action, setAction] = useState<Action | null>(null)
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [started, setStarted] = useState(false)
+  const [actionDone, setActionDone] = useState(false)
   const router = useRouter()
-  const responseRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const savedContent = sessionStorage.getItem('entry_content') || ''
@@ -33,12 +41,20 @@ export default function ResponsePage() {
     setPersona(savedPersona)
   }, [])
 
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [response, action])
+
   const handleStart = async () => {
     if (!content || loading) return
     setStarted(true)
     setLoading(true)
     setResponse('')
+    setAction(null)
     setDone(false)
+    setActionDone(false)
 
     try {
       const res = await fetch('/api/respond', {
@@ -51,20 +67,28 @@ export default function ResponsePage() {
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
+      let buffer = ''
 
       while (true) {
         const { done: streamDone, value } = await reader.read()
         if (streamDone) break
-        const text = decoder.decode(value, { stream: true })
-        setResponse(prev => prev + text)
-        // 自动滚动
-        if (responseRef.current) {
-          responseRef.current.scrollTop = responseRef.current.scrollHeight
+        buffer += decoder.decode(value, { stream: true })
+
+        // 检查是否包含小动作标记
+        if (buffer.includes('<<<ACTION>>>')) {
+          const [text, actionStr] = buffer.split('<<<ACTION>>>')
+          setResponse(text.trim())
+          try {
+            setAction(JSON.parse(actionStr.trim()))
+          } catch {}
+          break
+        } else {
+          setResponse(buffer)
         }
       }
 
       setDone(true)
-    } catch (e) {
+    } catch {
       setResponse('出了点问题，请稍后再试。')
       setDone(true)
     } finally {
@@ -75,14 +99,14 @@ export default function ResponsePage() {
   const handlePersonaChange = (id: string) => {
     setPersona(id)
     localStorage.setItem('preferred_persona', id)
-    // 切换角色后重新生成
     setStarted(false)
     setResponse('')
+    setAction(null)
     setDone(false)
+    setActionDone(false)
   }
 
   const handleFinish = () => {
-    // 存入本地档案
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     entries.unshift({
       id: Date.now(),
@@ -90,7 +114,11 @@ export default function ResponsePage() {
       content,
       persona,
       response,
+      action,
       createdAt: new Date().toISOString(),
+      emotionStart: parseInt(sessionStorage.getItem('emotion_score') || '7'),
+      sessions: [],
+      status: 'processing',
     })
     localStorage.setItem('entries', JSON.stringify(entries))
     sessionStorage.removeItem('entry_content')
@@ -99,8 +127,6 @@ export default function ResponsePage() {
   }
 
   const currentPersona = PERSONAS.find(p => p.id === persona)
-
-  // 把回应按"---"分成三段
   const sections = response.split('---').map(s => s.trim()).filter(Boolean)
 
   return (
@@ -109,15 +135,13 @@ export default function ResponsePage() {
       maxWidth: '360px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '28px',
+      gap: '24px',
       padding: '60px 24px',
     }}>
 
       {/* 顶部 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>
-          END HERE
-        </p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>END HERE</p>
         <p style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '300', letterSpacing: '0.08em' }}>
           选一个陪你的人
         </p>
@@ -171,53 +195,130 @@ export default function ResponsePage() {
         </button>
       )}
 
-      {/* AI回应区域 */}
-      {started && (
-        <div
-          ref={responseRef}
-          style={{
-            maxHeight: '55vh',
-            overflowY: 'auto',
-            paddingRight: '4px',
-          }}
-        >
-          <div style={{
-            padding: '20px 24px',
-            borderRadius: '12px',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--border)',
-          }}>
-            {sections.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {sections.map((section, i) => (
-                  <p
-                    key={i}
-                    style={{
-                      color: 'var(--text-main)',
-                      fontSize: '15px',
-                      lineHeight: '1.9',
-                      letterSpacing: '0.03em',
-                    }}
-                  >
-                    {section}
-                  </p>
-                ))}
-              </div>
-            ) : (
-              <p style={{
-                color: 'var(--text-main)',
-                fontSize: '15px',
-                lineHeight: '1.9',
-                opacity: 0.7,
-              }}>
-                {response || '···'}
-              </p>
-            )}
-          </div>
+      {/* AI回应 */}
+      {started && sections.length > 0 && (
+        <div style={{
+          padding: '20px 24px',
+          borderRadius: '12px',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}>
+          {sections.map((section, i) => (
+            <p key={i} style={{
+              color: 'var(--text-main)',
+              fontSize: '15px',
+              lineHeight: '1.9',
+              letterSpacing: '0.03em',
+            }}>
+              {section}
+            </p>
+          ))}
+          {loading && (
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', opacity: 0.5 }}>···</p>
+          )}
         </div>
       )}
 
-      {/* 完成按钮 */}
+      {/* 流式输出中，还没分段 */}
+      {started && sections.length === 0 && response && (
+        <div style={{
+          padding: '20px 24px',
+          borderRadius: '12px',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid var(--border)',
+        }}>
+          <p style={{ color: 'var(--text-main)', fontSize: '15px', lineHeight: '1.9', opacity: 0.8 }}>
+            {response}
+          </p>
+        </div>
+      )}
+
+      {/* 加载中占位 */}
+      {started && !response && loading && (
+        <div style={{
+          padding: '20px 24px',
+          borderRadius: '12px',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid var(--border)',
+        }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', opacity: 0.5 }}>···</p>
+        </div>
+      )}
+
+      {/* 小动作卡片 */}
+      {action && (
+        <div style={{
+          padding: '20px 24px',
+          borderRadius: '12px',
+          background: 'rgba(245,200,66,0.05)',
+          border: '1px solid rgba(245,200,66,0.2)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          opacity: action ? 1 : 0,
+          transition: 'opacity 0.8s ease',
+        }}>
+          <p style={{
+            color: 'var(--warm-yellow)',
+            fontSize: '11px',
+            letterSpacing: '0.2em',
+          }}>
+            现在，做这一件事
+          </p>
+          <p style={{
+            color: 'var(--text-main)',
+            fontSize: '16px',
+            fontWeight: '400',
+            letterSpacing: '0.05em',
+            lineHeight: '1.6',
+          }}>
+            {action.text}
+          </p>
+          <p style={{
+            color: 'var(--text-muted)',
+            fontSize: '13px',
+            lineHeight: '1.8',
+            opacity: 0.8,
+          }}>
+            {action.sub}
+          </p>
+
+          {/* 完成确认 */}
+          {!actionDone ? (
+            <button
+              onClick={() => setActionDone(true)}
+              style={{
+                marginTop: '4px',
+                padding: '10px',
+                borderRadius: '8px',
+                border: '1px solid rgba(245,200,66,0.3)',
+                background: 'transparent',
+                color: 'var(--warm-yellow)',
+                fontSize: '12px',
+                letterSpacing: '0.15em',
+                cursor: 'pointer',
+                opacity: 0.8,
+              }}
+            >
+              做完了
+            </button>
+          ) : (
+            <p style={{
+              color: 'var(--warm-yellow)',
+              fontSize: '12px',
+              opacity: 0.6,
+              letterSpacing: '0.1em',
+            }}>
+              ✓ 很好。
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* 收入档案按钮 */}
       {done && (
         <button
           onClick={handleFinish}
@@ -238,7 +339,6 @@ export default function ResponsePage() {
         </button>
       )}
 
-      {/* 返回 */}
       {!loading && (
         <button
           onClick={() => router.back()}
@@ -256,6 +356,7 @@ export default function ResponsePage() {
         </button>
       )}
 
+      <div ref={bottomRef} />
     </div>
   )
 }
