@@ -57,10 +57,10 @@ export default function DonePage() {
 
       // 生成高分辨率截图，指定背景色以防透明发黑
       const canvas = await html2canvas(element, {
-        backgroundColor: '#121212', // 保持暗黑底色
-        scale: 3, 
+        scale: 3,
         useCORS: true,
-      })
+        logging: false,
+      } as any)
       
       const imgData = canvas.toDataURL('image/png')
 
