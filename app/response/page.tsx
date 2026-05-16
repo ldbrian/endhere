@@ -13,24 +13,43 @@ const EMOTION_LABELS: Record<string, string> = {
   regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
 }
 
+const LOADING_TEXTS: Record<string, string[]> = {
+  Ash: ['Ash 掐灭了烟，正在看你的文字...', 'Ash 放下了咖啡，皱着眉头...', 'Ash 靠在椅背上，盯着屏幕...'],
+  Rin: ['Rin 放下了手里的事，正在听...', 'Rin 安静地读着，窗外在下雨...', 'Rin 把灯调暗了一点...'],
+  Sol: ['Sol 靠过来了，认真看着你...', 'Sol 放下手机，专心听你说...', 'Sol 拍了拍桌子，在想怎么说...'],
+}
+
 interface Action {
   id: string
   text: string
   sub: string
 }
 
+function parseResponse(raw: string): { analysis: string; punchline: string } {
+  const analysisMatch = raw.match(/<解析>([\s\S]*?)<\/解析>/)
+  const punchlineMatch = raw.match(/<主旨>([\s\S]*?)<\/主旨>/)
+  return {
+    analysis: analysisMatch ? analysisMatch[1].trim() : '',
+    punchline: punchlineMatch ? punchlineMatch[1].trim() : '',
+  }
+}
+
 export default function ResponsePage() {
   const [persona, setPersona] = useState('Rin')
   const [content, setContent] = useState('')
   const [emotion, setEmotion] = useState('sad')
-  const [response, setResponse] = useState('')
+  const [rawResponse, setRawResponse] = useState('')
+  const [analysis, setAnalysis] = useState('')
+  const [punchline, setPunchline] = useState('')
   const [action, setAction] = useState<Action | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadingText, setLoadingText] = useState('')
   const [done, setDone] = useState(false)
   const [started, setStarted] = useState(false)
   const [actionDone, setActionDone] = useState(false)
   const router = useRouter()
   const bottomRef = useRef<HTMLDivElement>(null)
+  const loadingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     const savedContent = sessionStorage.getItem('entry_content') || ''
@@ -45,16 +64,42 @@ export default function ResponsePage() {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [response, action])
+  }, [analysis, punchline, action])
+
+  const startLoadingText = (p: string) => {
+    const texts = LOADING_TEXTS[p] || LOADING_TEXTS['Rin']
+    let i = 0
+    setLoadingText(texts[0])
+    loadingTimerRef.current = setInterval(() => {
+      i = (i + 1) % texts.length
+      setLoadingText(texts[i])
+    }, 1500)
+  }
+
+  const stopLoadingText = () => {
+    if (loadingTimerRef.current) {
+      clearInterval(loadingTimerRef.current)
+      loadingTimerRef.current = null
+    }
+    setLoadingText('')
+  }
 
   const handleStart = async () => {
     if (!content || loading) return
     setStarted(true)
     setLoading(true)
-    setResponse('')
+    setRawResponse('')
+    setAnalysis('')
+    setPunchline('')
     setAction(null)
     setDone(false)
     setActionDone(false)
+
+    startLoadingText(persona)
+
+    // 拟人化延迟2.5秒
+    await new Promise(r => setTimeout(r, 2500))
+    stopLoadingText()
 
     try {
       const res = await fetch('/api/respond', {
@@ -64,7 +109,6 @@ export default function ResponsePage() {
       })
 
       if (!res.body) return
-
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
@@ -74,22 +118,25 @@ export default function ResponsePage() {
         if (streamDone) break
         buffer += decoder.decode(value, { stream: true })
 
-        // 检查是否包含小动作标记
         if (buffer.includes('<<<ACTION>>>')) {
           const [text, actionStr] = buffer.split('<<<ACTION>>>')
-          setResponse(text.trim())
-          try {
-            setAction(JSON.parse(actionStr.trim()))
-          } catch {}
+          setRawResponse(text.trim())
+          const parsed = parseResponse(text.trim())
+          setAnalysis(parsed.analysis)
+          setPunchline(parsed.punchline)
+          try { setAction(JSON.parse(actionStr.trim())) } catch {}
           break
         } else {
-          setResponse(buffer)
+          setRawResponse(buffer)
+          const parsed = parseResponse(buffer)
+          setAnalysis(parsed.analysis)
+          setPunchline(parsed.punchline)
         }
       }
 
       setDone(true)
     } catch {
-      setResponse('出了点问题，请稍后再试。')
+      setAnalysis('出了点问题，请稍后再试。')
       setDone(true)
     } finally {
       setLoading(false)
@@ -100,7 +147,9 @@ export default function ResponsePage() {
     setPersona(id)
     localStorage.setItem('preferred_persona', id)
     setStarted(false)
-    setResponse('')
+    setRawResponse('')
+    setAnalysis('')
+    setPunchline('')
     setAction(null)
     setDone(false)
     setActionDone(false)
@@ -113,7 +162,9 @@ export default function ResponsePage() {
       emotion,
       content,
       persona,
-      response,
+      response: rawResponse,
+      analysis,
+      punchline,
       action,
       createdAt: new Date().toISOString(),
       emotionStart: parseInt(sessionStorage.getItem('emotion_score') || '7'),
@@ -127,7 +178,6 @@ export default function ResponsePage() {
   }
 
   const currentPersona = PERSONAS.find(p => p.id === persona)
-  const sections = response.split('---').map(s => s.trim()).filter(Boolean)
 
   return (
     <div style={{
@@ -154,18 +204,12 @@ export default function ResponsePage() {
             key={p.id}
             onClick={() => handlePersonaChange(p.id)}
             style={{
-              flex: 1,
-              padding: '12px 8px',
-              borderRadius: '10px',
+              flex: 1, padding: '12px 8px', borderRadius: '10px',
               border: `1px solid ${persona === p.id ? p.color : 'var(--border)'}`,
               background: persona === p.id ? `${p.color}15` : 'transparent',
               color: persona === p.id ? p.color : 'var(--text-muted)',
-              cursor: 'pointer',
-              transition: 'all 0.25s ease',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '4px',
+              cursor: 'pointer', transition: 'all 0.25s ease',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
             }}
           >
             <span style={{ fontSize: '14px', fontWeight: '500' }}>{p.label}</span>
@@ -174,144 +218,131 @@ export default function ResponsePage() {
         ))}
       </div>
 
+      {/* 用户内容（缩小暗化） */}
+      {started && (
+        <div style={{
+          padding: '12px 16px', borderRadius: '10px',
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid rgba(255,255,255,0.04)',
+        }}>
+          <p style={{
+            color: 'var(--text-muted)', fontSize: '12px',
+            lineHeight: '1.7', opacity: 0.4,
+          }}>
+            {content.length > 80 ? content.slice(0, 80) + '...' : content}
+          </p>
+        </div>
+      )}
+
       {/* 开始按钮 */}
       {!started && (
         <button
           onClick={handleStart}
           style={{
-            width: '100%',
-            padding: '15px',
-            borderRadius: '12px',
+            width: '100%', padding: '15px', borderRadius: '12px',
             border: `1px solid ${currentPersona?.color}50`,
             background: `${currentPersona?.color}10`,
             color: currentPersona?.color,
-            fontSize: '14px',
-            letterSpacing: '0.15em',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease',
+            fontSize: '14px', letterSpacing: '0.15em', cursor: 'pointer',
           }}
         >
-          让 {persona} 来陪我
+          交给 {persona}
         </button>
       )}
 
-      {/* AI回应 */}
-      {started && sections.length > 0 && (
+      {/* 拟人化加载 */}
+      {loading && loadingText && (
         <div style={{
-          padding: '20px 24px',
-          borderRadius: '12px',
-          background: 'rgba(255,255,255,0.03)',
+          padding: '20px 24px', borderRadius: '12px',
+          background: 'rgba(255,255,255,0.02)',
           border: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
+          display: 'flex', alignItems: 'center', gap: '12px',
         }}>
-          {sections.map((section, i) => (
-            <p key={i} style={{
-              color: 'var(--text-main)',
-              fontSize: '15px',
-              lineHeight: '1.9',
-              letterSpacing: '0.03em',
-            }}>
-              {section}
-            </p>
-          ))}
-          {loading && (
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', opacity: 0.5 }}>···</p>
-          )}
-        </div>
-      )}
-
-      {/* 流式输出中，还没分段 */}
-      {started && sections.length === 0 && response && (
-        <div style={{
-          padding: '20px 24px',
-          borderRadius: '12px',
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid var(--border)',
-        }}>
-          <p style={{ color: 'var(--text-main)', fontSize: '15px', lineHeight: '1.9', opacity: 0.8 }}>
-            {response}
+          <div style={{
+            width: '6px', height: '6px', borderRadius: '50%',
+            background: currentPersona?.color,
+            animation: 'pulse 1.5s ease-in-out infinite',
+          }} />
+          <p style={{
+            color: 'var(--text-muted)', fontSize: '13px',
+            lineHeight: '1.8', opacity: 0.7,
+            transition: 'opacity 0.5s ease',
+          }}>
+            {loadingText}
           </p>
         </div>
       )}
 
-      {/* 加载中占位 */}
-      {started && !response && loading && (
+      {/* 第1层：解析区 */}
+      {analysis && (
         <div style={{
-          padding: '20px 24px',
-          borderRadius: '12px',
+          padding: '20px 24px', borderRadius: '12px',
           background: 'rgba(255,255,255,0.03)',
           border: '1px solid var(--border)',
-        }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', opacity: 0.5 }}>···</p>
-        </div>
-      )}
-
-      {/* 小动作卡片 */}
-      {action && (
-        <div style={{
-          padding: '20px 24px',
-          borderRadius: '12px',
-          background: 'rgba(245,200,66,0.05)',
-          border: '1px solid rgba(245,200,66,0.2)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          opacity: action ? 1 : 0,
-          transition: 'opacity 0.8s ease',
         }}>
           <p style={{
-            color: 'var(--warm-yellow)',
-            fontSize: '11px',
-            letterSpacing: '0.2em',
+            color: 'var(--text-main)', fontSize: '15px',
+            lineHeight: '1.9', letterSpacing: '0.03em',
+            opacity: 0.85,
           }}>
-            现在，做这一件事
+            {analysis}
           </p>
+        </div>
+      )}
+
+      {/* 第2层：主旨区（视觉暴击） */}
+      {punchline && (
+        <div style={{
+          padding: '32px 24px',
+          margin: '8px 0',
+          borderRadius: '12px',
+          background: 'rgba(255,255,255,0.02)',
+          border: `1px solid ${currentPersona?.color}30`,
+          textAlign: 'center',
+        }}>
           <p style={{
             color: 'var(--text-main)',
-            fontSize: '16px',
-            fontWeight: '400',
+            fontSize: '20px',
+            fontWeight: '500',
+            lineHeight: '1.7',
             letterSpacing: '0.05em',
-            lineHeight: '1.6',
           }}>
+            {punchline}
+          </p>
+        </div>
+      )}
+
+      {/* 第3层：小动作卡片 */}
+      {action && (
+        <div style={{
+          padding: '20px 24px', borderRadius: '12px',
+          background: 'rgba(245,200,66,0.05)',
+          border: '1px solid rgba(245,200,66,0.2)',
+          display: 'flex', flexDirection: 'column', gap: '12px',
+        }}>
+          <p style={{ color: 'var(--warm-yellow)', fontSize: '11px', letterSpacing: '0.2em' }}>
+            现在，做这一件事
+          </p>
+          <p style={{ color: 'var(--text-main)', fontSize: '16px', lineHeight: '1.6' }}>
             {action.text}
           </p>
-          <p style={{
-            color: 'var(--text-muted)',
-            fontSize: '13px',
-            lineHeight: '1.8',
-            opacity: 0.8,
-          }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', opacity: 0.8 }}>
             {action.sub}
           </p>
-
-          {/* 完成确认 */}
           {!actionDone ? (
             <button
               onClick={() => setActionDone(true)}
               style={{
-                marginTop: '4px',
-                padding: '10px',
-                borderRadius: '8px',
-                border: '1px solid rgba(245,200,66,0.3)',
-                background: 'transparent',
-                color: 'var(--warm-yellow)',
-                fontSize: '12px',
-                letterSpacing: '0.15em',
-                cursor: 'pointer',
-                opacity: 0.8,
+                marginTop: '4px', padding: '10px', borderRadius: '8px',
+                border: '1px solid rgba(245,200,66,0.3)', background: 'transparent',
+                color: 'var(--warm-yellow)', fontSize: '12px',
+                letterSpacing: '0.15em', cursor: 'pointer',
               }}
             >
               做完了
             </button>
           ) : (
-            <p style={{
-              color: 'var(--warm-yellow)',
-              fontSize: '12px',
-              opacity: 0.6,
-              letterSpacing: '0.1em',
-            }}>
+            <p style={{ color: 'var(--warm-yellow)', fontSize: '12px', opacity: 0.6, letterSpacing: '0.1em' }}>
               ✓ 很好。
             </p>
           )}
@@ -323,33 +354,24 @@ export default function ResponsePage() {
         <button
           onClick={handleFinish}
           style={{
-            width: '100%',
-            padding: '15px',
-            borderRadius: '12px',
+            width: '100%', padding: '15px', borderRadius: '12px',
             border: '1px solid rgba(245,200,66,0.3)',
             background: 'rgba(245,200,66,0.08)',
-            color: 'var(--warm-yellow)',
-            fontSize: '14px',
-            letterSpacing: '0.2em',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease',
+            color: 'var(--warm-yellow)', fontSize: '14px',
+            letterSpacing: '0.2em', cursor: 'pointer',
           }}
         >
           到此为止
         </button>
       )}
 
-      {!loading && (
+      {!loading && !started && (
         <button
           onClick={() => router.back()}
           style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-muted)',
-            fontSize: '12px',
-            cursor: 'pointer',
-            opacity: 0.5,
-            letterSpacing: '0.1em',
+            background: 'none', border: 'none',
+            color: 'var(--text-muted)', fontSize: '12px',
+            cursor: 'pointer', opacity: 0.5, letterSpacing: '0.1em',
           }}
         >
           ← 返回
@@ -357,6 +379,13 @@ export default function ResponsePage() {
       )}
 
       <div ref={bottomRef} />
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 0.3; transform: scale(0.8); }
+          50% { opacity: 1; transform: scale(1.2); }
+        }
+      `}</style>
     </div>
   )
 }
