@@ -1,14 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
-
-const PERSONAS = [
-  { id: 'Ash', label: 'Ash', desc: '毒舌但精准', color: 'var(--ash-color)' },
-  { id: 'Rin', label: 'Rin', desc: '暖心共情', color: 'var(--rin-color)' },
-  { id: 'Sol', label: 'Sol', desc: '热血打气', color: 'var(--sol-color)' },
-]
+import { PERSONAS, getRandomAction } from '../lib/personas'
 
 function getStatusByScore(score: number) {
   if (score >= 8) return { label: '还在痛', color: '#e87070' }
@@ -23,17 +17,30 @@ interface Action {
   sub: string
 }
 
+function parseResponse(raw: string): { analysis: string; punchline: string } {
+  const analysisMatch = raw.match(/<解析>([\s\S]*?)<\/解析>/)
+  const punchlineMatch = raw.match(/<主旨>([\s\S]*?)<\/主旨>/)
+  return {
+    analysis: analysisMatch ? analysisMatch[1].trim() : '',
+    punchline: punchlineMatch ? punchlineMatch[1].trim() : '',
+  }
+}
+
 function RuminateContent() {
   const [entry, setEntry] = useState<any>(null)
   const [supplement, setSupplement] = useState('')
   const [persona, setPersona] = useState('Rin')
   const [response, setResponse] = useState('')
+  const [analysis, setAnalysis] = useState('')
+  const [punchline, setPunchline] = useState('')
   const [action, setAction] = useState<Action | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadingText, setLoadingText] = useState('')
   const [done, setDone] = useState(false)
   const [started, setStarted] = useState(false)
   const [scoreEnd, setScoreEnd] = useState(5)
   const [saved, setSaved] = useState(false)
+  const [actionDone, setActionDone] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const entryId = searchParams.get('id')
@@ -53,23 +60,41 @@ function RuminateContent() {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [response, action])
+  }, [analysis, punchline, action])
+
+  const currentPersona = PERSONAS.find(p => p.id === persona)
 
   const handleStart = async () => {
     if (!entry || loading) return
     setStarted(true)
     setLoading(true)
     setResponse('')
+    setAnalysis('')
+    setPunchline('')
     setAction(null)
     setDone(false)
+    setActionDone(false)
+
+    setLoadingText(getRandomAction(persona))
+    const timer = setInterval(() => {
+      setLoadingText(getRandomAction(persona))
+    }, 1500)
+
+    await new Promise(r => setTimeout(r, 2500))
+    clearInterval(timer)
+    setLoadingText('')
 
     const systemPrompt = `你是${persona}，正在对一个用户进行情绪"复查"。
 用户之前记录了一件让他难受的事，现在回来了。
-你的任务是：感知用户现在对这件事的状态，给出温柔但有力的回应。
-回应分两段，用"---"分隔，不要任何标签。
-第一段：根据用户的补充（或沉默），感知他现在的状态，说出你观察到的变化或停滞。2-3句。
-第二段：给一个新的视角或一句话，帮助他再往前走一点点。不需要解决，只需要松动。1-2句。
-语气根据角色性格来，像真人，不像治疗师。`
+
+输出格式严格如下，不得更改：
+<解析>此处写2-3句话。感知用户现在对这件事的状态，说出你观察到的变化或停滞。像真正在看着他的人。</解析>
+<主旨>此处写1句话。帮助他再往前走一点点的话。不需要解决，只需要松动。一针见血，有重量。</主旨>
+
+规则：
+- 根据${persona}的性格来说话
+- 不说教，不给大道理
+- 像真人，不像治疗师`
 
     const userMessage = `用户原始记录：${entry.content}
 用户当时情绪：${entry.emotion}，难受程度：${entry.emotionStart}/10
@@ -100,15 +125,21 @@ function RuminateContent() {
         if (buffer.includes('<<<ACTION>>>')) {
           const [text, actionStr] = buffer.split('<<<ACTION>>>')
           setResponse(text.trim())
+          const parsed = parseResponse(text.trim())
+          setAnalysis(parsed.analysis)
+          setPunchline(parsed.punchline)
           try { setAction(JSON.parse(actionStr.trim())) } catch {}
           break
         } else {
           setResponse(buffer)
+          const parsed = parseResponse(buffer)
+          setAnalysis(parsed.analysis)
+          setPunchline(parsed.punchline)
         }
       }
       setDone(true)
     } catch {
-      setResponse('出了点问题，请稍后再试。')
+      setAnalysis('出了点问题，请稍后再试。')
       setDone(true)
     } finally {
       setLoading(false)
@@ -128,6 +159,8 @@ function RuminateContent() {
         supplement,
         persona,
         response,
+        analysis,
+        punchline,
         action,
         scoreEnd,
         createdAt: new Date().toISOString(),
@@ -149,8 +182,6 @@ function RuminateContent() {
     router.push('/release')
   }
 
-  const currentPersona = PERSONAS.find(p => p.id === persona)
-  const sections = response.split('---').map(s => s.trim()).filter(Boolean)
   const status = getStatusByScore(scoreEnd)
 
   if (!entry) return (
@@ -175,9 +206,19 @@ function RuminateContent() {
         <h1 style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: '300', letterSpacing: '0.08em' }}>
           你回来了
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.6, lineHeight: '1.7' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.5, lineHeight: '1.7' }}>
           {entry.content.length > 40 ? entry.content.slice(0, 40) + '...' : entry.content}
         </p>
+        {/* 当前角色 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+          <span style={{
+            padding: '2px 10px', borderRadius: '999px',
+            border: `1px solid ${currentPersona?.color}40`,
+            color: currentPersona?.color, fontSize: '11px',
+          }}>
+            {persona} 陪你
+          </span>
+        </div>
       </div>
 
       {/* 补充输入 */}
@@ -206,29 +247,6 @@ function RuminateContent() {
         </div>
       )}
 
-      {/* 角色选择 */}
-      {!started && (
-        <div style={{ display: 'flex', gap: '10px' }}>
-          {PERSONAS.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setPersona(p.id)}
-              style={{
-                flex: 1, padding: '10px 8px', borderRadius: '10px',
-                border: `1px solid ${persona === p.id ? p.color : 'var(--border)'}`,
-                background: persona === p.id ? `${p.color}15` : 'transparent',
-                color: persona === p.id ? p.color : 'var(--text-muted)',
-                cursor: 'pointer', transition: 'all 0.25s ease',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-              }}
-            >
-              <span style={{ fontSize: '13px', fontWeight: '500' }}>{p.label}</span>
-              <span style={{ fontSize: '10px', opacity: 0.7 }}>{p.desc}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* 开始按钮 */}
       {!started && (
         <button
@@ -245,46 +263,73 @@ function RuminateContent() {
         </button>
       )}
 
-      {/* AI回应 */}
-      {started && sections.length > 0 && (
+      {/* 用户补充内容缩小暗化 */}
+      {started && supplement && (
         <div style={{
-          padding: '20px 24px', borderRadius: '12px',
-          background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
-          display: 'flex', flexDirection: 'column', gap: '16px',
+          padding: '12px 16px', borderRadius: '10px',
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid rgba(255,255,255,0.04)',
         }}>
-          {sections.map((section, i) => (
-            <p key={i} style={{
-              color: 'var(--text-main)', fontSize: '15px',
-              lineHeight: '1.9', letterSpacing: '0.03em',
-            }}>
-              {section}
-            </p>
-          ))}
-          {loading && <p style={{ color: 'var(--text-muted)', fontSize: '13px', opacity: 0.5 }}>···</p>}
-        </div>
-      )}
-
-      {started && sections.length === 0 && response && (
-        <div style={{
-          padding: '20px 24px', borderRadius: '12px',
-          background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
-        }}>
-          <p style={{ color: 'var(--text-main)', fontSize: '15px', lineHeight: '1.9', opacity: 0.8 }}>
-            {response}
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7', opacity: 0.4 }}>
+            {supplement}
           </p>
         </div>
       )}
 
-      {started && !response && loading && (
+      {/* 拟人化加载 */}
+      {loading && loadingText && (
         <div style={{
           padding: '20px 24px', borderRadius: '12px',
-          background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)',
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', gap: '12px',
         }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', opacity: 0.5 }}>···</p>
+          <div style={{
+            width: '6px', height: '6px', borderRadius: '50%',
+            background: currentPersona?.color,
+            animation: 'pulse 1.5s ease-in-out infinite',
+          }} />
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', opacity: 0.7 }}>
+            {loadingText}
+          </p>
         </div>
       )}
 
-      {/* 小动作卡片 */}
+      {/* 第1层：解析区 */}
+      {analysis && (
+        <div style={{
+          padding: '20px 24px', borderRadius: '12px',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid var(--border)',
+        }}>
+          <p style={{
+            color: 'var(--text-main)', fontSize: '15px',
+            lineHeight: '1.9', letterSpacing: '0.03em', opacity: 0.85,
+          }}>
+            {analysis}
+          </p>
+        </div>
+      )}
+
+      {/* 第2层：主旨区 */}
+      {punchline && (
+        <div style={{
+          padding: '32px 24px', margin: '8px 0',
+          borderRadius: '12px',
+          background: 'rgba(255,255,255,0.02)',
+          border: `1px solid ${currentPersona?.color}30`,
+          textAlign: 'center',
+        }}>
+          <p style={{
+            color: 'var(--text-main)', fontSize: '20px',
+            fontWeight: '500', lineHeight: '1.7', letterSpacing: '0.05em',
+          }}>
+            {punchline}
+          </p>
+        </div>
+      )}
+
+      {/* 第3层：小动作卡片 */}
       {action && (
         <div style={{
           padding: '20px 24px', borderRadius: '12px',
@@ -301,6 +346,21 @@ function RuminateContent() {
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', opacity: 0.8 }}>
             {action.sub}
           </p>
+          {!actionDone ? (
+            <button
+              onClick={() => setActionDone(true)}
+              style={{
+                padding: '10px', borderRadius: '8px',
+                border: '1px solid rgba(245,200,66,0.3)', background: 'transparent',
+                color: 'var(--warm-yellow)', fontSize: '12px',
+                letterSpacing: '0.15em', cursor: 'pointer',
+              }}
+            >
+              做完了
+            </button>
+          ) : (
+            <p style={{ color: 'var(--warm-yellow)', fontSize: '12px', opacity: 0.6 }}>✓ 很好。</p>
+          )}
         </div>
       )}
 
@@ -342,7 +402,7 @@ function RuminateContent() {
         </div>
       )}
 
-      {/* 保存后的按钮 */}
+      {/* 保存后按钮 */}
       {saved && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <button
@@ -372,6 +432,13 @@ function RuminateContent() {
       )}
 
       <div ref={bottomRef} />
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 0.3; transform: scale(0.8); }
+          50% { opacity: 1; transform: scale(1.2); }
+        }
+      `}</style>
     </div>
   )
 }

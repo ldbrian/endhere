@@ -2,28 +2,11 @@
 
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { PERSONAS, PERSONA_PLACEHOLDERS, PERSONA_BUTTONS } from '../lib/personas'
 
 const EMOTION_LABELS: Record<string, string> = {
   regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
 }
-
-const PERSONAS = [
-  {
-    id: 'Ash', label: 'Ash', desc: '毒舌但精准', color: 'var(--ash-color)',
-    placeholder: '又怎么了？说吧，我在。',
-    button: '交给 Ash',
-  },
-  {
-    id: 'Rin', label: 'Rin', desc: '暖心共情', color: 'var(--rin-color)',
-    placeholder: '说吧，我在听。不用整理，不用好看。',
-    button: '交给 Rin',
-  },
-  {
-    id: 'Sol', label: 'Sol', desc: '热血打气', color: 'var(--sol-color)',
-    placeholder: '说！发生什么了？我在这。',
-    button: '交给 Sol',
-  },
-]
 
 function WriteContent() {
   const [content, setContent] = useState('')
@@ -101,14 +84,14 @@ function WriteContent() {
         </div>
       </div>
 
-      {/* 第二步：输入框（选了角色才出现） */}
+      {/* 第二步：输入框 */}
       {persona && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ position: 'relative' }}>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={selectedPersona?.placeholder}
+              placeholder={PERSONA_PLACEHOLDERS[persona]}
               autoFocus
               rows={9}
               onFocus={() => setFocused(true)}
@@ -135,7 +118,6 @@ function WriteContent() {
             </p>
           </div>
 
-          {/* 提交按钮 */}
           <button
             onClick={handleSubmit}
             disabled={!content.trim() || loading}
@@ -150,12 +132,11 @@ function WriteContent() {
               opacity: content.trim() ? 1 : 0.4,
             }}
           >
-            {loading ? '正在传递...' : selectedPersona?.button}
+            {loading ? '正在传递...' : PERSONA_BUTTONS[persona]}
           </button>
         </div>
       )}
 
-      {/* 返回 */}
       {!focused && (
         <button
           onClick={() => router.back()}

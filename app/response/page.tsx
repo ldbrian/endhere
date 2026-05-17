@@ -2,21 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-
-const PERSONAS = [
-  { id: 'Ash', label: 'Ash', desc: '毒舌但精准', color: 'var(--ash-color)' },
-  { id: 'Rin', label: 'Rin', desc: '暖心共情', color: 'var(--rin-color)' },
-  { id: 'Sol', label: 'Sol', desc: '热血打气', color: 'var(--sol-color)' },
-]
+import { PERSONAS, getRandomAction, PERSONA_BUTTONS } from '../lib/personas'
 
 const EMOTION_LABELS: Record<string, string> = {
   regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
-}
-
-const LOADING_TEXTS: Record<string, string[]> = {
-  Ash: ['Ash 掐灭了烟，正在看你的文字...', 'Ash 放下了咖啡，皱着眉头...', 'Ash 靠在椅背上，盯着屏幕...'],
-  Rin: ['Rin 放下了手里的事，正在听...', 'Rin 安静地读着，窗外在下雨...', 'Rin 把灯调暗了一点...'],
-  Sol: ['Sol 靠过来了，认真看着你...', 'Sol 放下手机，专心听你说...', 'Sol 拍了拍桌子，在想怎么说...'],
 }
 
 interface Action {
@@ -66,16 +55,6 @@ export default function ResponsePage() {
     }
   }, [analysis, punchline, action])
 
-  const startLoadingText = (p: string) => {
-    const texts = LOADING_TEXTS[p] || LOADING_TEXTS['Rin']
-    let i = 0
-    setLoadingText(texts[0])
-    loadingTimerRef.current = setInterval(() => {
-      i = (i + 1) % texts.length
-      setLoadingText(texts[i])
-    }, 1500)
-  }
-
   const stopLoadingText = () => {
     if (loadingTimerRef.current) {
       clearInterval(loadingTimerRef.current)
@@ -95,11 +74,17 @@ export default function ResponsePage() {
     setDone(false)
     setActionDone(false)
 
-    startLoadingText(persona)
+    // 随机动作文案
+    let actionIdx = 0
+    const getNextAction = () => getRandomAction(persona)
+    setLoadingText(getNextAction())
+    const timer = setInterval(() => {
+      setLoadingText(getNextAction())
+    }, 1500)
 
-    // 拟人化延迟2.5秒
     await new Promise(r => setTimeout(r, 2500))
-    stopLoadingText()
+    clearInterval(timer)
+    setLoadingText('')
 
     try {
       const res = await fetch('/api/respond', {
@@ -246,7 +231,7 @@ export default function ResponsePage() {
             fontSize: '14px', letterSpacing: '0.15em', cursor: 'pointer',
           }}
         >
-          交给 {persona}
+          {PERSONA_BUTTONS[persona] || `交给 ${persona}`}
         </button>
       )}
 
