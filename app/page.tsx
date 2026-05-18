@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { track } from './lib/track'
 
 const EMOTIONS = [
   { id: 'regret', label: '后悔', emoji: '😔' },
@@ -18,6 +19,7 @@ export default function Home() {
 
   const handleEnter = () => {
     if (!selected) return
+    track('enter_write', { emotion: selected, score })
     sessionStorage.setItem('emotion_score', String(score))
     router.push(`/write?emotion=${selected}`)
   }

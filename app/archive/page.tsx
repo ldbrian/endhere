@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { track } from '../lib/track'
 
 const EMOTION_LABELS: Record<string, string> = {
   regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
@@ -226,6 +227,7 @@ const [feedbackSent, setFeedbackSent] = useState(false)
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('entries') || '[]')
     setEntries(saved)
+    track('view_archive', { entry_count: saved.length })
   }, [])
 
   const formatDate = (iso: string) => {

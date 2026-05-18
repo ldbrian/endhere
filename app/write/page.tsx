@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PERSONAS, PERSONA_PLACEHOLDERS, PERSONA_BUTTONS } from '../lib/personas'
+import { track } from '../lib/track'
 
 const EMOTION_LABELS: Record<string, string> = {
   regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
@@ -23,6 +24,7 @@ function WriteContent() {
   const handleSubmit = async () => {
     if (!content.trim() || !persona || loading) return
     setLoading(true)
+    track('submit_entry', { persona, emotion, content_length: content.length })
     sessionStorage.setItem('entry_content', content)
     sessionStorage.setItem('entry_emotion', emotion)
     localStorage.setItem('preferred_persona', persona)

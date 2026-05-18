@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PERSONAS, getRandomAction, PERSONA_BUTTONS } from '../lib/personas'
+import { track, checkLimit } from '../lib/track'
 
 const EMOTION_LABELS: Record<string, string> = {
   regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
@@ -65,6 +66,14 @@ export default function ResponsePage() {
 
   const handleStart = async () => {
     if (!content || loading) return
+    // 限流检查
+    const limit = await checkLimit()
+    if (!limit.allowed) {
+      setAnalysis(`今天已经用了 ${limit.limit} 次了。明天再来，或者先去做那件一直拖着的事。`)
+      setStarted(true)
+      setDone(true)
+      return
+    }
     setStarted(true)
     setLoading(true)
     setRawResponse('')
@@ -118,7 +127,7 @@ export default function ResponsePage() {
           setPunchline(parsed.punchline)
         }
       }
-
+      track('response_done', { persona, emotion })
       setDone(true)
     } catch {
       setAnalysis('出了点问题，请稍后再试。')

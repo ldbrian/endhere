@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PERSONAS, getRandomAction } from '../lib/personas'
+import { track } from '../lib/track'
 
 function getStatusByScore(score: number) {
   if (score >= 8) return { label: '还在痛', color: '#e87070' }
@@ -137,6 +138,7 @@ function RuminateContent() {
           setPunchline(parsed.punchline)
         }
       }
+      track('ruminate_done', { persona, supplement_length: supplement.length })
       setDone(true)
     } catch {
       setAnalysis('出了点问题，请稍后再试。')
@@ -171,6 +173,7 @@ function RuminateContent() {
   }
 
   const handleRelease = () => {
+    track('release_entry', { entry_id: entryId })
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     const idx = entries.findIndex((e: any) => String(e.id) === String(entryId))
     if (idx !== -1) {

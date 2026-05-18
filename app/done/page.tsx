@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import html2canvas from 'html2canvas'
+import { track } from '../lib/track'
 
 const ITEMS = [
   { id: 'candle', icon: '🕯️', name: '深夜的烛光', desc: '你在最黑的时候，还是点了一盏灯。' },
@@ -37,6 +38,7 @@ export default function DonePage() {
   }, [])
 
   const handleSave = () => {
+    track('save_entry', { scoreEnd, item_id: item?.id })
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     if (entries.length > 0) {
       entries[0].emotionEnd = scoreEnd
@@ -48,6 +50,7 @@ export default function DonePage() {
   }
 
   const handleShare = async () => {
+    track('share_card')
     if (isSharing) return
     setIsSharing(true)
     
