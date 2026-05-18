@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PERSONAS, getRandomAction, PERSONA_BUTTONS } from '../lib/personas'
 import { track, checkLimit } from '../lib/track'
+import { extractAndSaveMemory, getMemoryPromptContext } from '../lib/memory'
 
 const EMOTION_LABELS: Record<string, string> = {
   regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
@@ -101,6 +102,8 @@ export default function ResponsePage() {
     await new Promise(r => setTimeout(r, 2500))
     clearInterval(timer)
     setLoadingText('')
+    const memoryContext = getMemoryPromptContext(persona)
+    const finalContent = content + memoryContext
 
     try {
       const res = await fetch('/api/respond', {
@@ -145,6 +148,8 @@ export default function ResponsePage() {
   }
 
   const handleFinish = () => {
+    extractAndSaveMemory(content, emotion, persona) 
+
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     entries.unshift({
       id: Date.now(),

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PERSONAS, getRandomAction } from '../lib/personas'
 import { track } from '../lib/track'
+import { getMemoryPromptContext } from '../lib/memory'
 
 function getStatusByScore(score: number) {
   if (score >= 8) return { label: '还在痛', color: '#e87070' }
@@ -97,9 +98,12 @@ function RuminateContent() {
 - 不说教，不给大道理
 - 像真人，不像治疗师`
 
+    const memoryContext = getMemoryPromptContext(persona)
+
     const userMessage = `用户原始记录：${entry.content}
 用户当时情绪：${entry.emotion}，难受程度：${entry.emotionStart}/10
-用户现在补充：${supplement || '（没有补充，沉默回来了）'}`
+用户现在补充：${supplement || '（没有补充，沉默回来了）'}
+${memoryContext}` // 将记忆拼在最后
 
     try {
       const res = await fetch('/api/respond', {
