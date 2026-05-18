@@ -97,7 +97,6 @@ function WriteContent() {
               autoFocus
               rows={9}
               onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
               style={{
                 width: '100%',
                 background: focused ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.03)',
@@ -124,11 +123,11 @@ function WriteContent() {
             onClick={handleSubmit}
             disabled={!content.trim() || loading}
             style={{
-              width: '100%', padding: '15px', borderRadius: '12px',
+              width: '100%', padding: '18px', borderRadius: '12px',
               border: `1px solid ${content.trim() ? (selectedPersona?.color + '50') : 'var(--border)'}`,
               background: content.trim() ? `${selectedPersona?.color}10` : 'transparent',
               color: content.trim() ? selectedPersona?.color : 'var(--text-muted)',
-              fontSize: '14px', letterSpacing: '0.2em',
+              fontSize: '15px', letterSpacing: '0.2em',
               cursor: content.trim() ? 'pointer' : 'not-allowed',
               transition: 'all 0.3s ease',
               opacity: content.trim() ? 1 : 0.4,

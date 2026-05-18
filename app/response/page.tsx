@@ -50,6 +50,13 @@ export default function ResponsePage() {
     setPersona(savedPersona)
   }, [])
 
+  // 数据就绪后自动开始
+  useEffect(() => {
+    if (content && persona && !started) {
+      handleStart()
+    }
+  }, [content, persona])
+
   useEffect(() => {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' })
@@ -137,18 +144,6 @@ export default function ResponsePage() {
     }
   }
 
-  const handlePersonaChange = (id: string) => {
-    setPersona(id)
-    localStorage.setItem('preferred_persona', id)
-    setStarted(false)
-    setRawResponse('')
-    setAnalysis('')
-    setPunchline('')
-    setAction(null)
-    setDone(false)
-    setActionDone(false)
-  }
-
   const handleFinish = () => {
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     entries.unshift({
@@ -186,32 +181,19 @@ export default function ResponsePage() {
       {/* 顶部 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>END HERE</p>
-        <p style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '300', letterSpacing: '0.08em' }}>
-          选一个陪你的人
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+          <span style={{
+            padding: '2px 12px', borderRadius: '999px',
+            border: `1px solid ${currentPersona?.color}40`,
+            color: currentPersona?.color, fontSize: '12px',
+          }}>
+            {persona}
+          </span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.5 }}>
+            在听你说
+          </span>
+        </div>
       </div>
-
-      {/* 角色选择 */}
-      <div style={{ display: 'flex', gap: '10px' }}>
-        {PERSONAS.map(p => (
-          <button
-            key={p.id}
-            onClick={() => handlePersonaChange(p.id)}
-            style={{
-              flex: 1, padding: '12px 8px', borderRadius: '10px',
-              border: `1px solid ${persona === p.id ? p.color : 'var(--border)'}`,
-              background: persona === p.id ? `${p.color}15` : 'transparent',
-              color: persona === p.id ? p.color : 'var(--text-muted)',
-              cursor: 'pointer', transition: 'all 0.25s ease',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-            }}
-          >
-            <span style={{ fontSize: '14px', fontWeight: '500' }}>{p.label}</span>
-            <span style={{ fontSize: '10px', opacity: 0.7 }}>{p.desc}</span>
-          </button>
-        ))}
-      </div>
-
       {/* 用户内容（缩小暗化） */}
       {started && (
         <div style={{
@@ -228,42 +210,49 @@ export default function ResponsePage() {
         </div>
       )}
 
-      {/* 开始按钮 */}
-      {!started && (
-        <button
-          onClick={handleStart}
-          style={{
-            width: '100%', padding: '15px', borderRadius: '12px',
-            border: `1px solid ${currentPersona?.color}50`,
-            background: `${currentPersona?.color}10`,
-            color: currentPersona?.color,
-            fontSize: '14px', letterSpacing: '0.15em', cursor: 'pointer',
-          }}
-        >
-          {PERSONA_BUTTONS[persona] || `交给 ${persona}`}
-        </button>
-      )}
 
       {/* 拟人化加载 */}
-      {loading && loadingText && (
+      {loading && (
         <div style={{
-          padding: '20px 24px', borderRadius: '12px',
+          padding: '32px 24px',
+          borderRadius: '12px',
           background: 'rgba(255,255,255,0.02)',
           border: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', gap: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '20px',
         }}>
-          <div style={{
-            width: '6px', height: '6px', borderRadius: '50%',
-            background: currentPersona?.color,
-            animation: 'pulse 1.5s ease-in-out infinite',
-          }} />
-          <p style={{
-            color: 'var(--text-muted)', fontSize: '13px',
-            lineHeight: '1.8', opacity: 0.7,
-            transition: 'opacity 0.5s ease',
-          }}>
-            {loadingText}
-          </p>
+          {/* 呼吸点 */}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {[0, 1, 2].map(i => (
+              <div
+                key={i}
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: currentPersona?.color,
+                  animation: `breathe 1.5s ease-in-out infinite`,
+                  animationDelay: `${i * 0.3}s`,
+                }}
+              />
+            ))}
+          </div>
+          {/* 状态文字 */}
+          {loadingText && (
+            <p style={{
+              color: 'var(--text-muted)',
+              fontSize: '13px',
+              lineHeight: '1.8',
+              opacity: 0.7,
+              textAlign: 'center',
+              letterSpacing: '0.05em',
+              animation: 'fadeText 0.5s ease-in-out',
+            }}>
+              {loadingText}
+            </p>
+          )}
         </div>
       )}
 
@@ -378,6 +367,14 @@ export default function ResponsePage() {
         @keyframes pulse {
           0%, 100% { opacity: 0.3; transform: scale(0.8); }
           50% { opacity: 1; transform: scale(1.2); }
+        }
+        @keyframes breathe {
+          0%, 100% { opacity: 0.2; transform: translateY(0px); }
+          50% { opacity: 1; transform: translateY(-4px); }
+        }
+        @keyframes fadeText {
+          0% { opacity: 0; transform: translateY(4px); }
+          100% { opacity: 0.7; transform: translateY(0px); }
         }
       `}</style>
     </div>
