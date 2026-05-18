@@ -21,7 +21,7 @@ function WriteContent() {
 
   const selectedPersona = PERSONAS.find(p => p.id === persona)
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!content.trim() || !persona || loading) return
     setLoading(true)
     track('submit_entry', { persona, emotion, content_length: content.length })
