@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import html2canvas from 'html2canvas'
 import { track } from '../lib/track'
 
+// 保留作为旧档案数据的兼容或兜底
 const ITEMS = [
   { id: 'candle', icon: '🕯️', name: '深夜的烛光', desc: '你在最黑的时候，还是点了一盏灯。' },
   { id: 'rain', icon: '🌧️', name: '一场及时的雨', desc: '有些事，需要被冲刷一遍才能继续。' },
@@ -24,7 +25,7 @@ function getStatusByScore(score: number) {
 }
 
 export default function DonePage() {
-  const [item, setItem] = useState<typeof ITEMS[0] | null>(null)
+  const [item, setItem] = useState<{ id: string; icon: string; name: string; desc: string } | null>(null)
   const [visible, setVisible] = useState(false)
   const [scoreEnd, setScoreEnd] = useState(5)
   const [saved, setSaved] = useState(false)
@@ -32,8 +33,32 @@ export default function DonePage() {
   const router = useRouter()
 
   useEffect(() => {
-    const random = ITEMS[Math.floor(Math.random() * ITEMS.length)]
-    setItem(random)
+    // 1. 从本地存储中，精准读取刚刚在前一个页面写入的最新一条档案
+    const entries = JSON.parse(localStorage.getItem('entries') || '[]')
+    
+    if (entries.length > 0 && entries[0].destinedItem) {
+      const dItem = entries[0].destinedItem
+      
+      // 根据 AI 实时定制的 ID 映射对应的物理 Emoji 图标
+      const getItemIcon = (id: string) => {
+        if (id === 'broken_scale') return '⚖️'
+        if (id === 'cracked_bowl') return '🥣'
+        return '⚓'
+      }
+
+      // 将前一页定制的专属命运物件，无缝无感地同步到结算单据上
+      setItem({
+        id: dItem.id,
+        icon: getItemIcon(dItem.id),
+        name: dItem.name,
+        desc: dItem.desc
+      })
+    } else {
+      // 2. 如果由于用户刷新等极个别情况没拿到，采用原有静态集合进行兜底防崩
+      const random = ITEMS[Math.floor(Math.random() * ITEMS.length)]
+      setItem(random)
+    }
+
     setTimeout(() => setVisible(true), 100)
   }, [])
 
@@ -43,6 +68,7 @@ export default function DonePage() {
     if (entries.length > 0) {
       entries[0].emotionEnd = scoreEnd
       entries[0].status = getStatusByScore(scoreEnd).label
+      // 将当前最终确认的定制物件更新至历史记录的经典 item 字段，保证历史页面读取绝对安全
       entries[0].item = item
     }
     localStorage.setItem('entries', JSON.stringify(entries))
@@ -58,7 +84,6 @@ export default function DonePage() {
       const element = document.getElementById('share-receipt')
       if (!element) return
 
-      // 生成高分辨率截图，指定背景色以防透明发黑
       const canvas = await html2canvas(element, {
         scale: 3,
         useCORS: true,
@@ -74,7 +99,6 @@ export default function DonePage() {
         link.click()
       }
 
-      // 尝试调用原生分享面板 (移动端体验最佳)
       if (navigator.share) {
         try {
           const blob = await (await fetch(imgData)).blob()
@@ -85,12 +109,10 @@ export default function DonePage() {
             files: [file]
           })
         } catch (err) {
-          // 如果用户取消分享或原生分享失败，自动降级为下载
           console.log('原生分享中止，降级为下载', err)
           downloadImage(imgData)
         }
       } else {
-        // 不支持 Web Share API 的环境直接下载
         downloadImage(imgData)
       }
     } catch (error) {
@@ -126,7 +148,7 @@ export default function DonePage() {
         alignItems: 'center',
         gap: '32px',
         padding: '32px 24px',
-        background: '#121212', // 确保截图底色稳定
+        background: '#121212', 
         borderRadius: '16px',
         border: saved ? '1px solid rgba(255,255,255,0.08)' : 'none',
       }}>
@@ -145,7 +167,7 @@ export default function DonePage() {
           </h2>
         </div>
 
-        {/* 虚拟物件 */}
+        {/* 虚拟物件区：完美复刻前一页大模型当场打印的那枚带刺收据 */}
         {item && (
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px',
@@ -173,7 +195,7 @@ export default function DonePage() {
               transitionDelay: '1.2s',
             }}>
               <p style={{ color: 'var(--warm-yellow)', fontSize: '13px', letterSpacing: '0.15em' }}>
-                获得「{item.name}」
+                收下「{item.name}」
               </p>
               <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.8', opacity: 0.8 }}>
                 {item.desc}
@@ -182,7 +204,7 @@ export default function DonePage() {
           </div>
         )}
 
-        {/* 隐藏的水印区域：只在用户归档（即允许分享时）显现，带有二维码 */}
+        {/* 水印区域 */}
         {saved && (
           <div style={{
             marginTop: '8px',
@@ -192,23 +214,16 @@ export default function DonePage() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            opacity: 0.8, // 提高透明度确保二维码清晰
+            opacity: 0.8,
           }}>
             <div style={{ textAlign: 'left' }}>
               <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em' }}>End Here</p>
               <p style={{ color: 'var(--text-muted)', fontSize: '9px', marginTop: '6px', opacity: 0.6, letterSpacing: '0.05em' }}>深夜情绪便利店</p>
             </div>
             
-            {/* 二维码图片 */}
             <div style={{
-              width: '44px',
-              height: '44px',
-              background: '#fff', // 白底防反色
-              padding: '2px',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
+              width: '44px', height: '44px', background: '#fff', padding: '2px', borderRadius: '4px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
               <img 
                 src="/qrcode.png" 
@@ -222,7 +237,7 @@ export default function DonePage() {
       </div>
       {/* --- 截图区域结束 --- */}
 
-      {/* 结束情绪评分 (未归档前显示) */}
+      {/* 结束情绪评分 */}
       {!saved && (
         <div style={{
           width: '100%', display: 'flex', flexDirection: 'column', gap: '16px',
@@ -249,7 +264,7 @@ export default function DonePage() {
             style={{ width: '100%', accentColor: 'var(--warm-yellow)', cursor: 'pointer' }}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.5 }}>还好</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.5 }}>好多了</span>
             <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.5 }}>很难受</span>
           </div>
           <button
@@ -267,10 +282,9 @@ export default function DonePage() {
         </div>
       )}
 
-      {/* 收入后显示的操作区 (不可被截图) */}
+      {/* 操作区 */}
       {saved && (
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          
           <button
             onClick={handleShare}
             disabled={isSharing}

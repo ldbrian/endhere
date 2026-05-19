@@ -55,3 +55,15 @@ textarea {
   background: var(--border);
   border-radius: 2px;
 }
+/* 深夜便利店防疲劳微晃灯泡 */
+@keyframes gentleFlicker {
+  0%, 90%, 100% { opacity: 1; filter: drop-shadow(0 0 8px rgba(245, 200, 66, 0.4)); }
+  92% { opacity: 0.85; filter: drop-shadow(0 0 4px rgba(245, 200, 66, 0.2)); }
+  93% { opacity: 0.95; }
+  94% { opacity: 0.88; }
+  95% { opacity: 1; filter: drop-shadow(0 0 8px rgba(245, 200, 66, 0.4)); }
+}
+
+.flicker-bulb {
+  animation: gentleFlicker 12s infinite ease-in-out;
+}

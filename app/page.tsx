@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from './lib/track'
 
@@ -15,7 +15,15 @@ const EMOTIONS = [
 export default function Home() {
   const [selected, setSelected] = useState<string | null>(null)
   const [score, setScore] = useState(7)
+  const [isBulbFixed, setIsBulbFixed] = useState(false) // 记录是否换过灯泡
   const router = useRouter()
+
+  // 页面加载时，检查本地是否赞助换过灯泡
+  useEffect(() => {
+    if (localStorage.getItem('fixed_light') === 'true') {
+      setIsBulbFixed(true)
+    }
+  }, [])
 
   const handleEnter = () => {
     if (!selected) return
@@ -48,15 +56,18 @@ export default function Home() {
         <img
           src="/logo.png"
           alt="End Here"
+          className={isBulbFixed ? "" : "flicker-bulb"} /* 没修灯泡就闪烁 */
           style={{ width: '72px', height: '72px', opacity: 0.9 }}
         />
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.35em' }}>
           END HERE
         </p>
-        <h1 style={{
-          color: 'var(--text-main)', fontSize: '32px',
-          fontWeight: '300', letterSpacing: '0.15em', lineHeight: '1.8',
-        }}>
+        <h1 
+          className={isBulbFixed ? "" : "flicker-bulb"} /* 没修灯泡就闪烁 */
+          style={{
+            color: 'var(--text-main)', fontSize: '32px',
+            fontWeight: '300', letterSpacing: '0.15em', lineHeight: '1.8',
+          }}>
           写下来 到此为止
         </h1>
       </div>

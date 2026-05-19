@@ -13,34 +13,36 @@ export const PERSONA_ACTIONS: Record<string, string[]> = {
     'Rin 泡了杯茶，陪你坐着...',
     'Rin 窗外在下雨，她在认真读你写的...',
   ],
-  Sol: [
-    'Sol 靠过来了，认真看着你...',
-    'Sol 放下手机，专心听你说...',
-    'Sol 拍了拍桌子，在想怎么说...',
-    'Sol 推了推你的肩，示意你继续说...',
-    'Sol 握紧了拳头，听完再说...',
+  Child: [
+    '{name} 正坐在门槛上，抬着头听你说...',
+    '{name} 抱着最喜欢的玩具，安静地看着你...',
+    '{name} 有些听不懂，但他看到你哭了...',
+    '{name} 推了推你的肩，示意你继续说...',
+    '{name} 握紧了拳头，听完再说...',
   ],
 }
 
-export function getRandomAction(persona: string): string {
+// 增加 childName 参数，用来实时替换 {name}
+export function getRandomAction(persona: string, childName: string = '8岁的自己'): string {
   const actions = PERSONA_ACTIONS[persona] || PERSONA_ACTIONS['Rin']
-  return actions[Math.floor(Math.random() * actions.length)]
+  const action = actions[Math.floor(Math.random() * actions.length)]
+  return action.replace('{name}', childName)
 }
 
 export const PERSONAS = [
-  { id: 'Ash', label: 'Ash', desc: '毒舌但精准', color: 'var(--ash-color)' },
-  { id: 'Rin', label: 'Rin', desc: '暖心共情', color: 'var(--rin-color)' },
-  { id: 'Sol', label: 'Sol', desc: '热血打气', color: 'var(--sol-color)' },
+  { id: 'Ash', name: 'Ash', sub: '过命的兄弟', color: '#e87070', locked: false },
+  { id: 'Rin', name: 'Rin', sub: '贴心姐妹', color: '#a0c4a0', locked: false },
+  { id: 'Child', name: '8岁的自己', sub: '🔒 赞助店长研发 34%', color: 'var(--warm-yellow)', locked: true },
 ]
 
 export const PERSONA_BUTTONS: Record<string, string> = {
   Ash: '交给 Ash',
   Rin: '交给 Rin',
-  Sol: '交给 Sol',
+  Child: '交给 {name}', // 动态名字占位
 }
 
 export const PERSONA_PLACEHOLDERS: Record<string, string> = {
   Ash: '又怎么了？说吧，我在。',
   Rin: '说吧，我在听。不用整理，不用好看。',
-  Sol: '说！发生什么了？我在这。',
+  Child: '长大的世界是不是很辛苦？跟我说吧。', // 8岁专属的输入框占位符
 }
