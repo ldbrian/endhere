@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from './lib/track'
 
+// === 严格按照早上研讨会结果，仅重构情绪标签，使其更贴近深夜活人的生理/心里碎碎念 ===
 const EMOTIONS = [
-  { id: 'regret', label: '后悔', emoji: '😔' },
-  { id: 'grievance', label: '委屈', emoji: '🥺' },
-  { id: 'unwilling', label: '不甘', emoji: '😤' },
-  { id: 'irritated', label: '烦躁', emoji: '😣' },
-  { id: 'sad', label: '难过', emoji: '😢' },
+  { id: 'choke', label: '胸口堵得慌', emoji: '😮‍💨' },
+  { id: 'tear', label: '眼眶有点热', emoji: '🥺' },
+  { id: 'numb', label: '整个人木木的', emoji: '🫥' },
+  { id: 'angry', label: '心里有股无名火', emoji: '🔥' },
+  { id: 'shattered', label: '感觉快碎掉了', emoji: '🩹' },
 ]
 
 export default function Home() {
@@ -20,7 +21,7 @@ export default function Home() {
 
   // 页面加载时，检查本地是否赞助换过灯泡
   useEffect(() => {
-    if (localStorage.getItem('fixed_light') === 'true') {
+    if (localStorage.getItem('fixed_light') === 'true' || localStorage.getItem('is_lifetime_vip') === 'true') {
       setIsBulbFixed(true)
     }
   }, [])
@@ -51,7 +52,7 @@ export default function Home() {
         pointerEvents: 'none',
       }} />
 
-      {/* 主文案 */}
+      {/* 核心保留：原汁原味、不被污染的 Logo 与 End Here 主招牌 */}
       <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
         <img
           src="/logo.png"
@@ -74,36 +75,45 @@ export default function Home() {
 
       <div style={{ width: '40px', height: '1px', background: 'var(--border)' }} />
 
-      {/* 情绪选择 */}
+      {/* 手术部分：无感升级的情绪诉求池 */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <p style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', letterSpacing: '0.15em' }}>
-          现在的感觉是
+          现在的真实感觉是
         </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '10px' }}>
+        {/* 改为更具下沉和承接质感的垂直纵向胶囊块，方便展示更长的句子 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
           {EMOTIONS.map((e) => (
             <button
               key={e.id}
               onClick={() => setSelected(e.id)}
               style={{
-                padding: '9px 22px', borderRadius: '999px',
+                width: '100%',
+                padding: '12px 20px', 
+                borderRadius: '999px',
                 border: `1px solid ${selected === e.id ? 'var(--warm-yellow)' : 'var(--border)'}`,
                 background: selected === e.id ? 'rgba(245,200,66,0.1)' : 'transparent',
                 color: selected === e.id ? 'var(--warm-yellow)' : 'var(--text-muted)',
-                fontSize: '14px', cursor: 'pointer', transition: 'all 0.25s ease',
+                fontSize: '13px', 
+                cursor: 'pointer', 
+                transition: 'all 0.25s ease',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
               }}
             >
-              {e.emoji} {e.label}
+              <span style={{ letterSpacing: '0.05em' }}>{e.label}</span>
+              <span style={{ fontSize: '15px' }}>{e.emoji}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* 情绪滑块 */}
+      {/* 情绪滑块：完全保留原始体验 */}
       {selected && (
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em' }}>
-              现在有多难受
+              这股感觉有多重
             </p>
             <p style={{ color: 'var(--warm-yellow)', fontSize: '20px', fontWeight: '300' }}>
               {score}
@@ -119,12 +129,12 @@ export default function Home() {
           />
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.5 }}>还好</span>
-            <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.5 }}>很难受</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.5 }}>已经满了</span>
           </div>
         </div>
       )}
 
-      {/* 进入按钮 */}
+      {/* 底部按钮逻辑：完全保留 */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <button
           onClick={handleEnter}

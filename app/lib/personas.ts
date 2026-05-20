@@ -22,7 +22,6 @@ export const PERSONA_ACTIONS: Record<string, string[]> = {
   ],
 }
 
-// 增加 childName 参数，用来实时替换 {name}
 export function getRandomAction(persona: string, childName: string = '8岁的自己'): string {
   const actions = PERSONA_ACTIONS[persona] || PERSONA_ACTIONS['Rin']
   const action = actions[Math.floor(Math.random() * actions.length)]
@@ -32,17 +31,17 @@ export function getRandomAction(persona: string, childName: string = '8岁的自
 export const PERSONAS = [
   { id: 'Ash', name: 'Ash', sub: '过命的兄弟', color: '#e87070', locked: false },
   { id: 'Rin', name: 'Rin', sub: '贴心姐妹', color: '#a0c4a0', locked: false },
-  { id: 'Child', name: '8岁的自己', sub: '🔒 赞助店长研发 34%', color: 'var(--warm-yellow)', locked: true },
+  { id: 'Child', name: '8岁的自己', sub: '回到过去', color: 'var(--warm-yellow)', locked: false }, // 已免费开放
 ]
 
 export const PERSONA_BUTTONS: Record<string, string> = {
   Ash: '交给 Ash',
   Rin: '交给 Rin',
-  Child: '交给 {name}', // 动态名字占位
+  Child: '交给 {name}',
 }
 
 export const PERSONA_PLACEHOLDERS: Record<string, string> = {
   Ash: '又怎么了？说吧，我在。',
   Rin: '说吧，我在听。不用整理，不用好看。',
-  Child: '长大的世界是不是很辛苦？跟我说吧。', // 8岁专属的输入框占位符
+  Child: '长大的世界是不是很辛苦？跟我说吧。',
 }

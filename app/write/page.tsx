@@ -14,14 +14,13 @@ function WriteContent() {
   const [persona, setPersona] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [focused, setFocused] = useState(false)
-  const [childName, setChildName] = useState('8岁的自己') // 新增：存童年的名字
+  const [childName, setChildName] = useState('8岁的自己') 
 
   const router = useRouter()
   const searchParams = useSearchParams()
   const emotion = searchParams.get('emotion') || 'sad'
   const emotionLabel = EMOTION_LABELS[emotion] || '难过'
 
-  // 页面加载时去本地找找有没有改过名字
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedName = localStorage.getItem('child_nickname')
@@ -47,7 +46,6 @@ function WriteContent() {
     router.push('/response')
   }
 
-  // 动态替换占位符和按钮文本里的 {name}
   const getPlaceholder = () => {
     if (!persona) return ''
     return PERSONA_PLACEHOLDERS[persona]?.replace('{name}', childName) || ''
@@ -96,35 +94,44 @@ function WriteContent() {
           {PERSONAS.map(p => (
             <div key={p.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <button
-                disabled={p.locked}
-                onClick={() => !p.locked && setPersona(p.id)}
+                onClick={() => setPersona(p.id)}
                 style={{
                   width: '100%', padding: '12px 8px', borderRadius: '10px',
-                  border: `1px solid ${p.locked ? 'var(--border)' : (persona === p.id ? p.color : 'var(--border)')}`,
-                  background: p.locked ? 'rgba(255,255,255,0.02)' : (persona === p.id ? `${p.color}15` : 'transparent'),
-                  color: p.locked ? 'var(--text-muted)' : (persona === p.id ? p.color : 'var(--text-muted)'),
-                  cursor: p.locked ? 'not-allowed' : 'pointer', transition: 'all 0.25s ease',
+                  border: `1px solid ${persona === p.id ? p.color : 'var(--border)'}`,
+                  background: persona === p.id ? `${p.color}15` : 'transparent',
+                  color: persona === p.id ? p.color : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.25s ease',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                  opacity: p.locked ? 0.6 : 1
                 }}
               >
-                {/* 动态渲染角色名字 */}
                 <span style={{ fontSize: '14px', fontWeight: '500' }}>
                   {p.id === 'Child' ? childName : p.name}
                 </span>
-                <span style={{ fontSize: '10px', opacity: 0.7 }}>{p.sub}</span>
-
-                {/* 众筹进度条 */}
-                {p.locked && (
-                  <div style={{ width: '80%', height: '2px', background: 'rgba(255,255,255,0.1)', borderRadius: '99px', marginTop: '6px', overflow: 'hidden' }}>
-                    <div style={{ width: '34%', height: '100%', background: 'var(--warm-yellow)' }} />
-                  </div>
+                
+                {/* 如果是童年，渲染专属动态角标；否则渲染普通 sub */}
+                {p.id === 'Child' ? (
+                  <span style={{ 
+                    fontSize: '10px', color: 'var(--warm-yellow)', 
+                    border: '1px solid rgba(245,200,66,0.3)', 
+                    background: 'rgba(245,200,66,0.1)',
+                    padding: '2px 6px', borderRadius: '4px', marginTop: '2px',
+                    animation: 'pulse 2s infinite'
+                  }}>
+                    ⏳ 记忆唤醒
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '10px', opacity: 0.7 }}>{p.sub}</span>
                 )}
               </button>
 
-              {/* 改名彩蛋输入框 */}
-              {p.locked && (
-                <div style={{ marginTop: '8px', textAlign: 'center', width: '100%' }}>
+              {/* 童年专属：改名输入框（仅在选中 Child 时显现实体） */}
+              {p.id === 'Child' && (
+                <div style={{ 
+                  marginTop: '8px', textAlign: 'center', width: '100%',
+                  opacity: persona === 'Child' ? 1 : 0,
+                  pointerEvents: persona === 'Child' ? 'auto' : 'none',
+                  transition: 'opacity 0.3s ease'
+                }}>
                   <input 
                     type="text"
                     value={childName === '8岁的自己' ? '' : childName}
@@ -150,7 +157,7 @@ function WriteContent() {
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={getPlaceholder()} // 使用动态占位符
+              placeholder={getPlaceholder()} 
               autoFocus
               rows={9}
               onFocus={() => setFocused(true)}
@@ -207,6 +214,13 @@ function WriteContent() {
           ← 返回
         </button>
       )}
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 0.6; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.02); box-shadow: 0 0 8px rgba(245,200,66,0.2); }
+        }
+      `}</style>
     </div>
   )
 }

@@ -55,7 +55,6 @@ export default function ResponsePage() {
   const [childName, setChildName] = useState('8岁的自己')
   const [emotionScore, setEmotionScore] = useState('7')
   
-  // === 新增：对线系统状态 ===
   const [showRebuttalInput, setShowRebuttalInput] = useState(false)
   const [rebuttalText, setRebuttalText] = useState('')
   const [isRebutting, setIsRebutting] = useState(false)
@@ -96,7 +95,7 @@ export default function ResponsePage() {
     if (!content || loading) return
     const limit = await checkLimit()
     if (!limit.allowed) {
-      setAnalysis(`今天已经用了 ${limit.limit} 次了。明天再来，或者先去做那件一直拖着的事。`)
+      setAnalysis(`今天已经来过 ${limit.count} 次了。明天再来，或者先去做那件一直拖着的事。`)
       setStarted(true)
       setDone(true)
       return
@@ -118,7 +117,8 @@ export default function ResponsePage() {
       const res = await fetch('/api/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, emotion, persona }),
+        // 偷运客户端时间戳 clientHour
+        body: JSON.stringify({ content, emotion, persona, clientHour: new Date().getHours() }),
       })
 
       if (!res.body) return
@@ -158,13 +158,11 @@ export default function ResponsePage() {
     }
   }
 
-  // === 新增：单轮放屁对线接口请求 ===
   const handleRebuttalSubmit = async () => {
     if (!rebuttalText.trim() || isRebutting) return
     setIsRebutting(true)
     track('user_rebuttal', { persona, text_length: rebuttalText.length })
 
-    // 拼装绝杀版 System Prompt，直接覆盖掉默认人设
     const rebuttalSystemPrompt = `你现在的身份是：${persona}。（注：Ash是仗义嘴毒的兄弟，Rin是护短的贴心姐妹，Child是8岁时天真的用户自己）。
 用户之前抱怨：“${content}”。
 你刚才给他的建议是：“${punchline}”。
@@ -191,7 +189,8 @@ DESC: [一句15字以内的文案]
           content: "用户正在顶嘴...", 
           emotion, 
           persona, 
-          systemPrompt: rebuttalSystemPrompt 
+          systemPrompt: rebuttalSystemPrompt,
+          clientHour: new Date().getHours() // 同样偷运时间戳
         }),
       })
 
@@ -210,10 +209,10 @@ DESC: [一句15字以内的文案]
         setRebuttalAnalysis(parsed.analysis)
         setRebuttalPunchline(parsed.punchline)
         const newItem = parseItem(cleanText)
-        if (newItem) setDestinedItem(newItem) // 覆盖原本的小票物件
+        if (newItem) setDestinedItem(newItem) 
       }
       setRebuttalDone(true)
-      setActionDone(true) // 绝杀后强制进入收据打印环节
+      setActionDone(true) 
     } catch {
       console.error('Rebuttal failed')
     } finally {
@@ -265,12 +264,22 @@ DESC: [一句15字以内的文案]
     return '⚓'
   }
 
+  const isChild = persona === 'Child'
+
   return (
-    <div style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '24px', padding: '60px 24px' }}>
+    <div style={{ 
+      width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '24px', padding: '60px 24px', margin: '0 auto',
+      transition: 'all 0.8s ease',
+      // === 核心魔法：童年泛黄滤镜 ===
+      filter: isChild ? 'sepia(0.35) contrast(1.05) brightness(0.95)' : 'none',
+      background: isChild ? '#161410' : 'transparent',
+    }}>
       
       {/* 顶部指示 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>END HERE</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>
+          {isChild ? 'BACK THERE' : 'END HERE'}
+        </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
           <span style={{ padding: '2px 12px', borderRadius: '999px', border: `1px solid ${currentPersona?.color}40`, color: currentPersona?.color, fontSize: '12px' }}>
             {displayName}
@@ -308,7 +317,7 @@ DESC: [一句15字以内的文案]
         </div>
       )}
 
-      {/* 第一阶段行动卡片（未被顶嘴覆盖前） */}
+      {/* 第一阶段行动卡片 */}
       {punchline && done && !rebuttalDone && (
         <div style={{ padding: '20px 24px', borderRadius: '12px', background: 'rgba(245,200,66,0.03)', border: '1px solid rgba(245,200,66,0.15)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <p style={{ color: 'var(--warm-yellow)', fontSize: '11px', letterSpacing: '0.2em' }}>现在，听建议做这件事</p>
@@ -351,7 +360,7 @@ DESC: [一句15字以内的文案]
         </div>
       )}
 
-      {/* 第二阶段：绝杀回击区域（仅在顶嘴后出现） */}
+      {/* 第二阶段：绝杀回击区域 */}
       {rebuttalDone && (
          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeText 0.4s ease' }}>
            <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRight: '2px solid rgba(255,255,255,0.1)', borderRadius: '8px', alignSelf: 'flex-end', width: '90%' }}>
@@ -367,7 +376,7 @@ DESC: [一句15字以内的文案]
          </div>
       )}
 
-      {/* 命运物件收据小票（强制切割后打印） */}
+      {/* 命运物件收据小票 */}
       {actionDone && destinedItem && (
         <div style={{ padding: '24px', borderRadius: '4px', border: '1px dashed rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.01)', display: 'flex', flexDirection: 'column', gap: '14px', fontFamily: 'monospace, Courier', animation: 'fadeText 0.6s ease-out-forward' }}>
           <div style={{ textAlign: 'center', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
