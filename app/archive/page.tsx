@@ -4,15 +4,20 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from '../lib/track'
 
+// 覆盖原本的 EMOTION_LABELS
 const EMOTION_LABELS: Record<string, string> = {
-  regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
+  choke: '胸口堵得慌', 
+  tear: '眼眶有点热', 
+  numb: '整个人木木的', 
+  angry: '心里有股无名火', 
+  shattered: '快碎掉了',
 }
 
 interface Entry {
   id: number
   emotion: string
   content: string
-  persona: string
+  persona?: string
   response: string
   analysis?: string
   punchline?: string
@@ -23,12 +28,14 @@ interface Entry {
   released: boolean
   item?: { icon: string; name: string }
   sessions?: any[]
+  receiptId?: string // 新增：用于去后台拿店长回信的暗号
 }
 
 function getStatusColor(status: string) {
   if (status === '还在痛') return '#e87070'
   if (status === '好一点了') return 'var(--warm-yellow)'
   if (status === '快放下了') return '#a0c4a0'
+  if (status === '等待回信') return 'var(--warm-yellow)'
   return 'var(--text-muted)'
 }
 
@@ -39,6 +46,27 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
   formatDate: (iso: string) => string
   router: any
 }) {
+  // === 新增：店长回信的状态 ===
+  const [managerReply, setManagerReply] = useState<string | null>(null)
+  const [fetchingReply, setFetchingReply] = useState(false)
+  const isManagerTicket = !!entry.receiptId || entry.persona === 'Manager' || entry.status === '等待回信'
+
+  // 当卡片展开时，如果是留给店长的小票，去后台拉取回信
+  useEffect(() => {
+    if (expanded === entry.id && isManagerTicket && entry.receiptId && !managerReply) {
+      setFetchingReply(true)
+      fetch(`/api/mailbox?receiptId=${entry.receiptId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.reply) {
+            setManagerReply(data.reply)
+          }
+        })
+        .catch(err => console.error('获取回信失败:', err))
+        .finally(() => setFetchingReply(false))
+    }
+  }, [expanded, entry.id, entry.receiptId, isManagerTicket, managerReply])
+
   return (
     <div style={{
       borderRadius: '12px',
@@ -92,19 +120,6 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
         }}>
           {entry.content}
         </p>
-
-        {entry.emotionEnd && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.5 }}>
-              {entry.emotionStart} → {entry.emotionEnd}
-            </span>
-            {entry.sessions && entry.sessions.length > 0 && (
-              <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.4 }}>
-                · 已复查 {entry.sessions.length} 次
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* 展开内容 */}
@@ -114,8 +129,49 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
           padding: '16px 20px',
           display: 'flex', flexDirection: 'column', gap: '16px',
         }}>
-          {/* 解析 */}
-          {entry.analysis && (
+          
+          {/* === 新增：店长的吧台回信区 === */}
+          {isManagerTicket && (
+            <div style={{
+              padding: '16px', borderRadius: '12px',
+              background: 'rgba(245,200,66,0.04)',
+              border: '1px dashed rgba(245,200,66,0.25)',
+              display: 'flex', flexDirection: 'column', gap: '12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>🏪</span>
+                <span style={{ color: 'var(--warm-yellow)', fontSize: '13px', letterSpacing: '0.1em', fontWeight: 'bold' }}>
+                  吧台回信
+                </span>
+                {entry.receiptId && (
+                  <span style={{ marginLeft: 'auto', color: 'var(--warm-yellow)', fontSize: '10px', fontFamily: 'monospace', opacity: 0.5 }}>
+                    #{entry.receiptId}
+                  </span>
+                )}
+              </div>
+              
+              {!entry.receiptId ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.6 }}>
+                  这张小票好像没有印上流水号，店长找不到它了...
+                </p>
+              ) : fetchingReply ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.6 }}>
+                  正在吧台抽屉里翻找你的小票...
+                </p>
+              ) : managerReply ? (
+                <p style={{ color: 'var(--text-main)', fontSize: '14px', lineHeight: '1.8', opacity: 0.9 }}>
+                  {managerReply}
+                </p>
+              ) : (
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.6 }}>
+                  店长还在跑车，或者已经睡了。晚点再来看看吧。
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* AI 解析 (如果是AI对话，依然保留) */}
+          {!isManagerTicket && entry.analysis && (
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', opacity: 0.8 }}>
               {entry.analysis}
             </p>
@@ -133,50 +189,22 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
             </p>
           )}
 
-          {/* 历史复查 */}
-          {entry.sessions && entry.sessions.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em' }}>
-                复查记录
-              </p>
-              {entry.sessions.map((s: any, i: number) => (
-                <div key={i} style={{
-                  padding: '12px', borderRadius: '8px',
-                  background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid var(--border)',
-                }}>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.5, marginBottom: '6px' }}>
-                    {formatDate(s.createdAt)} · {s.persona} · {s.scoreEnd}分
-                  </p>
-                  {s.supplement && (
-                    <p style={{ color: 'var(--text-main)', fontSize: '12px', lineHeight: '1.7', opacity: 0.7, marginBottom: '8px' }}>
-                      {s.supplement}
-                    </p>
-                  )}
-                  {s.response && s.response.split('---').map((r: string, j: number) => (
-                    <p key={j} style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7', opacity: 0.7 }}>
-                      {r.trim()}
-                    </p>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* 操作按钮 */}
           {!entry.released ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button
-                onClick={() => router.push(`/ruminate?id=${entry.id}`)}
-                style={{
-                  width: '100%', padding: '12px', borderRadius: '10px',
-                  border: '1px solid var(--border)', background: 'transparent',
-                  color: 'var(--text-muted)', fontSize: '12px',
-                  letterSpacing: '0.15em', cursor: 'pointer',
-                }}
-              >
-                继续处理这件事
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+              {!isManagerTicket && (
+                <button
+                  onClick={() => router.push(`/ruminate?id=${entry.id}`)}
+                  style={{
+                    width: '100%', padding: '12px', borderRadius: '10px',
+                    border: '1px solid var(--border)', background: 'transparent',
+                    color: 'var(--text-muted)', fontSize: '12px',
+                    letterSpacing: '0.15em', cursor: 'pointer',
+                  }}
+                >
+                  继续处理这件事
+                </button>
+              )}
               <button
                 onClick={() => {
                   const entries = JSON.parse(localStorage.getItem('entries') || '[]')
@@ -215,19 +243,30 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
 }
 
 export default function ArchivePage() {
-  
-const [showFeedback, setShowFeedback] = useState(false)
-const [feedbackFeatures, setFeedbackFeatures] = useState<string[]>([])
-const [feedbackCustom, setFeedbackCustom] = useState('')
-const [feedbackSent, setFeedbackSent] = useState(false)  
+  const [showFeedback, setShowFeedback] = useState(false)
+  const [feedbackFeatures, setFeedbackFeatures] = useState<string[]>([])
+  const [feedbackCustom, setFeedbackCustom] = useState('')
+  const [feedbackSent, setFeedbackSent] = useState(false)  
   const [entries, setEntries] = useState<Entry[]>([])
   const [expanded, setExpanded] = useState<number | null>(null)
   const router = useRouter()
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('entries') || '[]')
-    setEntries(saved)
-    track('view_archive', { entry_count: saved.length })
+    
+    // === 补丁：强行给没有 id 的数据（比如刚才的测试数据）打上唯一时间戳 ===
+    const patchedEntries = saved.map((e: any, i: number) => {
+      if (!e.id) {
+        return { ...e, id: Date.now() + i }
+      }
+      return e
+    })
+    
+    setEntries(patchedEntries)
+    // 顺手把洗干净的数据写回本地，以后就没这毛病了
+    localStorage.setItem('entries', JSON.stringify(patchedEntries))
+    
+    track('view_archive', { entry_count: patchedEntries.length })
   }, [])
 
   const formatDate = (iso: string) => {
@@ -258,6 +297,7 @@ const [feedbackSent, setFeedbackSent] = useState(false)
       flexDirection: 'column',
       gap: '24px',
       padding: '60px 24px',
+      margin: '0 auto'
     }}>
 
       {/* 顶部 */}
@@ -325,11 +365,10 @@ const [feedbackSent, setFeedbackSent] = useState(false)
               router={router}
             />
           ))}
-
         </div>
       )}
 
-      {/* 反馈区块 */}
+      {/* 反馈区块 (保持原样不动) */}
       {!feedbackSent ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {!showFeedback ? (
@@ -379,22 +418,16 @@ const [feedbackSent, setFeedbackSent] = useState(false)
                 </button>
               ))}
 
-              {/* 自定义输入 */}
               <textarea
                 value={feedbackCustom}
                 onChange={(e) => setFeedbackCustom(e.target.value)}
                 placeholder="或者，你有别的想法？"
                 rows={3}
                 style={{
-                  width: '100%',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '10px',
-                  padding: '12px 16px',
-                  color: 'var(--text-main)',
-                  fontSize: '13px',
-                  lineHeight: '1.8',
-                  fontFamily: 'inherit',
+                  width: '100%', background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid var(--border)', borderRadius: '10px',
+                  padding: '12px 16px', color: 'var(--text-main)',
+                  fontSize: '13px', lineHeight: '1.8', fontFamily: 'inherit',
                 }}
               />
 

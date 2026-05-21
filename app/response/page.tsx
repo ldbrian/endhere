@@ -93,13 +93,30 @@ export default function ResponsePage() {
 
   const handleStart = async () => {
     if (!content || loading) return
+    
+    // === 1. 发起后端额度校验 ===
     const limit = await checkLimit()
-    if (!limit.allowed) {
-      setAnalysis(`今天已经来过 ${limit.count} 次了。明天再来，或者先去做那件一直拖着的事。`)
+    
+    // === 2. 获取本地的“特权暗号”状态 ===
+    const isVip = localStorage.getItem('is_lifetime_vip') === 'true'
+    const hasExtra = localStorage.getItem('extra_limit_granted') === '3'
+
+    // === 3. 核心拦截：如果没有额度，且没有特权，强行踢客 ===
+    if (!limit.allowed && !isVip && !hasExtra) {
+      alert(`🏪 店长留客通知：\n\n今天你已经来过小店宣泄过了（已达 ${limit.limit} 次上限）。\n避难所灯火再温暖，过去的也不该贪恋。\n\n请先去做那件你一直拖着的事，明天深夜，店长再为你亮灯。`)
+      setAnalysis('今天已经来过避难所了。卷帘门已拉下，请回到现实去。')
       setStarted(true)
       setDone(true)
+      // 强行踢回首页，绝不留情
+      setTimeout(() => { router.push('/') }, 2000)
       return
     }
+
+    // === 4. 抵扣临时能量包 ===
+    if (!limit.allowed && hasExtra) {
+      localStorage.removeItem('extra_limit_granted') // 消耗掉这次临时买来的额度
+    }
+
     setStarted(true)
     setLoading(true)
 
@@ -117,7 +134,6 @@ export default function ResponsePage() {
       const res = await fetch('/api/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // 偷运客户端时间戳 clientHour
         body: JSON.stringify({ content, emotion, persona, clientHour: new Date().getHours() }),
       })
 

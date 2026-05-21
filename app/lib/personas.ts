@@ -20,6 +20,13 @@ export const PERSONA_ACTIONS: Record<string, string[]> = {
     '{name} 推了推你的肩，示意你继续说...',
     '{name} 握紧了拳头，听完再说...',
   ],
+  // === 新增：店长的动作（虽然被拦截不走AI，但为了数据结构完整） ===
+  Manager: [
+    '店长点了根烟，扫了一眼你的小票...',
+    '店长刚刚收车，正坐在吧台后看你的留言...',
+    '店长擦了擦吧台，把你的小票压在杯子底下...',
+    '店长叹了口气，什么也没说，只是接过了小票...',
+  ],
 }
 
 export function getRandomAction(persona: string, childName: string = '8岁的自己'): string {
@@ -31,17 +38,23 @@ export function getRandomAction(persona: string, childName: string = '8岁的自
 export const PERSONAS = [
   { id: 'Ash', name: 'Ash', sub: '过命的兄弟', color: '#e87070', locked: false },
   { id: 'Rin', name: 'Rin', sub: '贴心姐妹', color: '#a0c4a0', locked: false },
-  { id: 'Child', name: '8岁的自己', sub: '回到过去', color: 'var(--warm-yellow)', locked: false }, // 已免费开放
+  { id: 'Child', name: '8岁的自己', sub: '回到过去', color: 'var(--warm-yellow)', locked: false },
+  // === 新增：野生店长 ===
+  { id: 'Manager', name: '野生店长', sub: '活人，脾气差，可留言', color: '#8c8273', locked: false }, 
 ]
 
 export const PERSONA_BUTTONS: Record<string, string> = {
   Ash: '交给 Ash',
   Rin: '交给 Rin',
   Child: '交给 {name}',
+  // === 新增 ===
+  Manager: '把小票压在吧台',
 }
 
 export const PERSONA_PLACEHOLDERS: Record<string, string> = {
   Ash: '又怎么了？说吧，我在。',
   Rin: '说吧，我在听。不用整理，不用好看。',
   Child: '长大的世界是不是很辛苦？跟我说吧。',
+  // === 新增 ===
+  Manager: '小店规矩：废话少说，把想骂的、想哭的写下来，压在吧台。我半夜收车后会看。',
 }

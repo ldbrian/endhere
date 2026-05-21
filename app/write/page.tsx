@@ -37,6 +37,7 @@ function WriteContent() {
 
   const selectedPersona = PERSONAS.find(p => p.id === persona)
 
+  // 覆盖这个 handleSubmit 函数
   const handleSubmit = () => {
     if (!content.trim() || !persona || loading) return
     setLoading(true)
@@ -44,6 +45,32 @@ function WriteContent() {
     sessionStorage.setItem('entry_content', content)
     sessionStorage.setItem('entry_emotion', emotion)
     localStorage.setItem('preferred_persona', persona)
+    
+    // === 核心拦截：如果选的是店长，不找AI，直接打小票进结算页 ===
+    if (persona === 'Manager') {
+      const initialScore = parseInt(sessionStorage.getItem('emotion_score') || '7', 10)
+      const mockEntry = {
+        id: Date.now(),
+        createdAt: new Date().toISOString(), // 👈 修复了 NaN 时间 bug
+        emotionStart: initialScore, // 把初始分数带上
+        emotionEnd: initialScore,
+        emotion: emotion,
+        status: '等待回信',
+        persona: 'Manager', // 👈 极其重要：给结算页的接头暗号
+        content: content,
+        rawResponse: '【系统提示】：你选择了直接留言给店长，没有触发人工智能。',
+        released: false
+      }
+      
+      const existing = JSON.parse(localStorage.getItem('entries') || '[]')
+      // 将新记录插到最前面
+      localStorage.setItem('entries', JSON.stringify([mockEntry, ...existing])) 
+      
+      router.push('/done')
+      return
+    }
+
+    // 如果选的是其他人，正常去找大模型聊天
     router.push('/response')
   }
 
@@ -97,15 +124,15 @@ function WriteContent() {
           color: 'var(--text-muted)', 
           fontSize: '12px', 
           letterSpacing: '0.15em',
-          // 仅在聚焦时让这个小标题微微变淡
           opacity: focused ? 0.3 : 1,
           transition: 'opacity 0.4s ease',
         }}>
           你想跟谁说？
         </p>
         
+        {/* --- 上层：3个 AI 店员 (横向并排) --- */}
         <div style={{ display: 'flex', gap: '10px' }}>
-          {PERSONAS.map(p => {
+          {PERSONAS.filter(p => p.id !== 'Manager').map(p => {
             const isSelected = persona === p.id;
             return (
               <div key={p.id} style={{ 
@@ -113,14 +140,13 @@ function WriteContent() {
                 display: 'flex', 
                 flexDirection: 'column', 
                 alignItems: 'center',
-                // === 核心微调：如果输入框聚焦，且当前按钮没有被选中，才让它变暗 ===
                 opacity: focused ? (isSelected ? 1 : 0.15) : 1,
                 transition: 'opacity 0.4s ease',
               }}>
                 <button
                   onClick={() => setPersona(p.id)}
                   style={{
-                    width: '100%', padding: '14px 8px', borderRadius: '12px',
+                    width: '100%', padding: '14px 4px', borderRadius: '12px', // 减少左右padding防止拥挤
                     border: `1px solid ${isSelected ? p.color : 'var(--border)'}`,
                     background: isSelected ? `${p.color}15` : 'transparent',
                     color: isSelected ? p.color : 'var(--text-muted)',
@@ -151,6 +177,42 @@ function WriteContent() {
             );
           })}
         </div>
+
+        {/* --- 下层：活人店长专属通道 (横向满宽、虚线物理感) --- */}
+        {PERSONAS.filter(p => p.id === 'Manager').map(p => {
+          const isSelected = persona === p.id;
+          return (
+            <div key={p.id} style={{ 
+              width: '100%',
+              opacity: focused ? (isSelected ? 1 : 0.15) : 1,
+              transition: 'opacity 0.4s ease',
+            }}>
+              <button
+                onClick={() => setPersona(p.id)}
+                style={{
+                  width: '100%', padding: '16px 20px', borderRadius: '12px',
+                  border: `1px dashed ${isSelected ? p.color : 'var(--border)'}`, // 虚线模拟撕下来的小票
+                  background: isSelected ? `${p.color}15` : 'rgba(255,255,255,0.01)',
+                  color: isSelected ? p.color : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.25s ease',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '500', color: isSelected ? p.color : 'var(--text-main)' }}>
+                    📝 {p.name}
+                  </span>
+                  <span style={{ fontSize: '11px', opacity: 0.7 }}>
+                    {p.sub}
+                  </span>
+                </div>
+                <span style={{ fontSize: '11px', opacity: isSelected ? 1 : 0.4, border: `1px solid ${isSelected ? p.color : 'var(--text-muted)'}`, padding: '4px 8px', borderRadius: '6px' }}>
+                  专属通道
+                </span>
+              </button>
+            </div>
+          )
+        })}
 
         {/* === 核心重构：具有仪式感与黄昏光晕的「改名抽屉」组件 === */}
         <div style={{ 

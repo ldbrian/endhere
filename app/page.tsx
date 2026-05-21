@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from './lib/track'
 
-// === 严格按照早上研讨会结果，仅重构情绪标签，使其更贴近深夜活人的生理/心里碎碎念 ===
 const EMOTIONS = [
   { id: 'choke', label: '胸口堵得慌', emoji: '😮‍💨' },
   { id: 'tear', label: '眼眶有点热', emoji: '🥺' },
@@ -16,13 +15,31 @@ const EMOTIONS = [
 export default function Home() {
   const [selected, setSelected] = useState<string | null>(null)
   const [score, setScore] = useState(7)
-  const [isBulbFixed, setIsBulbFixed] = useState(false) // 记录是否换过灯泡
+  const [isBulbFixed, setIsBulbFixed] = useState(false)
+  
+  // === 新增：店长状态指示灯 ===
+  const [managerStatus, setManagerStatus] = useState('● 确认店长状态中...')
+  const [statusColor, setStatusColor] = useState('var(--text-muted)')
+
   const router = useRouter()
 
-  // 页面加载时，检查本地是否赞助换过灯泡
   useEffect(() => {
+    // 检查换灯泡赞助
     if (localStorage.getItem('fixed_light') === 'true' || localStorage.getItem('is_lifetime_vip') === 'true') {
       setIsBulbFixed(true)
+    }
+
+    // === 新增：根据时间自动判断店长在干嘛 ===
+    const hour = new Date().getHours()
+    if (hour >= 6 && hour < 18) {
+      setManagerStatus('● 店长跑车挣电费中，暂由 AI 看店')
+      setStatusColor('var(--text-muted)') // 熄灯灰
+    } else if (hour >= 18 && hour < 23) {
+      setManagerStatus('● 店长补觉中，晚点亲自营业')
+      setStatusColor('#a0c4a0') // 补觉绿
+    } else {
+      setManagerStatus('● 店长已深夜上线，吧台可压小票')
+      setStatusColor('var(--warm-yellow)') // 营业暖黄
     }
   }, [])
 
@@ -41,7 +58,7 @@ export default function Home() {
       flexDirection: 'column',
       alignItems: 'center',
       gap: '40px',
-      padding: '60px 24px',
+      padding: '40px 24px 60px', // 顶部留出一点空间给状态灯
     }}>
 
       <div style={{
@@ -52,19 +69,33 @@ export default function Home() {
         pointerEvents: 'none',
       }} />
 
-      {/* 核心保留：原汁原味、不被污染的 Logo 与 End Here 主招牌 */}
+      {/* === 新增：悬浮在最顶部的店长状态牌 === */}
+      <div style={{
+        padding: '6px 16px',
+        borderRadius: '20px',
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        marginBottom: '-10px'
+      }}>
+        <span style={{ color: statusColor, fontSize: '12px', transition: 'color 1s ease' }}>{managerStatus.charAt(0)}</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.05em' }}>{managerStatus.slice(2)}</span>
+      </div>
+
       <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
         <img
           src="/logo.png"
           alt="End Here"
-          className={isBulbFixed ? "" : "flicker-bulb"} /* 没修灯泡就闪烁 */
+          className={isBulbFixed ? "" : "flicker-bulb"}
           style={{ width: '72px', height: '72px', opacity: 0.9 }}
         />
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.35em' }}>
           END HERE
         </p>
         <h1 
-          className={isBulbFixed ? "" : "flicker-bulb"} /* 没修灯泡就闪烁 */
+          className={isBulbFixed ? "" : "flicker-bulb"}
           style={{
             color: 'var(--text-main)', fontSize: '32px',
             fontWeight: '300', letterSpacing: '0.15em', lineHeight: '1.8',
@@ -75,12 +106,10 @@ export default function Home() {
 
       <div style={{ width: '40px', height: '1px', background: 'var(--border)' }} />
 
-      {/* 手术部分：无感升级的情绪诉求池 */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <p style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', letterSpacing: '0.15em' }}>
           现在的真实感觉是
         </p>
-        {/* 改为更具下沉和承接质感的垂直纵向胶囊块，方便展示更长的句子 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
           {EMOTIONS.map((e) => (
             <button
@@ -108,7 +137,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 情绪滑块：完全保留原始体验 */}
       {selected && (
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -134,7 +162,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 底部按钮逻辑：完全保留 */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <button
           onClick={handleEnter}
@@ -152,7 +179,6 @@ export default function Home() {
           写下来
         </button>
 
-        {/* 档案入口 */}
         <button
           onClick={() => router.push('/archive')}
           style={{
@@ -173,7 +199,6 @@ export default function Home() {
           你的日记只存在你的设备上 · 无需注册
         </p>
       </div>
-
     </div>
   )
 }
