@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+📜 《End Here》产品宪法与架构蓝图 (V1.0)
+I. 战略定位与产品哲学 (What is it?)
+《End Here》不是一款“AI 陪伴软件”，也不是一个“心理健康工具”。它是一个存在于赛博空间里的“午夜情绪便利店”。
 
-## Getting Started
+核心使命： 让人能安全地待一会儿，然后回到现实。
 
-First, run the development server:
+物理隐喻： 所有的交互必须具有“真实世界的粗粝感”——热敏纸小票、落灰的玻璃糖罐、老旧的吧台、会卡纸的打印机、坏掉的收音机。
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+反 SaaS 精神： 不做用户留存，不发推送打扰，不诱导沉迷。产品的最高成就是：用户把事情放下了，再也不来了。
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+II. 核心价值观 (Core Values)
+关系温度的节制感：
+绝不要完美的 AI，不要无底线的讨好。店员会累，收音机会坏，店长会跑车不在。陪伴是有边界的，温柔是有代价的。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+绝对的隐私洁癖：
+连店长（开发者）都不看用户的心事。所有倾诉内容、交接班记录只保存在用户设备的 localStorage 里。卸载即销毁，没有云端同步，没有用户画像。
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+弱干预，强阻断：
+允许情绪存在，但不鼓励沉溺。系统给出的建议永远是具体的物理动作（洗个热水澡、抽根烟、睡觉），强行掐断脑内循环。
 
-## Learn More
+III. AI 灵魂与最高禁令 (The Personas & Protocols)
+所有的 Prompt 和 AI 行为，必须严格遵守以下协议：
 
-To learn more about Next.js, take a look at the following resources:
+🚫 最高禁令：【反诊断协议】
+绝对不允许 AI 使用心理学词汇、性格定义词或价值评判词下定义。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+❌ 错误：“你这是典型的讨好型人格 / 你太内耗了 / 你放不下过去。”
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+✅ 正确：“这张旧票你已经翻出来看好几次了 / 你最近老绕回这件事。”
 
-## Deploy on Vercel
+🎭 店员的性格锚点
+Ash（毒舌兄弟）： 【外冷内热，主打“打醒”】。说话糙、带刺、有真实的停顿。遇到死磕的用户会骂人，用物理指令强行中止用户的自我感动。
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Rin（贴心姐妹）： 【接纳，但适时切断】。无条件护短，提供情绪价值，但绝不制造“情绪成瘾”。她的潜台词是：“我陪你待一会儿，但外面天快亮了，你得自己走。”
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+8岁的自己（纯真降维）： 【无逻辑，纯真暴击】。绝对不讲大道理。绕开成年人的防御机制，用儿童的清澈逻辑（“为什么每天看都会哭还要看？”）去解构痛苦。
+
+🎲 物理波动感（5% 规则）
+AI 不能永远稳定。系统有 5% 的概率会在首页钉上一张“店员倒霉小票”（吃泡面没调料包、踩水坑、丢钥匙）。把快乐建立在店员的痛苦上，用荒诞消解沉重。
+
+IV. 空间记忆与情绪新陈代谢 (The Memory System)
+摒弃传统的大模型长期记忆（不存知识库，不存向量数据库），采用极简的“客观动作 + 交接班印象”模型。
+
+动作计数器（Objective Metrics）：
+只记录冰冷的物理动作：visitCount（进店）、ruminateCount（死磕/继续处理）、letGoCount（彻底放下）。以此判断用户的代谢模式（洒脱型 vs 死磕型）。
+
+原子化覆盖印象（Dynamic Vibe）：
+每次交接班，AI 提炼一句 15 字以内的“活人白话印象”（如：被老板骂了硬撑着）。新印象直接覆盖旧印象，永远只保留当下的状态。
+
+30天遗忘法则（Forgetting Curve）：
+超过 30 天不来，系统自动抹除“交接班印象”，只保留进店次数。AI 会表现出“对你有点生疏”的模糊感。
+
+V. 商业闭环与霸王条款 (Monetization & Rules)
+付费是为了设置门槛和筛选真实需求，而不是为了割韭菜。执行「弱付费 + 强稀缺 + 非承诺制」。
+
+玻璃糖罐隐喻：
+没有任何现代化的充值 UI。只有吧台旁的一个破玻璃糖罐和静态收款码（带黑白做旧滤镜）。
+
+绝对的稀缺与非承诺：
+
+野生店长信箱： ￥4.9 提神费。每天限额 7 张小票（防爆机制）。免责声明：“不承诺一定回，不退款，看缘分。”
+
+收音机电池： ￥4.9，换取今晚额外 3 次倾诉额度，买断今晚的安静。
+
+备用钥匙： ￥39.9，终身访问权。通过加店长私信获取。
+
+劝退式变现：
+不仅不求着用户付费，甚至要在用户情绪上头时，通过冷酷的文案和物理感强烈的 UI，把冲动消费的人挡在门外。
+
+VI. 未来迭代的“绝对红线” (Never Do These)
+如果在未来的某一天，我们为了流量或者商业化想做以下功能，请立刻翻开这份宪法打自己一巴掌：
+
+⛔ 禁止做“社交广场”： 小票是绝对私密的，不要搞什么“匿名倾诉墙”让大家互相点赞抱团取暖。
+
+⛔ 禁止做“打卡/日历”功能： 不要用绿色的格子或者连击数（Streak）去鼓励用户每天来。痛苦不需要打卡。
+
+⛔ 禁止引入“花哨的商品”： 命运物件只能是破损的、粗粝的（生锈的船锚、漏气的轮胎、划过的火柴），不要搞二次元抽卡、不要搞炫酷的 SSR 道具。
+
+⛔ 禁止“流式打字效果”在非聊天场景泛滥： 热敏纸就是热敏纸，“嘎吱嘎吱”印出来是一次性的，不要把它搞得像微信聊天界面。
+
+结语给未来的自己：
+如果有一天，《End Here》的后台数据不再增长，甚至用户开始流失，不要恐慌。
+那说明这款产品成功了——它成功地让人们放下了旧小票，离开了这家破店，走回了阳光里。

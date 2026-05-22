@@ -15,27 +15,13 @@ const ITEMS = [
   { id: 'match', icon: '🔥', name: '一根火柴', desc: '划亮过，就够了。' },
 ]
 
-function getStatusByScore(score: number) {
-  if (score >= 8) return { label: '还在痛', color: '#e87070' }
-  if (score >= 5) return { label: '好一点了', color: 'var(--warm-yellow)' }
-  if (score >= 3) return { label: '快放下了', color: '#a0c4a0' }
-  return { label: '到此为止', color: 'var(--text-muted)' }
-}
-
 export default function DonePage() {
   const [item, setItem] = useState<any>(null)
   const [visible, setVisible] = useState(false)
   const [scoreEnd, setScoreEnd] = useState(5)
   const [saved, setSaved] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
-  
   const [receiptId, setReceiptId] = useState('')
-  const [inputCode, setInputCode] = useState('')
-  
-  const [mailboxStatus, setMailboxStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [mailboxMsg, setMailboxMsg] = useState('')
-  
-  // === 新增：判断是否是“直达店长”的专属通道 ===
   const [isManagerMode, setIsManagerMode] = useState(false)
   
   const router = useRouter()
@@ -44,14 +30,13 @@ export default function DonePage() {
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     const currentEntry = entries[0]
     
-    // 生成流水号
+    // 生成唯一的接头流水号
     const randStr = Math.random().toString(36).substring(2, 4).toUpperCase()
     const timestampStr = Date.now().toString().slice(-4)
     const newReceiptId = `EH-${randStr}${timestampStr}`
     setReceiptId(newReceiptId)
 
     if (currentEntry) {
-      // 如果是店长模式
       if (currentEntry.persona === 'Manager') {
         setIsManagerMode(true)
         setItem({ 
@@ -61,7 +46,6 @@ export default function DonePage() {
           desc: '它正安静地躺在吧台抽屉里，等待被店长拆开。' 
         })
       } else {
-        // AI 模式走正常物品分配逻辑
         if (currentEntry.destinedItem) {
           const dItem = currentEntry.destinedItem
           setItem({ id: dItem.id, icon: dItem.id === 'broken_scale' ? '⚖️' : (dItem.id === 'cracked_bowl' ? '🥣' : '⚓'), name: dItem.name, desc: dItem.desc })
@@ -79,199 +63,155 @@ export default function DonePage() {
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     if (entries.length > 0) {
       entries[0].emotionEnd = scoreEnd
-      // 店长模式强行锁定状态为“等待回信”
-      entries[0].status = isManagerMode ? '等待回信' : getStatusByScore(scoreEnd).label
+      entries[0].status = isManagerMode ? '等待回信' : '已封存'
       entries[0].item = item
+      entries[0].receiptId = receiptId // 固化流水号
     }
     localStorage.setItem('entries', JSON.stringify(entries))
     setSaved(true)
   }
 
-  const handleLeaveForManager = async () => {
-    if (mailboxStatus === 'loading' || mailboxStatus === 'success') return
-    setMailboxStatus('loading')
-    
-    try {
-      const entries = JSON.parse(localStorage.getItem('entries') || '[]')
-      const userContent = entries[0]?.content || entries[0]?.text || '无言的投递...'
-      const aiContent = entries[0]?.rawResponse || '【系统提示】：你选择了直接留言给店长。'
-
-      const res = await fetch('/api/mailbox', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiptId, userMessage: userContent, aiResponse: aiContent })
-      })
-      const data = await res.json()
-      
-      if (data.success) {
-        setMailboxStatus('success')
-        setMailboxMsg(data.message)
-        // 把流水号存进档案，方便以后查收回信
-        entries[0].receiptId = receiptId
-        localStorage.setItem('entries', JSON.stringify(entries))
-      } else {
-        setMailboxStatus('error')
-        setMailboxMsg(data.message)
-      }
-    } catch (e) {
-      setMailboxStatus('error')
-      setMailboxMsg('吧台抽屉卡住了，请稍后再试。')
-    }
-  }
-
-  // 分享功能 (保持原样)
   const handleShare = async () => {
-    // ... 代码略 ... (如果这部分报错，用你原来的分享函数替换即可)
     track('share_card')
     if (isSharing) return
     setIsSharing(true)
     try {
       const element = document.getElementById('share-receipt')
       if (!element) return
-      const canvas = await html2canvas(element, { scale: 3, useCORS: true, logging: false } as any)
+      const canvas = await html2canvas(element, { 
+        scale: 3, 
+        useCORS: true, 
+        logging: false,
+        backgroundColor: '#1a1612' // 保持和主背景一致
+      } as any)
       const imgData = canvas.toDataURL('image/png')
-      const downloadImage = (dataUrl: string) => {
-        const link = document.createElement('a')
-        link.download = `EndHere-${new Date().getTime()}.png`
-        link.href = dataUrl
-        link.click()
-      }
-      if (navigator.share) {
-        try {
-          const blob = await (await fetch(imgData)).blob()
-          const file = new File([blob], 'end-here-receipt.png', { type: 'image/png' })
-          await navigator.share({ title: '我的情绪小票', text: '一切到此为止。', files: [file] })
-        } catch (err) { downloadImage(imgData) }
-      } else { downloadImage(imgData) }
-    } catch (error) { alert('生成卡片失败，请稍后再试。') } finally { setIsSharing(false) }
-  }
-
-  const handleActivateCode = () => {
-    const cleanCode = inputCode.trim().toUpperCase()
-    if (!cleanCode) return
-    if (cleanCode === receiptId) {
-      localStorage.setItem('extra_limit_granted', '3') 
-      alert('📻 破收音机换上了新电池。今晚的卷帘门会晚一点落下。')
-      setInputCode('')
-    } else if (cleanCode === 'FOREVER2026') {
-      localStorage.setItem('is_lifetime_vip', 'true')
-      alert('🔑 你拿到了一把不会生锈的备用钥匙。这里永远为你留一盏灯。')
-      setInputCode('')
-    } else {
-      alert('❓ 暗号对不上。')
+      const link = document.createElement('a')
+      link.download = `EndHere-${receiptId}.png`
+      link.href = imgData
+      link.click()
+    } catch (error) { 
+      alert('小票打印机卡纸了，请稍后再试。') 
+    } finally { 
+      setIsSharing(false) 
     }
   }
-
-  const status = getStatusByScore(scoreEnd)
 
   return (
     <div style={{
       width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', gap: '32px', padding: '40px 24px', textAlign: 'center',
-      opacity: visible ? 1 : 0, transition: 'opacity 0.8s ease', margin: '0 auto',
+      alignItems: 'center', gap: '28px', padding: '50px 20px',
+      opacity: visible ? 1 : 0, transition: 'opacity 0.6s ease', margin: '0 auto',
     }}>
 
-      {/* --- 小票区域 --- */}
+      {/* 🧾 === 真实热敏纸实体小票区域 === */}
       <div id="share-receipt" style={{
-        width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
-        gap: '32px', padding: '32px 24px', background: '#121212', 
-        borderRadius: '16px', border: saved ? '1px solid rgba(255,255,255,0.08)' : 'none',
+        width: '100%', display: 'flex', flexDirection: 'column', gap: '24px', 
+        padding: '36px 24px 40px', 
+        background: '#fbfaf7', // 真实热敏纸象牙白
+        color: '#2a2a2a', // 热敏淡墨色
+        boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 5px 15px rgba(0,0,0,0.2)',
+        position: 'relative',
+        fontFamily: 'monospace, "PingFang SC"',
+        // CSS 魔法：利用 clip-path 裁切出上下的真实物理撕纸锯齿边
+        clipPath: 'polygon(0% 0%, 4% 2%, 8% 0%, 12% 2%, 16% 0%, 20% 2%, 24% 0%, 28% 2%, 32% 0%, 36% 2%, 40% 0%, 44% 2%, 48% 0%, 52% 2%, 56% 0%, 60% 2%, 64% 0%, 68% 2%, 72% 0%, 76% 2%, 80% 0%, 84% 2%, 88% 0%, 92% 2%, 96% 0%, 100% 2%, 100% 98%, 96% 100%, 92% 98%, 88% 100%, 84% 98%, 80% 100%, 76% 98%, 72% 100%, 68% 98%, 64% 100%, 60% 98%, 56% 100%, 52% 98%, 48% 100%, 44% 98%, 40% 100%, 36% 98%, 32% 100%, 28% 98%, 24% 100%, 20% 98%, 16% 100%, 12% 98%, 8% 100%, 4% 98%, 0% 100%)',
       }}>
-        <div style={{ width: '40px', height: '1px', background: 'var(--border)' }} />
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.3em' }}>
-            {isManagerMode ? '专属通道' : '已记录'}
+        {/* 顶部伪造的物理条形码 */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', opacity: 0.7 }}>
+          <div style={{ 
+            width: '140px', height: '24px', 
+            // 纯 CSS 线性渐变绘制极其逼真的收银条形码
+            backgroundImage: 'linear-gradient(90deg, #2a2a2a 0px, #2a2a2a 2px, transparent 2px, transparent 4px, #2a2a2a 4px, #2a2a2a 5px, transparent 5px, transparent 8px, #2a2a2a 8px, #2a2a2a 12px, transparent 12px, transparent 14px, #2a2a2a 14px, #2a2a2a 15px, transparent 15px, transparent 18px, #2a2a2a 18px, #2a2a2a 20px, transparent 20px, transparent 22px, #2a2a2a 22px, #2a2a2a 26px)',
+            backgroundSize: '28px 24px'
+          }} />
+          <p style={{ fontSize: '9px', letterSpacing: '3px', margin: 0 }}>*{receiptId}*</p>
+        </div>
+
+        <div style={{ width: '100%', height: '1px', borderTop: '1px dashed #8c8273', opacity: 0.3 }} />
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+          <p style={{ fontSize: '11px', color: '#8f857a', letterSpacing: '0.2em', margin: 0 }}>
+            {isManagerMode ? 'COUNTER TICKET / 专属通道' : 'MEMORIES RECORD / 已记录'}
           </p>
-          <h2 style={{ color: 'var(--text-main)', fontSize: '26px', fontWeight: '300', letterSpacing: '0.15em', lineHeight: '1.8' }}>
-            {isManagerMode ? '等待回音。' : '到此为止。'}
+          <h2 style={{ fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.05em', margin: '4px 0 0', color: '#1a1612' }}>
+            {isManagerMode ? '留言已留存。' : '一切到此为止。'}
           </h2>
         </div>
 
         {item && (
           <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px',
-            padding: '28px', borderRadius: '16px', background: 'rgba(255,255,255,0.03)', 
-            border: `1px dashed ${isManagerMode ? 'var(--warm-yellow)' : 'var(--border)'}`, 
-            width: '100%', opacity: visible ? 1 : 0,
+            display: 'flex', alignItems: 'center', gap: '14px',
+            padding: '16px', borderRadius: '4px', background: 'rgba(0,0,0,0.02)', 
+            border: '1px solid rgba(0,0,0,0.05)', width: '100%', textAlign: 'left'
           }}>
-            <div style={{ fontSize: '48px', lineHeight: 1 }}>{item.icon}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <p style={{ color: 'var(--warm-yellow)', fontSize: '13px', letterSpacing: '0.15em' }}>
-                {isManagerMode ? '' : '获得「'}{item.name}{isManagerMode ? '' : '」'}
+            <div style={{ fontSize: '36px', lineHeight: 1 }}>{item.icon}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <p style={{ color: '#1a1612', fontSize: '13px', fontWeight: 'bold', margin: 0 }}>
+                【{item.name}】
               </p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.8', opacity: 0.8 }}>{item.desc}</p>
+              <p style={{ color: '#6e655f', fontSize: '11px', lineHeight: '1.5', margin: 0 }}>{item.desc}</p>
             </div>
           </div>
         )}
 
-        {saved && (
-          <div style={{ marginTop: '8px', paddingTop: '20px', borderTop: '1px dashed rgba(255,255,255,0.1)', width: '88%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.8 }}>
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em' }}>End Here</p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '9px', marginTop: '4px', opacity: 0.5, letterSpacing: '0.05em' }}>深夜情绪便利店</p>
-              <p style={{ color: 'var(--warm-yellow)', fontFamily: 'monospace', fontSize: '10px', marginTop: '8px', opacity: 0.8, letterSpacing: '0.05em' }}>
-                流水号: #{receiptId}
-              </p>
-            </div>
-            {!isManagerMode && (
-              <div style={{ width: '44px', height: '44px', background: '#fff', padding: '2px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src="/qrcode.png" alt="二维码" style={{ width: '100%', height: '100%', objectFit: 'contain' }} crossOrigin="anonymous" />
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+        <div style={{ width: '100%', height: '1px', borderTop: '1px dashed #8c8273', opacity: 0.3 }} />
 
-      {!saved && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em' }}>写完之后，现在感觉怎么样？</p>
-          <input type="range" min={1} max={10} value={scoreEnd} onChange={(e) => setScoreEnd(parseInt(e.target.value))} style={{ width: '100%', accentColor: 'var(--warm-yellow)', cursor: 'pointer' }} />
-          <button onClick={handleSave} style={{ width: '100%', padding: '13px', borderRadius: '10px', border: '1px solid rgba(245,200,66,0.3)', background: 'rgba(245,200,66,0.08)', color: 'var(--warm-yellow)', fontSize: '13px', letterSpacing: '0.2em', cursor: 'pointer' }}>
-            确认打包小票
-          </button>
-        </div>
-      )}
-
-      {saved && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          
-          {/* === 核心操作：店长模式和普通模式的按钮区分 === */}
-          <button
-            onClick={handleLeaveForManager}
-            disabled={mailboxStatus !== 'idle'}
-            style={{
-              width: '100%', padding: '14px', borderRadius: '12px', 
-              border: mailboxStatus === 'success' ? '1px dashed #a0c4a0' : '1px dashed var(--warm-yellow)', 
-              background: mailboxStatus === 'success' ? 'rgba(160,196,160,0.05)' : 'rgba(245,200,66,0.05)',
-              color: mailboxStatus === 'success' ? '#a0c4a0' : (mailboxStatus === 'error' ? '#e87070' : 'var(--warm-yellow)'), 
-              fontSize: '13px', letterSpacing: '0.1em', cursor: mailboxStatus === 'success' ? 'default' : 'pointer',
-              fontWeight: isManagerMode ? 'bold' : 'normal',
-            }}
-          >
-            {mailboxStatus === 'idle' && (isManagerMode ? '📥 确认将小票滑进吧台 (提交给店长)' : '📝 觉得不够？把这张票压在吧台')}
-            {mailboxStatus === 'loading' && '正在把小票压入吧台抽屉...'}
-            {mailboxStatus === 'success' && '✅ ' + mailboxMsg}
-            {mailboxStatus === 'error' && '❌ ' + mailboxMsg}
-          </button>
-
-          {/* 收银台透明货架 (保持原样不动) */}
-          <div style={{ width: '100%', padding: '20px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(245,200,66,0.15)', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '8px' }}>
-             {/* ... 这里是你原本的打赏和对暗号代码，保持原样 ... */}
-             <p style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: '1.6', opacity: 0.7 }}>
-              支持店长把这家破店开下去。转账时备注小票底部的暗号：<span style={{ color: 'var(--warm-yellow)' }}>#{receiptId}</span>。
+        {/* 小票底部联 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', textAlign: 'left' }}>
+          <div>
+            <p style={{ fontSize: '12px', fontWeight: 'bold', margin: 0, color: '#1a1612' }}>END HERE 小店</p>
+            <p style={{ fontSize: '9px', color: '#8f857a', marginTop: '2px', margin: 0 }}>
+              时间: {new Date().toLocaleDateString('zh-CN')} {new Date().toLocaleTimeString('zh-CN', {hour12:false}).slice(0,5)}
+            </p>
+            <p style={{ fontFamily: 'monospace', fontSize: '11px', fontWeight: 'bold', marginTop: '6px', margin: 0, color: '#2a2a2a' }}>
+              暗号: #{receiptId}
             </p>
           </div>
+          
+          {/* AI 模式生成分享卡片时，附带引流二维码 */}
+          {!isManagerMode && (
+            <div style={{ width: '40px', height: '40px', background: '#fff', padding: '2px', border: '1px solid #e0e0e0', borderRadius: '2px' }}>
+              <img src="/qrcode.png" alt="二维码" style={{ width: '100%', height: '100%', objectFit: 'contain' }} crossOrigin="anonymous" />
+            </div>
+          )}
+        </div>
+      </div>
 
-          {/* AI 模式才显示分享，店长模式直接隐藏 */}
+      {/* 🎛️ === 操作面板（留在小票下方的暗色区域） === */}
+      {!saved ? (
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em' }}>撕下小票前，现在心情好点了吗？</p>
+          <input type="range" min={1} max={10} value={scoreEnd} onChange={(e) => setScoreEnd(parseInt(e.target.value))} style={{ width: '100%', accentColor: 'var(--warm-yellow)', cursor: 'pointer' }} />
+          <button onClick={handleSave} style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid rgba(245,200,66,0.3)', background: 'rgba(245,200,66,0.08)', color: 'var(--warm-yellow)', fontSize: '13px', letterSpacing: '0.2em', cursor: 'pointer', fontWeight: 'bold' }}>
+            盖章 · 撕下小票
+          </button>
+        </div>
+      ) : (
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px', animation: 'fadeIn 0.3s ease' }}>
+          
+          {/* 去吧台投币/看货架的入口按钮 —— 平滑转场 */}
+          <button
+            onClick={() => router.push(`/counter?receiptId=${receiptId}&mode=${isManagerMode ? 'manager' : 'ai'}`)}
+            style={{
+              width: '100%', padding: '16px', borderRadius: '12px', 
+              border: '1px dashed var(--warm-yellow)', 
+              background: 'rgba(245,200,66,0.04)',
+              color: 'var(--warm-yellow)', 
+              fontSize: '13px', letterSpacing: '0.1em', cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            {isManagerMode ? '📥 去吧台把小票滑进玻璃糖罐...' : '🏪 去吧台看看旧货架和糖罐...'}
+          </button>
+
           {!isManagerMode && (
             <button onClick={handleShare} disabled={isSharing} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid rgba(245,200,66,0.6)', background: 'var(--warm-yellow)', color: '#1a1a1a', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.15em', cursor: 'pointer' }}>
-              {isSharing ? '生成中...' : '保存 / 分享小票'}
+              {isSharing ? '正在裁切纸张...' : '保存实体小票图片'}
             </button>
           )}
 
           <button onClick={() => router.push('/archive')} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '13px', letterSpacing: '0.15em', cursor: 'pointer' }}>
-            查看我的档案
+            查看我的情绪档案
           </button>
         </div>
       )}

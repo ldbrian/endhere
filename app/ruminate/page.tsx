@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PERSONAS, getRandomAction } from '../lib/personas'
 import { track } from '../lib/track'
-import { getMemoryPromptContext } from '../lib/memory'
+// === 核心修改 1：引入新的记忆方法 ===
+import { getMemoryPromptContext, updateCustomerVibe } from '../lib/memory'
 
 function getStatusByScore(score: number) {
   if (score >= 8) return { label: '还在痛', color: '#e87070' }
@@ -19,12 +20,15 @@ interface Action {
   sub: string
 }
 
-function parseResponse(raw: string): { analysis: string; punchline: string } {
+// === 核心修改 2：加入 vibeTag 的正则提取 ===
+function parseResponse(raw: string): { analysis: string; punchline: string; vibeTag: string } {
   const analysisMatch = raw.match(/<解析>([\s\S]*?)<\/解析>/)
   const punchlineMatch = raw.match(/<主旨>([\s\S]*?)<\/主旨>/)
+  const vibeMatch = raw.match(/<交接班印象>([\s\S]*?)<\/交接班印象>/)
   return {
     analysis: analysisMatch ? analysisMatch[1].trim() : '',
     punchline: punchlineMatch ? punchlineMatch[1].trim() : '',
+    vibeTag: vibeMatch ? vibeMatch[1].trim() : '',
   }
 }
 
@@ -35,6 +39,7 @@ function RuminateContent() {
   const [response, setResponse] = useState('')
   const [analysis, setAnalysis] = useState('')
   const [punchline, setPunchline] = useState('')
+  const [vibeTag, setVibeTag] = useState('') // === 新增：保存交接班印象 ===
   const [action, setAction] = useState<Action | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingText, setLoadingText] = useState('')
@@ -73,6 +78,7 @@ function RuminateContent() {
     setResponse('')
     setAnalysis('')
     setPunchline('')
+    setVibeTag('') // 重置印象
     setAction(null)
     setDone(false)
     setActionDone(false)
@@ -86,6 +92,7 @@ function RuminateContent() {
     clearInterval(timer)
     setLoadingText('')
 
+    // === 核心修改 3：在提示词中强制要求输出交接班印象 ===
     const systemPrompt = `你现在的身份是：${persona}。
 （注：Ash是仗义嘴毒的过命兄弟；Rin是无条件护短的贴心姐妹；Child是8岁时天真清澈的用户自己）
 
@@ -99,13 +106,15 @@ ID: [从 broken_scale, cracked_bowl, rusty_anchor 中选一个]
 NAME: [为他这次的回头复查，起一个带刺的物件名字]
 DESC: [写一句15字以内的文案]
 </命运物件>
+<交接班印象>用一句15字以内的市井大白话，概括你对该用户今天复查状态的印象，绝对不要用心理学词汇。</交接班印象>
 
 规则：
 - 绝对禁止任何温和的哲理教导、鸡汤或“我注意到你...”这种废话。
 - 必须根据${persona}的最新社会身份（兄弟/闺蜜/8岁的自己）来说话。
 - 像真人，短、狠、准。`
 
-    const memoryContext = getMemoryPromptContext(persona)
+    // 获取最新的吧台交接班记录（不需要传 persona 参数了）
+    const memoryContext = getMemoryPromptContext()
 
     const userMessage = `用户原始记录：${entry.content}
 用户当时情绪：${entry.emotion}，难受程度：${entry.emotionStart}/10
@@ -116,11 +125,14 @@ ${memoryContext}` // 将记忆拼在最后
       const res = await fetch('/api/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // === 核心修改 4：传递 memoryContext 与 clientHour ===
         body: JSON.stringify({
           content: userMessage,
           emotion: entry.emotion,
           persona,
           systemPrompt,
+          clientHour: new Date().getHours(),
+          memoryContext,
         }),
       })
 
@@ -140,6 +152,7 @@ ${memoryContext}` // 将记忆拼在最后
           const parsed = parseResponse(text.trim())
           setAnalysis(parsed.analysis)
           setPunchline(parsed.punchline)
+          setVibeTag(parsed.vibeTag) // 保存提取出的 impression
           try { setAction(JSON.parse(actionStr.trim())) } catch {}
           break
         } else {
@@ -147,6 +160,7 @@ ${memoryContext}` // 将记忆拼在最后
           const parsed = parseResponse(buffer)
           setAnalysis(parsed.analysis)
           setPunchline(parsed.punchline)
+          setVibeTag(parsed.vibeTag) // 保存提取出的 impression
         }
       }
       track('ruminate_done', { persona, supplement_length: supplement.length })
@@ -160,6 +174,11 @@ ${memoryContext}` // 将记忆拼在最后
   }
 
   const handleSave = () => {
+    // === 核心修改 5：原子化覆盖交接班印象 ===
+    if (vibeTag) {
+      updateCustomerVibe(vibeTag)
+    }
+
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     const idx = entries.findIndex((e: any) => String(e.id) === String(entryId))
     if (idx !== -1) {

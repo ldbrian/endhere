@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PERSONAS, getRandomAction } from '../lib/personas'
 import { track, checkLimit } from '../lib/track'
-import { extractAndSaveMemory, getMemoryPromptContext } from '../lib/memory'
+import { getMemoryPromptContext, updateCustomerVibe } from '../lib/memory'
 
 const EMOTION_LABELS: Record<string, string> = {
   regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
@@ -16,12 +16,14 @@ interface DestinedItem {
   desc: string
 }
 
-function parseResponse(raw: string): { analysis: string; punchline: string } {
+function parseResponse(raw: string): { analysis: string; punchline: string; vibeTag: string } {
   const analysisMatch = raw.match(/<解析>([\s\S]*?)<\/解析>/)
   const punchlineMatch = raw.match(/<主旨>([\s\S]*?)<\/主旨>/)
+  const vibeMatch = raw.match(/<交接班印象>([\s\S]*?)<\/交接班印象>/)
   return {
     analysis: analysisMatch ? analysisMatch[1].trim() : '',
     punchline: punchlineMatch ? punchlineMatch[1].trim() : '',
+    vibeTag: vibeMatch ? vibeMatch[1].trim() : '',
   }
 }
 
@@ -46,6 +48,7 @@ export default function ResponsePage() {
   const [rawResponse, setRawResponse] = useState('')
   const [analysis, setAnalysis] = useState('')
   const [punchline, setPunchline] = useState('')
+  const [vibeTag, setVibeTag] = useState('') // === 新增：保存交接班印象 ===
   const [destinedItem, setDestinedItem] = useState<DestinedItem | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingText, setLoadingText] = useState('')
@@ -130,11 +133,15 @@ export default function ResponsePage() {
     clearInterval(timer)
     setLoadingText('')
 
+    // === 新增：获取本地记忆上下文 ===
+    const memoryContext = getMemoryPromptContext()
+
     try {
       const res = await fetch('/api/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, emotion, persona, clientHour: new Date().getHours() }),
+        // === 新增：将 memoryContext 传给后端 ===
+        body: JSON.stringify({ content, emotion, persona, clientHour: new Date().getHours(), memoryContext }),
       })
 
       if (!res.body) return
@@ -154,6 +161,7 @@ export default function ResponsePage() {
           const parsed = parseResponse(cleanText)
           setAnalysis(parsed.analysis)
           setPunchline(parsed.punchline)
+          setVibeTag(parsed.vibeTag) // 解析并保存 Vibe Tag
           setDestinedItem(parseItem(cleanText))
           break
         } else {
@@ -161,6 +169,7 @@ export default function ResponsePage() {
           const parsed = parseResponse(buffer)
           setAnalysis(parsed.analysis)
           setPunchline(parsed.punchline)
+          setVibeTag(parsed.vibeTag) // 持续更新 Vibe Tag
           setDestinedItem(parseItem(buffer))
         }
       }
@@ -238,7 +247,10 @@ DESC: [一句15字以内的文案]
   }
 
   const handleFinish = () => {
-    extractAndSaveMemory(content, emotion, persona) 
+    // === 核心改动：覆盖交接班印象 ===
+    if (vibeTag) {
+      updateCustomerVibe(vibeTag)
+    }
 
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     entries.unshift({

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from '../lib/track'
+// === 核心修改 1：引入动作记录器 ===
+import { recordCustomerAction } from '../lib/memory'
 
 // 覆盖原本的 EMOTION_LABELS
 const EMOTION_LABELS: Record<string, string> = {
@@ -194,7 +196,11 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
               {!isManagerTicket && (
                 <button
-                  onClick={() => router.push(`/ruminate?id=${entry.id}`)}
+                  onClick={() => {
+                    // === 核心修改 2：记录死磕动作 ===
+                    recordCustomerAction('ruminate')
+                    router.push(`/ruminate?id=${entry.id}`)
+                  }}
                   style={{
                     width: '100%', padding: '12px', borderRadius: '10px',
                     border: '1px solid var(--border)', background: 'transparent',
@@ -207,6 +213,9 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
               )}
               <button
                 onClick={() => {
+                  // === 核心修改 3：记录放下动作 ===
+                  recordCustomerAction('letGo')
+                  
                   const entries = JSON.parse(localStorage.getItem('entries') || '[]')
                   const idx = entries.findIndex((e: any) => e.id === entry.id)
                   if (idx !== -1) {
