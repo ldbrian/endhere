@@ -324,11 +324,14 @@ export default function ArchivePage() {
       {entries.length === 0 ? (
         <div style={{
           padding: '40px 24px', borderRadius: '12px',
-          border: '1px solid var(--border)',
-          background: 'rgba(255,255,255,0.02)', textAlign: 'center',
+          border: '1px dashed var(--border)', // === 核心修改：改为虚线，增加破旧感 ===
+          background: 'rgba(255,255,255,0.01)', textAlign: 'center',
         }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', opacity: 0.5, lineHeight: '2' }}>
-            这里会保存你写下的每一次<br />到此为止
+          {/* === 核心修改：极其克制、允许沉默的空间黑话 === */}
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.5, lineHeight: '2' }}>
+            吧台的旧抽屉还是空的。<br />
+            不想说也没事。<br />
+            实在憋得难受了，再随便塞点什么进来。
           </p>
         </div>
       ) : (

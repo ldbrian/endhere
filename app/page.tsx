@@ -115,28 +115,42 @@ export default function Home() {
       )}
 
       {/* === 核心修改区：底部的三大按钮 === */}
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <button
           onClick={handleEnter}
           disabled={!selected}
-          style={{ width: '100%', padding: '15px', borderRadius: '12px', border: `1px solid ${selected ? 'rgba(245,200,66,0.3)' : 'var(--border)'}`, background: selected ? 'rgba(245,200,66,0.08)' : 'transparent', color: selected ? 'var(--warm-yellow)' : 'var(--text-muted)', fontSize: '14px', letterSpacing: '0.2em', cursor: selected ? 'pointer' : 'not-allowed', transition: 'all 0.3s ease', opacity: selected ? 1 : 0.4 }}
+          style={{ 
+            width: '100%', padding: '16px', borderRadius: '12px', 
+            border: `1px solid ${selected ? 'rgba(245,200,66,0.3)' : 'var(--border)'}`, 
+            background: selected ? 'rgba(245,200,66,0.08)' : 'transparent', 
+            color: selected ? 'var(--warm-yellow)' : 'var(--text-muted)', 
+            fontSize: '14px', letterSpacing: '0.15em', 
+            cursor: selected ? 'pointer' : 'not-allowed', 
+            transition: 'all 0.3s ease', opacity: selected ? 1 : 0.4 
+          }}
         >
-          写下来
+          {selected ? '随便丢点什么进去' : '先选个感觉'}
         </button>
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={() => router.push('/archive')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em', cursor: 'pointer', transition: 'all 0.3s ease', opacity: 0.8 }}>
-            查看档案
+            拉开抽屉看看
           </button>
           
-          {/* 新增的吧台入口 */}
+          {/* 吧台入口保持不变 */}
           <button onClick={() => router.push('/counter')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px dashed rgba(245,200,66,0.3)', background: 'rgba(245,200,66,0.05)', color: 'var(--warm-yellow)', fontSize: '12px', letterSpacing: '0.1em', cursor: 'pointer', transition: 'all 0.3s ease', opacity: 0.8 }}>
             🏪 走向吧台
           </button>
         </div>
 
-        <p style={{ color: 'var(--text-muted)', fontSize: '11px', textAlign: 'center', lineHeight: '2', opacity: 0.5 }}>
-          你的日记只存在你的设备上 · 无需注册
+        {/* 把技术语言变成“没人关心你”的空间气味 */}
+        <p style={{ 
+          color: 'var(--text-muted)', fontSize: '11px', 
+          textAlign: 'center', lineHeight: '1.8', opacity: 0.4,
+          marginTop: '4px'
+        }}>
+          不用注册。没人关心你是谁。<br/>
+          明早卷帘门一拉，没人记得你今晚来过。
         </p>
       </div>
       
