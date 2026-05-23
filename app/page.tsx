@@ -75,7 +75,7 @@ export default function Home() {
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.35em' }}>END HERE</p>
         {/* === 卸下包袱，变成一句陈述 === */}
         <h1 className={isBulbFixed ? "" : "flicker-bulb"} style={{ color: 'var(--text-main)', fontSize: ' 22px', fontWeight: '300', letterSpacing: '0.1em', lineHeight: '1.6' }}>
-          如果今晚有点撑不住 进来坐会儿
+          如果有点撑不住 进来坐会儿
         </h1>
       </div>
 
