@@ -37,7 +37,6 @@ function WriteContent() {
 
   const selectedPersona = PERSONAS.find(p => p.id === persona)
 
-  // 覆盖这个 handleSubmit 函数
   const handleSubmit = () => {
     if (!content.trim() || !persona || loading) return
     setLoading(true)
@@ -51,12 +50,12 @@ function WriteContent() {
       const initialScore = parseInt(sessionStorage.getItem('emotion_score') || '7', 10)
       const mockEntry = {
         id: Date.now(),
-        createdAt: new Date().toISOString(), // 👈 修复了 NaN 时间 bug
-        emotionStart: initialScore, // 把初始分数带上
+        createdAt: new Date().toISOString(),
+        emotionStart: initialScore,
         emotionEnd: initialScore,
         emotion: emotion,
-        status: '等待回信',
-        persona: 'Manager', // 👈 极其重要：给结算页的接头暗号
+        status: '未投递', // 👈 核心修复：一开始只能是未投递草稿
+        persona: 'Manager',
         content: content,
         rawResponse: '【系统提示】：你选择了直接留言给店长，没有触发人工智能。',
         released: false
@@ -146,7 +145,7 @@ function WriteContent() {
                 <button
                   onClick={() => setPersona(p.id)}
                   style={{
-                    width: '100%', padding: '14px 4px', borderRadius: '12px', // 减少左右padding防止拥挤
+                    width: '100%', padding: '14px 4px', borderRadius: '12px',
                     border: `1px solid ${isSelected ? p.color : 'var(--border)'}`,
                     background: isSelected ? `${p.color}15` : 'transparent',
                     color: isSelected ? p.color : 'var(--text-muted)',
@@ -191,7 +190,7 @@ function WriteContent() {
                 onClick={() => setPersona(p.id)}
                 style={{
                   width: '100%', padding: '16px 20px', borderRadius: '12px',
-                  border: `1px dashed ${isSelected ? p.color : 'var(--border)'}`, // 虚线模拟撕下来的小票
+                  border: `1px dashed ${isSelected ? p.color : 'var(--border)'}`, 
                   background: isSelected ? `${p.color}15` : 'rgba(255,255,255,0.01)',
                   color: isSelected ? p.color : 'var(--text-muted)',
                   cursor: 'pointer', transition: 'all 0.25s ease',
@@ -214,11 +213,10 @@ function WriteContent() {
           )
         })}
 
-        {/* === 核心重构：具有仪式感与黄昏光晕的「改名抽屉」组件 === */}
+        {/* 改名抽屉 */}
         <div style={{ 
           width: '100%',
           maxHeight: persona === 'Child' ? '80px' : '0px',
-          // 即使 textarea 拿到了焦点，只要当前选的是 Child，改名小信封就必须保持 100% 显现
           opacity: persona === 'Child' ? 1 : 0,
           overflow: 'hidden',
           transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',

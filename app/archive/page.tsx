@@ -3,10 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from '../lib/track'
-// === 核心修改 1：引入动作记录器 ===
 import { recordCustomerAction } from '../lib/memory'
 
-// 覆盖原本的 EMOTION_LABELS
 const EMOTION_LABELS: Record<string, string> = {
   choke: '胸口堵得慌', 
   tear: '眼眶有点热', 
@@ -30,7 +28,7 @@ interface Entry {
   released: boolean
   item?: { icon: string; name: string }
   sessions?: any[]
-  receiptId?: string // 新增：用于去后台拿店长回信的暗号
+  receiptId?: string 
 }
 
 function getStatusColor(status: string) {
@@ -38,6 +36,7 @@ function getStatusColor(status: string) {
   if (status === '好一点了') return 'var(--warm-yellow)'
   if (status === '快放下了') return '#a0c4a0'
   if (status === '等待回信') return 'var(--warm-yellow)'
+  if (status === '未投递') return '#e87070' // 👈 增加警示红
   return 'var(--text-muted)'
 }
 
@@ -48,14 +47,13 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
   formatDate: (iso: string) => string
   router: any
 }) {
-  // === 新增：店长回信的状态 ===
   const [managerReply, setManagerReply] = useState<string | null>(null)
   const [fetchingReply, setFetchingReply] = useState(false)
-  const isManagerTicket = !!entry.receiptId || entry.persona === 'Manager' || entry.status === '等待回信'
+  const isManagerTicket = !!entry.receiptId || entry.persona === 'Manager' || entry.status === '等待回信' || entry.status === '未投递'
 
-  // 当卡片展开时，如果是留给店长的小票，去后台拉取回信
   useEffect(() => {
-    if (expanded === entry.id && isManagerTicket && entry.receiptId && !managerReply) {
+    // 👈 核心修复：只有状态真的是等待回信，才去后台查库，省得空查
+    if (expanded === entry.id && isManagerTicket && entry.receiptId && !managerReply && entry.status === '等待回信') {
       setFetchingReply(true)
       fetch(`/api/mailbox?receiptId=${entry.receiptId}`)
         .then(res => res.json())
@@ -67,7 +65,7 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
         .catch(err => console.error('获取回信失败:', err))
         .finally(() => setFetchingReply(false))
     }
-  }, [expanded, entry.id, entry.receiptId, isManagerTicket, managerReply])
+  }, [expanded, entry.id, entry.receiptId, isManagerTicket, managerReply, entry.status])
 
   return (
     <div style={{
@@ -79,7 +77,6 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
       transition: 'opacity 0.3s ease',
     }}>
 
-      {/* 记录头部 */}
       <div
         onClick={() => setExpanded(expanded === entry.id ? null : entry.id)}
         style={{ padding: '16px 20px', cursor: 'pointer' }}
@@ -124,7 +121,6 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
         </p>
       </div>
 
-      {/* 展开内容 */}
       {expanded === entry.id && (
         <div style={{
           borderTop: '1px solid var(--border)',
@@ -132,7 +128,6 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
           display: 'flex', flexDirection: 'column', gap: '16px',
         }}>
           
-          {/* === 新增：店长的吧台回信区 === */}
           {isManagerTicket && (
             <div style={{
               padding: '16px', borderRadius: '12px',
@@ -152,7 +147,21 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
                 )}
               </div>
               
-              {!entry.receiptId ? (
+              {/* === 核心修复 4：针对未投递的死胡同给予明显反馈 === */}
+              {entry.status === '未投递' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
+                  <p style={{ color: '#e87070', fontSize: '13px', fontWeight: 'bold' }}>⚠️ 留言未投递</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.8, lineHeight: '1.6' }}>
+                    你当时只打印了小票，但没有把它压在吧台。店长收不到这封信。
+                  </p>
+                  <button
+                    onClick={() => router.push(`/counter?receiptId=${entry.receiptId || ''}&mode=manager`)}
+                    style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--warm-yellow)', background: 'rgba(245,200,66,0.05)', color: 'var(--warm-yellow)', fontSize: '12px', cursor: 'pointer', marginTop: '4px', letterSpacing: '0.1em' }}
+                  >
+                    重新去吧台投递
+                  </button>
+                </div>
+              ) : !entry.receiptId ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.6 }}>
                   这张小票好像没有印上流水号，店长找不到它了...
                 </p>
@@ -172,14 +181,12 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
             </div>
           )}
 
-          {/* AI 解析 (如果是AI对话，依然保留) */}
           {!isManagerTicket && entry.analysis && (
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.8', opacity: 0.8 }}>
               {entry.analysis}
             </p>
           )}
 
-          {/* 主旨 */}
           {entry.punchline && (
             <p style={{
               color: 'var(--text-main)', fontSize: '15px',
@@ -191,13 +198,11 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
             </p>
           )}
 
-          {/* 操作按钮 */}
           {!entry.released ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
               {!isManagerTicket && (
                 <button
                   onClick={() => {
-                    // === 核心修改 2：记录死磕动作 ===
                     recordCustomerAction('ruminate')
                     router.push(`/ruminate?id=${entry.id}`)
                   }}
@@ -213,9 +218,7 @@ function EntryCard({ entry, expanded, setExpanded, formatDate, router }: {
               )}
               <button
                 onClick={() => {
-                  // === 核心修改 3：记录放下动作 ===
                   recordCustomerAction('letGo')
-                  
                   const entries = JSON.parse(localStorage.getItem('entries') || '[]')
                   const idx = entries.findIndex((e: any) => e.id === entry.id)
                   if (idx !== -1) {
@@ -262,8 +265,6 @@ export default function ArchivePage() {
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('entries') || '[]')
-    
-    // === 补丁：强行给没有 id 的数据（比如刚才的测试数据）打上唯一时间戳 ===
     const patchedEntries = saved.map((e: any, i: number) => {
       if (!e.id) {
         return { ...e, id: Date.now() + i }
@@ -272,9 +273,7 @@ export default function ArchivePage() {
     })
     
     setEntries(patchedEntries)
-    // 顺手把洗干净的数据写回本地，以后就没这毛病了
     localStorage.setItem('entries', JSON.stringify(patchedEntries))
-    
     track('view_archive', { entry_count: patchedEntries.length })
   }, [])
 
@@ -309,7 +308,6 @@ export default function ArchivePage() {
       margin: '0 auto'
     }}>
 
-      {/* 顶部 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>END HERE</p>
         <h1 style={{ color: 'var(--text-main)', fontSize: '20px', fontWeight: '300', letterSpacing: '0.1em' }}>
@@ -320,14 +318,12 @@ export default function ArchivePage() {
         </p>
       </div>
 
-      {/* 档案列表 */}
       {entries.length === 0 ? (
         <div style={{
           padding: '40px 24px', borderRadius: '12px',
-          border: '1px dashed var(--border)', // === 核心修改：改为虚线，增加破旧感 ===
+          border: '1px dashed var(--border)',
           background: 'rgba(255,255,255,0.01)', textAlign: 'center',
         }}>
-          {/* === 核心修改：极其克制、允许沉默的空间黑话 === */}
           <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.5, lineHeight: '2' }}>
             吧台的旧抽屉还是空的。<br />
             不想说也没事。<br />
@@ -337,7 +333,6 @@ export default function ArchivePage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-          {/* 活跃区 */}
           {entries.filter(e => !e.released).map((entry) => (
             <EntryCard
               key={entry.id}
@@ -349,7 +344,6 @@ export default function ArchivePage() {
             />
           ))}
 
-          {/* 分割线 */}
           {entries.some(e => e.released) && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: '12px',
@@ -366,7 +360,6 @@ export default function ArchivePage() {
             </div>
           )}
 
-          {/* 归档区 */}
           {entries.filter(e => e.released).map((entry) => (
             <EntryCard
               key={entry.id}
@@ -380,7 +373,6 @@ export default function ArchivePage() {
         </div>
       )}
 
-      {/* 反馈区块 (保持原样不动) */}
       {!feedbackSent ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {!showFeedback ? (
@@ -406,7 +398,6 @@ export default function ArchivePage() {
                 你希望哪个功能先上？
               </p>
 
-              {/* 功能选项 */}
               {[
                 { id: 'title', label: '称号系统', desc: '记录你走过的每一次' },
                 { id: 'collect', label: '稀有收藏物件', desc: '更多有意义的物件' },

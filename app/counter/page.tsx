@@ -8,9 +8,8 @@ function CounterContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
-  // 从 URL 获取上一页传过来的参数
   const receiptId = searchParams.get('receiptId') || ''
-  const mode = searchParams.get('mode') || 'ai' // 'manager' 或 'ai'
+  const mode = searchParams.get('mode') || 'ai' 
   const isManagerMode = mode === 'manager'
 
   const [inputCode, setInputCode] = useState('')
@@ -22,7 +21,6 @@ function CounterContent() {
   useEffect(() => {
     track('view_counter', { mode, receipt_id: receiptId })
     setTimeout(() => setVisible(true), 100)
-    // 如果是店长模式，默认直接展开糖罐
     if (isManagerMode) setShowCandyJar(true)
   }, [mode, receiptId, isManagerMode])
 
@@ -47,6 +45,15 @@ function CounterContent() {
         setMailboxStatus('success')
         setMailboxMsg(data.message)
         track('manager_mailbox_success', { receipt_id: receiptId })
+        
+        // 👈 核心修复 3：后端成功落库邮箱后，更新本地档案室的最终状态
+        const storedEntries = JSON.parse(localStorage.getItem('entries') || '[]')
+        const currentEntryIndex = storedEntries.findIndex((e: any) => e.receiptId === receiptId || e.id === storedEntries[0]?.id)
+        if (currentEntryIndex !== -1) {
+          storedEntries[currentEntryIndex].status = '等待回信'
+          localStorage.setItem('entries', JSON.stringify(storedEntries))
+        }
+
       } else {
         setMailboxStatus('error')
         setMailboxMsg(data.message)
@@ -84,7 +91,6 @@ function CounterContent() {
       opacity: visible ? 1 : 0, transition: 'opacity 0.6s ease',
     }}>
 
-      {/* 顶部指示 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center', textAlign: 'center', marginBottom: '8px' }}>
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.3em' }}>
           END HERE COUNTER
@@ -97,7 +103,6 @@ function CounterContent() {
         </p>
       </div>
 
-      {/* === 店长模式：专属的玻璃糖罐 === */}
       {isManagerMode ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', animation: 'fadeIn 0.4s ease-out' }}>
           <div style={{ padding: '24px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
@@ -132,7 +137,6 @@ function CounterContent() {
           </div>
         </div>
       ) : (
-        /* === AI 模式下的货架 === */
         <div style={{ 
           width: '100%', padding: '24px 20px', borderRadius: '12px', 
           background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.08)', 
@@ -148,7 +152,6 @@ function CounterContent() {
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* 电池商品 */}
             <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.15)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <span style={{ color: 'var(--text-main)', fontSize: '14px' }}>🔋 收音机电池</span>
@@ -157,7 +160,6 @@ function CounterContent() {
               <p style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.6, lineHeight: '1.6' }}>扫码支付，下方输入暗号激活，获取今晚额外 3 次倾诉额度。</p>
             </div>
 
-            {/* 钥匙商品 */}
             <div style={{ padding: '14px', background: 'rgba(245,200,66,0.05)', borderRadius: '8px', border: '1px dashed rgba(245,200,66,0.25)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <span style={{ color: 'var(--warm-yellow)', fontSize: '14px', fontWeight: 'bold' }}>🔑 备用钥匙 (买断)</span>
@@ -167,7 +169,6 @@ function CounterContent() {
             </div>
           </div>
 
-          {/* 收款与激活区 */}
           <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
             <img src="/pay_code.png" alt="投币码" style={{ width: '140px', height: '140px', filter: 'grayscale(100%) contrast(1.2)', opacity: 0.85, borderRadius: '8px' }} />
             
@@ -190,7 +191,6 @@ function CounterContent() {
         </div>
       )}
 
-      {/* 底部导航 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
         <button 
           onClick={() => router.push('/archive')} 

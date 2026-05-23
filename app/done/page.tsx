@@ -63,9 +63,9 @@ export default function DonePage() {
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     if (entries.length > 0) {
       entries[0].emotionEnd = scoreEnd
-      entries[0].status = isManagerMode ? '等待回信' : '已封存'
+      entries[0].status = isManagerMode ? '未投递' : '已封存' // 👈 核心修复 2
       entries[0].item = item
-      entries[0].receiptId = receiptId // 固化流水号
+      entries[0].receiptId = receiptId 
     }
     localStorage.setItem('entries', JSON.stringify(entries))
     setSaved(true)
@@ -82,7 +82,7 @@ export default function DonePage() {
         scale: 3, 
         useCORS: true, 
         logging: false,
-        backgroundColor: '#1a1612' // 保持和主背景一致
+        backgroundColor: '#1a1612' 
       } as any)
       const imgData = canvas.toDataURL('image/png')
       const link = document.createElement('a')
@@ -107,12 +107,11 @@ export default function DonePage() {
       <div id="share-receipt" style={{
         width: '100%', display: 'flex', flexDirection: 'column', gap: '24px', 
         padding: '36px 24px 40px', 
-        background: '#fbfaf7', // 真实热敏纸象牙白
-        color: '#2a2a2a', // 热敏淡墨色
+        background: '#fbfaf7', 
+        color: '#2a2a2a', 
         boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 5px 15px rgba(0,0,0,0.2)',
         position: 'relative',
         fontFamily: 'monospace, "PingFang SC"',
-        // CSS 魔法：利用 clip-path 裁切出上下的真实物理撕纸锯齿边
         clipPath: 'polygon(0% 0%, 4% 2%, 8% 0%, 12% 2%, 16% 0%, 20% 2%, 24% 0%, 28% 2%, 32% 0%, 36% 2%, 40% 0%, 44% 2%, 48% 0%, 52% 2%, 56% 0%, 60% 2%, 64% 0%, 68% 2%, 72% 0%, 76% 2%, 80% 0%, 84% 2%, 88% 0%, 92% 2%, 96% 0%, 100% 2%, 100% 98%, 96% 100%, 92% 98%, 88% 100%, 84% 98%, 80% 100%, 76% 98%, 72% 100%, 68% 98%, 64% 100%, 60% 98%, 56% 100%, 52% 98%, 48% 100%, 44% 98%, 40% 100%, 36% 98%, 32% 100%, 28% 98%, 24% 100%, 20% 98%, 16% 100%, 12% 98%, 8% 100%, 4% 98%, 0% 100%)',
       }}>
         
@@ -120,7 +119,6 @@ export default function DonePage() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', opacity: 0.7 }}>
           <div style={{ 
             width: '140px', height: '24px', 
-            // 纯 CSS 线性渐变绘制极其逼真的收银条形码
             backgroundImage: 'linear-gradient(90deg, #2a2a2a 0px, #2a2a2a 2px, transparent 2px, transparent 4px, #2a2a2a 4px, #2a2a2a 5px, transparent 5px, transparent 8px, #2a2a2a 8px, #2a2a2a 12px, transparent 12px, transparent 14px, #2a2a2a 14px, #2a2a2a 15px, transparent 15px, transparent 18px, #2a2a2a 18px, #2a2a2a 20px, transparent 20px, transparent 22px, #2a2a2a 22px, #2a2a2a 26px)',
             backgroundSize: '28px 24px'
           }} />
@@ -131,10 +129,10 @@ export default function DonePage() {
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
           <p style={{ fontSize: '11px', color: '#8f857a', letterSpacing: '0.2em', margin: 0 }}>
-            {isManagerMode ? 'COUNTER TICKET / 专属通道' : 'MEMORIES RECORD / 已记录'}
+            {isManagerMode ? 'COUNTER TICKET / 待投递' : 'MEMORIES RECORD / 已记录'}
           </p>
           <h2 style={{ fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.05em', margin: '4px 0 0', color: '#1a1612' }}>
-            {isManagerMode ? '留言已留存。' : '一切到此为止。'}
+            {isManagerMode ? '凭条已打印。' : '一切到此为止。'}
           </h2>
         </div>
 
@@ -156,7 +154,6 @@ export default function DonePage() {
 
         <div style={{ width: '100%', height: '1px', borderTop: '1px dashed #8c8273', opacity: 0.3 }} />
 
-        {/* 小票底部联 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', textAlign: 'left' }}>
           <div>
             <p style={{ fontSize: '12px', fontWeight: 'bold', margin: 0, color: '#1a1612' }}>END HERE 小店</p>
@@ -168,7 +165,6 @@ export default function DonePage() {
             </p>
           </div>
           
-          {/* AI 模式生成分享卡片时，附带引流二维码 */}
           {!isManagerMode && (
             <div style={{ width: '40px', height: '40px', background: '#fff', padding: '2px', border: '1px solid #e0e0e0', borderRadius: '2px' }}>
               <img src="/qrcode.png" alt="二维码" style={{ width: '100%', height: '100%', objectFit: 'contain' }} crossOrigin="anonymous" />
@@ -177,7 +173,6 @@ export default function DonePage() {
         </div>
       </div>
 
-      {/* 🎛️ === 操作面板（留在小票下方的暗色区域） === */}
       {!saved ? (
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em' }}>撕下小票前，现在心情好点了吗？</p>
@@ -188,8 +183,6 @@ export default function DonePage() {
         </div>
       ) : (
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px', animation: 'fadeIn 0.3s ease' }}>
-          
-          {/* 去吧台投币/看货架的入口按钮 —— 平滑转场 */}
           <button
             onClick={() => router.push(`/counter?receiptId=${receiptId}&mode=${isManagerMode ? 'manager' : 'ai'}`)}
             style={{
