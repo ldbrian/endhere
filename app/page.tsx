@@ -13,7 +13,6 @@ const EMOTIONS = [
   { id: 'shattered', label: '感觉快碎掉了', emoji: '🩹' },
 ]
 
-// 彩蛋配置保持不变...
 const EASTER_EGG_NOTES = [
   { id: 'ash_noodle', author: 'Ash', text: '大半夜饿得胃疼，挑了盒最贵的泡面，撕开倒完开水才发现里面根本没装调料包。\n老子现在只能吃一碗泡了热水的硬纸板。今天连吃个垃圾食品都不配拥有完整的垃圾吗？\n今晚别跟我说话。' },
   { id: 'rin_puddle', author: 'Rin', text: '下班太累没看路，一脚踩进了共享单车旁的黑水坑里。\n一路踩着湿透的鞋子挤地铁，到家门口一摸口袋，钥匙锁在吧台了。\n我现在正坐在家门口的楼道里吹穿堂风。对不起，今天实在不想温柔了。' },
@@ -63,7 +62,7 @@ export default function Home() {
   return (
     <div style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '40px', padding: '40px 24px 60px' }}>
       
-      {/* 背景光晕、状态牌、Logo及选项等保持完全一致... */}
+      {/* 背景光晕、状态牌、Logo及选项 */}
       <div style={{ position: 'fixed', top: '35%', left: '50%', transform: 'translate(-50%, -50%)', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(245,200,66,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
       <div style={{ padding: '6px 16px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '-10px' }}>
@@ -74,7 +73,10 @@ export default function Home() {
       <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
         <img src="/logo.png" alt="End Here" className={isBulbFixed ? "" : "flicker-bulb"} style={{ width: '72px', height: '72px', opacity: 0.9 }} />
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.35em' }}>END HERE</p>
-        <h1 className={isBulbFixed ? "" : "flicker-bulb"} style={{ color: 'var(--text-main)', fontSize: '32px', fontWeight: '300', letterSpacing: '0.15em', lineHeight: '1.8' }}>写下来 到此为止</h1>
+        {/* === 卸下包袱，变成一句陈述 === */}
+        <h1 className={isBulbFixed ? "" : "flicker-bulb"} style={{ color: 'var(--text-main)', fontSize: '28px', fontWeight: '300', letterSpacing: '0.1em', lineHeight: '1.6' }}>
+          如果今晚有点撑不住。
+        </h1>
       </div>
 
       <div style={{ width: '40px', height: '1px', background: 'var(--border)' }} />
@@ -114,7 +116,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* === 核心修改区：底部的三大按钮 === */}
+      {/* === 核心修改区：底部的三大按钮与空间气味 === */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <button
           onClick={handleEnter}
@@ -124,12 +126,13 @@ export default function Home() {
             border: `1px solid ${selected ? 'rgba(245,200,66,0.3)' : 'var(--border)'}`, 
             background: selected ? 'rgba(245,200,66,0.08)' : 'transparent', 
             color: selected ? 'var(--warm-yellow)' : 'var(--text-muted)', 
-            fontSize: '14px', letterSpacing: '0.15em', 
+            fontSize: '15px', letterSpacing: '0.15em', 
             cursor: selected ? 'pointer' : 'not-allowed', 
             transition: 'all 0.3s ease', opacity: selected ? 1 : 0.4 
           }}
         >
-          {selected ? '随便丢点什么进去' : '先选个感觉'}
+          {/* === 变成最低心理门槛的动作 === */}
+          {selected ? '进来坐会儿' : '先选个感觉'}
         </button>
 
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -137,20 +140,19 @@ export default function Home() {
             拉开抽屉看看
           </button>
           
-          {/* 吧台入口保持不变 */}
           <button onClick={() => router.push('/counter')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px dashed rgba(245,200,66,0.3)', background: 'rgba(245,200,66,0.05)', color: 'var(--warm-yellow)', fontSize: '12px', letterSpacing: '0.1em', cursor: 'pointer', transition: 'all 0.3s ease', opacity: 0.8 }}>
             🏪 走向吧台
           </button>
         </div>
 
-        {/* 把技术语言变成“没人关心你”的空间气味 */}
+        {/* === 退去文学化，变成真实的白话 === */}
         <p style={{ 
           color: 'var(--text-muted)', fontSize: '11px', 
           textAlign: 'center', lineHeight: '1.8', opacity: 0.4,
           marginTop: '4px'
         }}>
-          不用注册。没人关心你是谁。<br/>
-          明早卷帘门一拉，没人记得你今晚来过。
+          不用注册。写完就撕。<br/>
+          没人知道你今晚来过。
         </p>
       </div>
       
