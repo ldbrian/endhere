@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from './lib/track'
+import PlasticBag from './components/PlasticBag' // 根据你的实际路径调整
 import { recordCustomerAction } from './lib/memory'
 
 const EMOTIONS = [
@@ -61,7 +62,7 @@ export default function Home() {
 
   return (
     <div style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '40px', padding: '40px 24px 60px' }}>
-      
+      <PlasticBag />
       {/* 背景光晕、状态牌、Logo及选项 */}
       <div style={{ position: 'fixed', top: '35%', left: '50%', transform: 'translate(-50%, -50%)', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(245,200,66,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
