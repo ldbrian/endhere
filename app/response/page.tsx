@@ -6,6 +6,127 @@ import { PERSONAS, getRandomAction } from '../lib/personas'
 import { track, checkLimit } from '../lib/track'
 import { getMemoryPromptContext, updateCustomerVibe } from '../lib/memory'
 
+// ==========================================
+// 绝版组件：35秒时光抽屉 (一生一次)
+// ==========================================
+// ==========================================
+// 绝版组件：35秒时光抽屉 (一生一次) - 终极剧本版
+// ==========================================
+function ChildhoodDrawerOverlay({ onClose }: { onClose: () => void }) {
+  const [phase, setPhase] = useState(0) // 1: 倒带, 2: 碎片, 3: 致命一击(黑屏), 4: 遣返
+  const [year, setYear] = useState(new Date().getFullYear())
+  const [textIndex, setTextIndex] = useState(-1)
+  const [showKillShot, setShowKillShot] = useState(false)
+
+  // 严格按照你的分行，利用 \n 换行符控制节奏
+  const fragments = [
+    "（电视杂音）\n“你趴在凉席上。”\n“动画片其实演了什么。”\n“已经记不清了。”",
+    "（风扇声）\n“厨房里有人喊你吃饭。”\n“你回了一句：\n‘等会儿。’”"
+  ]
+
+  useEffect(() => {
+    let startYear = new Date().getFullYear()
+    let currentYear = startYear
+    setPhase(1)
+
+    // Phase 1 (0-5s): 现实的剥离，年份疯狂倒退
+    const rInt = setInterval(() => {
+      currentYear -= Math.floor(Math.random() * 3) + 1
+      if (currentYear < 2000) currentYear = 2000
+      setYear(currentYear)
+    }, 80)
+
+    // Phase 2 (5-21s): 记忆碎片显影 (两幕，每幕给足 8 秒沉浸)
+    const t1 = setTimeout(() => { clearInterval(rInt); setPhase(2); setTextIndex(0) }, 5000)
+    const t2 = setTimeout(() => setTextIndex(1), 13000) 
+
+    // Phase 3 (21-31.5s): 物理断电与致命一击
+    // 21s - 24.5s: 纯正的【黑屏。很久。】没有任何文字，只有黑暗
+    const t3 = setTimeout(() => { setPhase(3); setShowKillShot(false) }, 21000) 
+    // 24.5s: 浮现最后一句
+    const t4 = setTimeout(() => setShowKillShot(true), 24500) 
+
+    // Phase 4 (31.5-35s): 无情的遣返
+    const t5 = setTimeout(() => {
+      setPhase(4)
+      const fInt = setInterval(() => {
+        currentYear += Math.floor(Math.random() * 4) + 1
+        if (currentYear >= startYear) {
+          currentYear = startYear
+          clearInterval(fInt)
+        }
+        setYear(currentYear)
+      }, 60)
+    }, 31500)
+
+    // End (35s): 强制关上抽屉
+    const t6 = setTimeout(() => onClose(), 35000)
+
+    return () => {
+      clearInterval(rInt)
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3)
+      clearTimeout(t4); clearTimeout(t5); clearTimeout(t6)
+    }
+  }, [onClose])
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      
+      {/* 阶段 1 & 4：滚动的年份 */}
+      {(phase === 1 || phase === 4) && (
+        <div style={{ fontSize: '48px', fontFamily: 'monospace', color: '#fff', animation: phase === 1 ? 'rewindBlur 5s forwards' : 'forwardClear 3.5s forwards' }}>
+          {year}
+        </div>
+      )}
+
+      {/* 阶段 2：残缺的碎片白描与环境音 */}
+      {phase === 2 && textIndex >= 0 && (
+        <div key={textIndex} style={{ padding: '0 32px', textAlign: 'center', animation: 'drawerFade 7.5s ease-in-out forwards' }}>
+          {fragments[textIndex].split('\n').map((line, i) => (
+            <p 
+              key={i} 
+              style={{ 
+                fontSize: line.startsWith('（') ? '13px' : '15px', // 声音字号小
+                letterSpacing: '0.15em', 
+                color: line.startsWith('（') ? '#888' : '#ccc',   // 声音颜色暗
+                lineHeight: '2.2',
+                fontStyle: line.startsWith('（') ? 'italic' : 'normal',
+                marginBottom: line.startsWith('（') ? '16px' : '4px' // 声音和画面之间拉开一点距离
+              }}
+            >
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* 阶段 3：致命一击 */}
+      {phase === 3 && showKillShot && (
+        <div style={{ padding: '0 32px', textAlign: 'center', animation: 'drawerFade 6s ease-in-out forwards' }}>
+          <p style={{ fontSize: '13px', color: '#888', fontStyle: 'italic', marginBottom: '32px', letterSpacing: '0.15em' }}>
+            （所有声音突然消失）
+          </p>
+          <p style={{ fontSize: '15px', letterSpacing: '0.2em', color: '#fff', opacity: 0.9, lineHeight: '2.4', marginBottom: '8px' }}>
+            “那时候。”
+          </p>
+          <p style={{ fontSize: '15px', letterSpacing: '0.2em', color: '#fff', opacity: 0.9, lineHeight: '2.4' }}>
+            “你以为以后还有很多个夏天。”
+          </p>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes rewindBlur { 0% { filter: blur(0px); opacity: 1; transform: scale(1); } 100% { filter: blur(15px); opacity: 0; transform: scale(1.1); } }
+        @keyframes forwardClear { 0% { filter: blur(15px); opacity: 0; transform: scale(0.9); } 100% { filter: blur(0px); opacity: 1; transform: scale(1); } }
+        /* 稍微拉长了 Fade 的持续时间，匹配 8 秒的单幕停留 */
+        @keyframes drawerFade { 0% { opacity: 0; transform: scale(0.98); } 15% { opacity: 1; transform: scale(1); } 85% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.02); } }
+      `}</style>
+    </div>
+  )
+}
+// ==========================================
+// ==========================================
+
 const EMOTION_LABELS: Record<string, string> = {
   regret: '后悔', grievance: '委屈', unwilling: '不甘', irritated: '烦躁', sad: '难过',
 }
@@ -48,7 +169,7 @@ export default function ResponsePage() {
   const [rawResponse, setRawResponse] = useState('')
   const [analysis, setAnalysis] = useState('')
   const [punchline, setPunchline] = useState('')
-  const [vibeTag, setVibeTag] = useState('') // === 新增：保存交接班印象 ===
+  const [vibeTag, setVibeTag] = useState('') 
   const [destinedItem, setDestinedItem] = useState<DestinedItem | null>(null)
   const [loading, setLoading] = useState(false)
   const [loadingText, setLoadingText] = useState('')
@@ -67,6 +188,14 @@ export default function ResponsePage() {
   
   const router = useRouter()
   const bottomRef = useRef<HTMLDivElement>(null)
+  
+  // === 隐性追踪与状态控制 ===
+  const responseFinishTime = useRef<number>(0) 
+  const [isRejected, setIsRejected] = useState(false) 
+  
+  // === 童年抽屉状态 ===
+  const [showChildDrawer, setShowChildDrawer] = useState(false)
+  const [hasOpenedDrawer, setHasOpenedDrawer] = useState(false)
 
   useEffect(() => {
     const savedContent = sessionStorage.getItem('entry_content') || ''
@@ -80,6 +209,7 @@ export default function ResponsePage() {
     setPersona(savedPersona)
     setEmotionScore(savedScore)
     setChildName(savedChildName)
+    setHasOpenedDrawer(localStorage.getItem('hasOpenedChildDrawer') === 'true')
   }, [])
 
   useEffect(() => {
@@ -92,32 +222,26 @@ export default function ResponsePage() {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [analysis, punchline, actionDone, showRebuttalInput, rebuttalPunchline])
+  }, [analysis, punchline, actionDone, showRebuttalInput, rebuttalPunchline, isRejected])
 
   const handleStart = async () => {
     if (!content || loading) return
     
-    // === 1. 发起后端额度校验 ===
     const limit = await checkLimit()
-    
-    // === 2. 获取本地的“特权暗号”状态 ===
     const isVip = localStorage.getItem('is_lifetime_vip') === 'true'
     const hasExtra = localStorage.getItem('extra_limit_granted') === '3'
 
-    // === 3. 核心拦截：如果没有额度，且没有特权，强行踢客 ===
     if (!limit.allowed && !isVip && !hasExtra) {
       alert(`🏪 店长留客通知：\n\n今天你已经来过小店宣泄过了（已达 ${limit.limit} 次上限）。\n避难所灯火再温暖，过去的也不该贪恋。\n\n请先去做那件你一直拖着的事，明天深夜，店长再为你亮灯。`)
       setAnalysis('今天已经来过避难所了。卷帘门已拉下，请回到现实去。')
       setStarted(true)
       setDone(true)
-      // 强行踢回首页，绝不留情
       setTimeout(() => { router.push('/') }, 2000)
       return
     }
 
-    // === 4. 抵扣临时能量包 ===
     if (!limit.allowed && hasExtra) {
-      localStorage.removeItem('extra_limit_granted') // 消耗掉这次临时买来的额度
+      localStorage.removeItem('extra_limit_granted') 
     }
 
     setStarted(true)
@@ -133,14 +257,12 @@ export default function ResponsePage() {
     clearInterval(timer)
     setLoadingText('')
 
-    // === 新增：获取本地记忆上下文 ===
     const memoryContext = getMemoryPromptContext()
 
     try {
       const res = await fetch('/api/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // === 新增：将 memoryContext 传给后端 ===
         body: JSON.stringify({ content, emotion, persona, clientHour: new Date().getHours(), memoryContext }),
       })
 
@@ -161,7 +283,7 @@ export default function ResponsePage() {
           const parsed = parseResponse(cleanText)
           setAnalysis(parsed.analysis)
           setPunchline(parsed.punchline)
-          setVibeTag(parsed.vibeTag) // 解析并保存 Vibe Tag
+          setVibeTag(parsed.vibeTag) 
           setDestinedItem(parseItem(cleanText))
           break
         } else {
@@ -169,11 +291,13 @@ export default function ResponsePage() {
           const parsed = parseResponse(buffer)
           setAnalysis(parsed.analysis)
           setPunchline(parsed.punchline)
-          setVibeTag(parsed.vibeTag) // 持续更新 Vibe Tag
+          setVibeTag(parsed.vibeTag) 
           setDestinedItem(parseItem(buffer))
         }
       }
       track('response_done', { persona, emotion })
+      // 开始计时：记录AI完全回复完毕的这一刻
+      responseFinishTime.current = Date.now() 
       setDone(true)
     } catch {
       setAnalysis('出了点问题，请稍后再试。')
@@ -215,7 +339,7 @@ DESC: [一句15字以内的文案]
           emotion, 
           persona, 
           systemPrompt: rebuttalSystemPrompt,
-          clientHour: new Date().getHours() // 同样偷运时间戳
+          clientHour: new Date().getHours() 
         }),
       })
 
@@ -247,7 +371,6 @@ DESC: [一句15字以内的文案]
   }
 
   const handleFinish = () => {
-    // === 核心改动：覆盖交接班印象 ===
     if (vibeTag) {
       updateCustomerVibe(vibeTag)
     }
@@ -274,15 +397,26 @@ DESC: [一句15字以内的文案]
 
   const getCustomAction = () => {
     if (persona === 'Ash') {
-      return { text: '找个信得过的人出来喝一杯，或者去街边摊狠狠搓一顿，算你的。', sub: '强行打断你当下的脑内死循环，身体动起来，现在就走。', btn: '听他的，这就走' }
+      return { text: '找个信得过的人出来喝一杯，或者去街边摊狠狠搓一顿，算你的。', sub: '强行打断你当下的脑内死循环，身体动起来，现在就走。' }
     } else if (persona === 'Rin') {
-      return { text: '现在立马收车/锁单回家，洗个热水澡，然后钻进被窝睡觉。', sub: '听她的，今晚不跟这个操蛋的世界死磕了。今天不受气了。', btn: '听她的，回家' }
+      return { text: '现在立马收车/锁单回家，洗个热水澡，然后钻进被窝睡觉。', sub: '听她的，今晚不跟这个操蛋的世界死磕了。今天不受气了。' }
     } else {
-      return { text: `闭上眼，跟记忆里的「${childName}」握个手，或者抱一抱他。`, sub: `告诉他：长大的你没丢脸，你已经把他保护得很好、带得足够远了。`, btn: '好，抱抱当年的自己' }
+      return { text: `闭上眼，跟记忆里的「${childName}」握个手，或者抱一抱他。`, sub: `告诉他：长大的你没丢脸，你已经把他保护得很好、带得足够远了。` }
+    }
+  }
+
+  const getTriangleActions = () => {
+    if (persona === 'Ash') {
+      return { left: '和 Ash 碰一下拳', right: '让 Ash 滚蛋' }
+    } else if (persona === 'Rin') {
+      return { left: '牵住 Rin 的手', right: '不想看 Rin 一眼' }
+    } else {
+      return { left: `抱一抱 ${childName}`, right: '让他回家写作业' }
     }
   }
 
   const actionConfig = getCustomAction()
+  const triangleActions = getTriangleActions()
   const currentPersona = PERSONAS.find(p => p.id === persona)
   const displayName = persona === 'Child' ? childName : currentPersona?.name
 
@@ -294,152 +428,221 @@ DESC: [一句15字以内的文案]
 
   const isChild = persona === 'Child'
 
+  const handleDrawerClose = () => {
+    setShowChildDrawer(false)
+    localStorage.setItem('hasOpenedChildDrawer', 'true')
+    setHasOpenedDrawer(true)
+  }
+
   return (
-    <div style={{ 
-      width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '24px', padding: '60px 24px', margin: '0 auto',
-      transition: 'all 0.8s ease',
-      // === 核心魔法：童年泛黄滤镜 ===
-      filter: isChild ? 'sepia(0.35) contrast(1.05) brightness(0.95)' : 'none',
-      background: isChild ? '#161410' : 'transparent',
-    }}>
-      
-      {/* 顶部指示 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>
-          {isChild ? 'BACK THERE' : 'END HERE'}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-          <span style={{ padding: '2px 12px', borderRadius: '999px', border: `1px solid ${currentPersona?.color}40`, color: currentPersona?.color, fontSize: '12px' }}>
-            {displayName}
-          </span>
-          <span style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.5 }}>在听你说</span>
-        </div>
-      </div>
+    <>
+      {/* 35秒全屏时光机叠加层 */}
+      {showChildDrawer && <ChildhoodDrawerOverlay onClose={handleDrawerClose} />}
 
-      {started && (
-        <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7', opacity: 0.4 }}>
-            {content.length > 80 ? content.slice(0, 80) + '...' : content}
+      <div style={{ 
+        width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '24px', padding: '60px 24px', margin: '0 auto',
+        transition: 'all 0.8s ease',
+        filter: isChild ? 'sepia(0.35) contrast(1.05) brightness(0.95)' : 'none',
+        background: isChild ? '#161410' : 'transparent',
+      }}>
+        
+        {/* 顶部指示 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>
+            {isChild ? 'BACK THERE' : 'END HERE'}
           </p>
-        </div>
-      )}
-
-      {loading && (
-        <div style={{ padding: '32px 24px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {[0, 1, 2].map(i => <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: currentPersona?.color, animation: `breathe 1.5s ease-in-out infinite`, animationDelay: `${i * 0.3}s` }} />)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+            <span style={{ padding: '2px 12px', borderRadius: '999px', border: `1px solid ${currentPersona?.color}40`, color: currentPersona?.color, fontSize: '12px' }}>
+              {displayName}
+            </span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.5 }}>在听你说</span>
           </div>
-          {loadingText && <p style={{ color: 'var(--text-muted)', fontSize: '13px', opacity: 0.7, textAlign: 'center', animation: 'fadeText 0.5s ease-in-out' }}>{loadingText}</p>}
         </div>
-      )}
 
-      {analysis && (
-        <div style={{ padding: '20px 24px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
-          <p style={{ color: 'var(--text-main)', fontSize: '15px', lineHeight: '1.9', opacity: 0.85 }}>{analysis}</p>
-        </div>
-      )}
+        {started && (
+          <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7', opacity: 0.4 }}>
+              {content.length > 80 ? content.slice(0, 80) + '...' : content}
+            </p>
+          </div>
+        )}
 
-      {punchline && (
-        <div style={{ padding: '32px 24px', margin: '8px 0', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: `1px solid ${currentPersona?.color}30`, textAlign: 'center' }}>
-          <p style={{ color: 'var(--text-main)', fontSize: '20px', fontWeight: '500', lineHeight: '1.7' }}>{punchline}</p>
-        </div>
-      )}
-
-      {/* 第一阶段行动卡片 */}
-      {punchline && done && !rebuttalDone && (
-        <div style={{ padding: '20px 24px', borderRadius: '12px', background: 'rgba(245,200,66,0.03)', border: '1px solid rgba(245,200,66,0.15)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <p style={{ color: 'var(--warm-yellow)', fontSize: '11px', letterSpacing: '0.2em' }}>现在，听建议做这件事</p>
-          <p style={{ color: 'var(--text-main)', fontSize: '15px', lineHeight: '1.6', fontWeight: '500' }}>{actionConfig.text}</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7', opacity: 0.7 }}>{actionConfig.sub}</p>
-          
-          {!showRebuttalInput && !actionDone ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
-              <button
-                onClick={() => { track('action_completed', { persona }); setActionDone(true) }}
-                style={{ padding: '12px', borderRadius: '8px', border: '1px solid rgba(245,200,66,0.3)', background: 'rgba(245,200,66,0.05)', color: 'var(--warm-yellow)', fontSize: '13px', cursor: 'pointer' }}
-              >
-                {actionConfig.btn}
-              </button>
-              <button
-                onClick={() => setShowRebuttalInput(true)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '11px', opacity: 0.4, cursor: 'pointer', padding: '8px', marginTop: '4px' }}
-              >
-                放屁，你根本不懂我...
-              </button>
+        {loading && (
+          <div style={{ padding: '32px 24px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {[0, 1, 2].map(i => <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: currentPersona?.color, animation: `breathe 1.5s ease-in-out infinite`, animationDelay: `${i * 0.3}s` }} />)}
             </div>
-          ) : showRebuttalInput && !isRebutting ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px', animation: 'fadeText 0.3s ease-in' }}>
-              <textarea
-                value={rebuttalText}
-                onChange={e => setRebuttalText(e.target.value)}
-                placeholder="骂回去..."
-                autoFocus
-                rows={2}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-main)', fontSize: '13px', outline: 'none', resize: 'none' }}
-              />
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => setShowRebuttalInput(false)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: '6px', fontSize: '12px' }}>算了吧</button>
-                <button onClick={handleRebuttalSubmit} disabled={!rebuttalText.trim()} style={{ flex: 2, padding: '10px', background: 'rgba(245,200,66,0.1)', border: '1px solid rgba(245,200,66,0.4)', color: 'var(--warm-yellow)', borderRadius: '6px', fontSize: '12px', opacity: rebuttalText.trim() ? 1 : 0.4 }}>发泄回去</button>
+            {loadingText && <p style={{ color: 'var(--text-muted)', fontSize: '13px', opacity: 0.7, textAlign: 'center', animation: 'fadeText 0.5s ease-in-out' }}>{loadingText}</p>}
+          </div>
+        )}
+
+        {analysis && (
+          <div style={{ padding: '20px 24px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}>
+            <p style={{ color: 'var(--text-main)', fontSize: '15px', lineHeight: '1.9', opacity: 0.85 }}>{analysis}</p>
+          </div>
+        )}
+
+        {punchline && (
+          <div style={{ padding: '32px 24px', margin: '8px 0', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: `1px solid ${currentPersona?.color}30`, textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-main)', fontSize: '20px', fontWeight: '500', lineHeight: '1.7' }}>{punchline}</p>
+          </div>
+        )}
+
+        {/* 核心重构区：第一阶段行动卡片（融合物理三角出口） */}
+        {punchline && done && !rebuttalDone && (
+          <div style={{ padding: '20px 24px', borderRadius: '12px', background: 'rgba(245,200,66,0.03)', border: '1px solid rgba(245,200,66,0.15)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <p style={{ color: 'var(--warm-yellow)', fontSize: '11px', letterSpacing: '0.2em' }}>现在，听建议做这件事</p>
+            <p style={{ color: 'var(--text-main)', fontSize: '15px', lineHeight: '1.6', fontWeight: '500' }}>{actionConfig.text}</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7', opacity: 0.7 }}>{actionConfig.sub}</p>
+            
+            {!showRebuttalInput && !actionDone && !isRejected ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '6px' }}>
+                
+                {/* 动作C（中间）：对线/深层宣泄 */}
+                <div 
+                  onClick={() => {
+                    const durationSec = Math.floor((Date.now() - responseFinishTime.current) / 1000)
+                    track('needs_deep_venting', { persona, durationSec })
+                    setShowRebuttalInput(true)
+                  }}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)', color: 'var(--text-muted)', fontSize: '13px', cursor: 'text', opacity: 0.6, transition: 'opacity 0.3s', marginTop: '8px' }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '0.6'}
+                >
+                  ...还不爽？骂回去
+                </div>
+
+                {/* 动作A/B（左右门神）：接纳 与 驱逐 */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 2px 0' }}>
+                  <button
+                    onClick={() => { 
+                      const durationSec = Math.floor((Date.now() - responseFinishTime.current) / 1000)
+                      track('fulfillment_success', { persona, durationSec })
+                      setActionDone(true) 
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--warm-yellow)', fontSize: '12px', opacity: 0.6, cursor: 'pointer', transition: 'all 0.3s', padding: '8px 0', letterSpacing: '0.05em' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '0.6'}
+                  >
+                    {triangleActions.left}
+                  </button>
+
+                  <button
+                    onClick={() => { 
+                      const durationSec = Math.floor((Date.now() - responseFinishTime.current) / 1000)
+                      track('fulfillment_rejected', { persona, durationSec })
+                      setIsRejected(true)
+                      setTimeout(() => handleFinish(), 2000) // 驱逐后：干脆利落拉闸，2秒后踢回现实
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', opacity: 0.3, cursor: 'pointer', transition: 'all 0.3s', padding: '8px 0' }}
+                    onMouseEnter={e => {e.currentTarget.style.opacity = '0.8'; e.currentTarget.style.color = '#e87070'}}
+                    onMouseLeave={e => {e.currentTarget.style.opacity = '0.3'; e.currentTarget.style.color = 'var(--text-muted)'}}
+                  >
+                    {triangleActions.right}
+                  </button>
+                </div>
+
+              </div>
+            ) : isRejected ? (
+               <div style={{ padding: '24px 0', textAlign: 'center', animation: 'fadeText 0.3s ease-out-forward' }}>
+                 <p style={{ color: '#e87070', fontSize: '14px', letterSpacing: '0.2em', opacity: 0.8 }}>已撕毁。</p>
+               </div>
+            ) : showRebuttalInput && !isRebutting ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px', animation: 'fadeText 0.3s ease-in' }}>
+                <textarea
+                  value={rebuttalText}
+                  onChange={e => setRebuttalText(e.target.value)}
+                  placeholder="骂回去..."
+                  autoFocus
+                  rows={2}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-main)', fontSize: '13px', outline: 'none', resize: 'none' }}
+                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => setShowRebuttalInput(false)} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: '6px', fontSize: '12px' }}>算了吧</button>
+                  <button onClick={handleRebuttalSubmit} disabled={!rebuttalText.trim()} style={{ flex: 2, padding: '10px', background: 'rgba(245,200,66,0.1)', border: '1px solid rgba(245,200,66,0.4)', color: 'var(--warm-yellow)', borderRadius: '6px', fontSize: '12px', opacity: rebuttalText.trim() ? 1 : 0.4 }}>发泄回去</button>
+                </div>
+              </div>
+            ) : isRebutting ? (
+              <p style={{ color: 'var(--warm-yellow)', fontSize: '12px', textAlign: 'center', marginTop: '12px', animation: 'breathe 1.5s infinite' }}>{displayName} 正在回击...</p>
+            ) : null}
+          </div>
+        )}
+
+        {/* 第二阶段：绝杀回击区域 */}
+        {rebuttalDone && (
+           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeText 0.4s ease' }}>
+             <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRight: '2px solid rgba(255,255,255,0.1)', borderRadius: '8px', alignSelf: 'flex-end', width: '90%' }}>
+               <p style={{ color: 'var(--text-muted)', fontSize: '11px', marginBottom: '4px' }}>你的顶嘴：</p>
+               <p style={{ color: 'var(--text-main)', fontSize: '13px', opacity: 0.8 }}>{rebuttalText}</p>
+             </div>
+             
+             <div style={{ padding: '24px', borderRadius: '12px', background: `rgba(245,200,66,0.05)`, border: `1px solid ${currentPersona?.color}50` }}>
+               <p style={{ color: currentPersona?.color, fontSize: '11px', letterSpacing: '0.1em', marginBottom: '12px' }}>{displayName} 的最后通牒</p>
+               <p style={{ color: 'var(--text-main)', fontSize: '14px', lineHeight: '1.8', opacity: 0.9, marginBottom: '12px' }}>{rebuttalAnalysis}</p>
+               <p style={{ color: currentPersona?.color, fontSize: '18px', fontWeight: '500', lineHeight: '1.6' }}>{rebuttalPunchline}</p>
+             </div>
+           </div>
+        )}
+
+        {/* 命运物件收据小票 */}
+        {actionDone && destinedItem && (
+          <div style={{ padding: '24px', borderRadius: '4px', border: '1px dashed rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.01)', display: 'flex', flexDirection: 'column', gap: '14px', fontFamily: 'monospace, Courier', animation: 'fadeText 0.6s ease-out-forward' }}>
+            <div style={{ textAlign: 'center', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>END HERE RECEIPT</p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '8px 0' }}>
+              <span style={{ fontSize: '32px' }}>{getItemIcon(destinedItem.id)}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ color: 'var(--warm-yellow)', fontSize: '15px', fontWeight: 'bold' }}>{destinedItem.name}</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.8 }}>{destinedItem.desc}</span>
               </div>
             </div>
-          ) : isRebutting ? (
-            <p style={{ color: 'var(--warm-yellow)', fontSize: '12px', textAlign: 'center', marginTop: '12px', animation: 'breathe 1.5s infinite' }}>{displayName} 正在回击...</p>
-          ) : null}
-        </div>
-      )}
-
-      {/* 第二阶段：绝杀回击区域 */}
-      {rebuttalDone && (
-         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeText 0.4s ease' }}>
-           <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRight: '2px solid rgba(255,255,255,0.1)', borderRadius: '8px', alignSelf: 'flex-end', width: '90%' }}>
-             <p style={{ color: 'var(--text-muted)', fontSize: '11px', marginBottom: '4px' }}>你的顶嘴：</p>
-             <p style={{ color: 'var(--text-main)', fontSize: '13px', opacity: 0.8 }}>{rebuttalText}</p>
-           </div>
-           
-           <div style={{ padding: '24px', borderRadius: '12px', background: `rgba(245,200,66,0.05)`, border: `1px solid ${currentPersona?.color}50` }}>
-             <p style={{ color: currentPersona?.color, fontSize: '11px', letterSpacing: '0.1em', marginBottom: '12px' }}>{displayName} 的最后通牒</p>
-             <p style={{ color: 'var(--text-main)', fontSize: '14px', lineHeight: '1.8', opacity: 0.9, marginBottom: '12px' }}>{rebuttalAnalysis}</p>
-             <p style={{ color: currentPersona?.color, fontSize: '18px', fontWeight: '500', lineHeight: '1.6' }}>{rebuttalPunchline}</p>
-           </div>
-         </div>
-      )}
-
-      {/* 命运物件收据小票 */}
-      {actionDone && destinedItem && (
-        <div style={{ padding: '24px', borderRadius: '4px', border: '1px dashed rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.01)', display: 'flex', flexDirection: 'column', gap: '14px', fontFamily: 'monospace, Courier', animation: 'fadeText 0.6s ease-out-forward' }}>
-          <div style={{ textAlign: 'center', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
-            <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>END HERE RECEIPT</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '8px 0' }}>
-            <span style={{ fontSize: '32px' }}>{getItemIcon(destinedItem.id)}</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ color: 'var(--warm-yellow)', fontSize: '15px', fontWeight: 'bold' }}>{destinedItem.name}</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.8 }}>{destinedItem.desc}</span>
+            <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{rebuttalDone ? '嘴硬战损指数' : '情绪伤害烈度'}:</span>
+              <span style={{ color: '#e87070', fontSize: '16px', fontWeight: 'bold' }}>{emotionScore} / 10</span>
             </div>
           </div>
-          <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{rebuttalDone ? '嘴硬战损指数' : '情绪伤害烈度'}:</span>
-            <span style={{ color: '#e87070', fontSize: '16px', fontWeight: 'bold' }}>{emotionScore} / 10</span>
+        )}
+
+        {actionDone && (
+          <button onClick={handleFinish} style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1px solid rgba(245,200,66,0.3)', background: 'rgba(245,200,66,0.08)', color: 'var(--warm-yellow)', fontSize: '14px', letterSpacing: '0.2em', cursor: 'pointer', animation: 'fadeText 0.3s ease-in' }}>
+            到此为止
+          </button>
+        )}
+
+        {/* ======================================= */}
+        {/* 彩蛋区：一生一次的童年抽屉触发器 */}
+        {/* ======================================= */}
+        {actionDone && isChild && (
+          <div style={{ marginTop: '24px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '32px', textAlign: 'center', animation: 'fadeText 1s ease-in' }}>
+            {hasOpenedDrawer ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.3, fontStyle: 'italic', letterSpacing: '0.1em' }}>
+                抽屉里躺着一只再也飞不了的知了。
+              </p>
+            ) : (
+              <button
+                onClick={() => setShowChildDrawer(true)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '11px', opacity: 0.2, letterSpacing: '0.1em', cursor: 'pointer', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '4px', transition: 'all 0.5s' }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.6'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '0.2'}
+              >
+                吧台下面有个卡死的旧抽屉...
+              </button>
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {actionDone && (
-        <button onClick={handleFinish} style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1px solid rgba(245,200,66,0.3)', background: 'rgba(245,200,66,0.08)', color: 'var(--warm-yellow)', fontSize: '14px', letterSpacing: '0.2em', cursor: 'pointer', animation: 'fadeText 0.3s ease-in' }}>
-          到此为止
-        </button>
-      )}
+        {!loading && !started && (
+          <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', opacity: 0.5 }}>← 返回</button>
+        )}
 
-      {!loading && !started && (
-        <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', opacity: 0.5 }}>← 返回</button>
-      )}
+        <div ref={bottomRef} />
 
-      <div ref={bottomRef} />
-
-      <style>{`
-        @keyframes breathe { 0%, 100% { opacity: 0.2; transform: translateY(0px); } 50% { opacity: 1; transform: translateY(-4px); } }
-        @keyframes fadeText { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: translateY(0px); } }
-      `}</style>
-    </div>
+        <style>{`
+          @keyframes breathe { 0%, 100% { opacity: 0.2; transform: translateY(0px); } 50% { opacity: 1; transform: translateY(-4px); } }
+          @keyframes fadeText { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: translateY(0px); } }
+        `}</style>
+      </div>
+    </>
   )
 }
