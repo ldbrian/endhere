@@ -7,18 +7,14 @@ import { track, checkLimit } from '../lib/track'
 import { getMemoryPromptContext, updateCustomerVibe } from '../lib/memory'
 
 // ==========================================
-// 绝版组件：35秒时光抽屉 (一生一次)
-// ==========================================
-// ==========================================
 // 绝版组件：35秒时光抽屉 (一生一次) - 终极剧本版
 // ==========================================
 function ChildhoodDrawerOverlay({ onClose }: { onClose: () => void }) {
-  const [phase, setPhase] = useState(0) // 1: 倒带, 2: 碎片, 3: 致命一击(黑屏), 4: 遣返
+  const [phase, setPhase] = useState(0) 
   const [year, setYear] = useState(new Date().getFullYear())
   const [textIndex, setTextIndex] = useState(-1)
   const [showKillShot, setShowKillShot] = useState(false)
 
-  // 严格按照你的分行，利用 \n 换行符控制节奏
   const fragments = [
     "（电视杂音）\n“你趴在凉席上。”\n“动画片其实演了什么。”\n“已经记不清了。”",
     "（风扇声）\n“厨房里有人喊你吃饭。”\n“你回了一句：\n‘等会儿。’”"
@@ -29,24 +25,18 @@ function ChildhoodDrawerOverlay({ onClose }: { onClose: () => void }) {
     let currentYear = startYear
     setPhase(1)
 
-    // Phase 1 (0-5s): 现实的剥离，年份疯狂倒退
     const rInt = setInterval(() => {
       currentYear -= Math.floor(Math.random() * 3) + 1
       if (currentYear < 2000) currentYear = 2000
       setYear(currentYear)
     }, 80)
 
-    // Phase 2 (5-21s): 记忆碎片显影 (两幕，每幕给足 8 秒沉浸)
     const t1 = setTimeout(() => { clearInterval(rInt); setPhase(2); setTextIndex(0) }, 5000)
     const t2 = setTimeout(() => setTextIndex(1), 13000) 
 
-    // Phase 3 (21-31.5s): 物理断电与致命一击
-    // 21s - 24.5s: 纯正的【黑屏。很久。】没有任何文字，只有黑暗
     const t3 = setTimeout(() => { setPhase(3); setShowKillShot(false) }, 21000) 
-    // 24.5s: 浮现最后一句
     const t4 = setTimeout(() => setShowKillShot(true), 24500) 
 
-    // Phase 4 (31.5-35s): 无情的遣返
     const t5 = setTimeout(() => {
       setPhase(4)
       const fInt = setInterval(() => {
@@ -59,7 +49,6 @@ function ChildhoodDrawerOverlay({ onClose }: { onClose: () => void }) {
       }, 60)
     }, 31500)
 
-    // End (35s): 强制关上抽屉
     const t6 = setTimeout(() => onClose(), 35000)
 
     return () => {
@@ -71,27 +60,24 @@ function ChildhoodDrawerOverlay({ onClose }: { onClose: () => void }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-      
-      {/* 阶段 1 & 4：滚动的年份 */}
       {(phase === 1 || phase === 4) && (
         <div style={{ fontSize: '48px', fontFamily: 'monospace', color: '#fff', animation: phase === 1 ? 'rewindBlur 5s forwards' : 'forwardClear 3.5s forwards' }}>
           {year}
         </div>
       )}
 
-      {/* 阶段 2：残缺的碎片白描与环境音 */}
       {phase === 2 && textIndex >= 0 && (
         <div key={textIndex} style={{ padding: '0 32px', textAlign: 'center', animation: 'drawerFade 7.5s ease-in-out forwards' }}>
           {fragments[textIndex].split('\n').map((line, i) => (
             <p 
               key={i} 
               style={{ 
-                fontSize: line.startsWith('（') ? '13px' : '15px', // 声音字号小
+                fontSize: line.startsWith('（') ? '13px' : '15px', 
                 letterSpacing: '0.15em', 
-                color: line.startsWith('（') ? '#888' : '#ccc',   // 声音颜色暗
+                color: line.startsWith('（') ? '#888' : '#ccc',   
                 lineHeight: '2.2',
                 fontStyle: line.startsWith('（') ? 'italic' : 'normal',
-                marginBottom: line.startsWith('（') ? '16px' : '4px' // 声音和画面之间拉开一点距离
+                marginBottom: line.startsWith('（') ? '16px' : '4px' 
               }}
             >
               {line}
@@ -100,7 +86,6 @@ function ChildhoodDrawerOverlay({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* 阶段 3：致命一击 */}
       {phase === 3 && showKillShot && (
         <div style={{ padding: '0 32px', textAlign: 'center', animation: 'drawerFade 6s ease-in-out forwards' }}>
           <p style={{ fontSize: '13px', color: '#888', fontStyle: 'italic', marginBottom: '32px', letterSpacing: '0.15em' }}>
@@ -118,13 +103,11 @@ function ChildhoodDrawerOverlay({ onClose }: { onClose: () => void }) {
       <style>{`
         @keyframes rewindBlur { 0% { filter: blur(0px); opacity: 1; transform: scale(1); } 100% { filter: blur(15px); opacity: 0; transform: scale(1.1); } }
         @keyframes forwardClear { 0% { filter: blur(15px); opacity: 0; transform: scale(0.9); } 100% { filter: blur(0px); opacity: 1; transform: scale(1); } }
-        /* 稍微拉长了 Fade 的持续时间，匹配 8 秒的单幕停留 */
         @keyframes drawerFade { 0% { opacity: 0; transform: scale(0.98); } 15% { opacity: 1; transform: scale(1); } 85% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.02); } }
       `}</style>
     </div>
   )
 }
-// ==========================================
 // ==========================================
 
 const EMOTION_LABELS: Record<string, string> = {
@@ -189,11 +172,9 @@ export default function ResponsePage() {
   const router = useRouter()
   const bottomRef = useRef<HTMLDivElement>(null)
   
-  // === 隐性追踪与状态控制 ===
   const responseFinishTime = useRef<number>(0) 
   const [isRejected, setIsRejected] = useState(false) 
   
-  // === 童年抽屉状态 ===
   const [showChildDrawer, setShowChildDrawer] = useState(false)
   const [hasOpenedDrawer, setHasOpenedDrawer] = useState(false)
 
@@ -296,7 +277,6 @@ export default function ResponsePage() {
         }
       }
       track('response_done', { persona, emotion })
-      // 开始计时：记录AI完全回复完毕的这一刻
       responseFinishTime.current = Date.now() 
       setDone(true)
     } catch {
@@ -420,12 +400,6 @@ DESC: [一句15字以内的文案]
   const currentPersona = PERSONAS.find(p => p.id === persona)
   const displayName = persona === 'Child' ? childName : currentPersona?.name
 
-  const getItemIcon = (id: string) => {
-    if (id === 'broken_scale') return '⚖️'
-    if (id === 'cracked_bowl') return '🥣'
-    return '⚓'
-  }
-
   const isChild = persona === 'Child'
 
   const handleDrawerClose = () => {
@@ -436,7 +410,6 @@ DESC: [一句15字以内的文案]
 
   return (
     <>
-      {/* 35秒全屏时光机叠加层 */}
       {showChildDrawer && <ChildhoodDrawerOverlay onClose={handleDrawerClose} />}
 
       <div style={{ 
@@ -446,7 +419,6 @@ DESC: [一句15字以内的文案]
         background: isChild ? '#161410' : 'transparent',
       }}>
         
-        {/* 顶部指示 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>
             {isChild ? 'BACK THERE' : 'END HERE'}
@@ -488,7 +460,6 @@ DESC: [一句15字以内的文案]
           </div>
         )}
 
-        {/* 核心重构区：第一阶段行动卡片（融合物理三角出口） */}
         {punchline && done && !rebuttalDone && (
           <div style={{ padding: '20px 24px', borderRadius: '12px', background: 'rgba(245,200,66,0.03)', border: '1px solid rgba(245,200,66,0.15)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <p style={{ color: 'var(--warm-yellow)', fontSize: '11px', letterSpacing: '0.2em' }}>现在，听建议做这件事</p>
@@ -497,8 +468,6 @@ DESC: [一句15字以内的文案]
             
             {!showRebuttalInput && !actionDone && !isRejected ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '6px' }}>
-                
-                {/* 动作C（中间）：对线/深层宣泄 */}
                 <div 
                   onClick={() => {
                     const durationSec = Math.floor((Date.now() - responseFinishTime.current) / 1000)
@@ -512,7 +481,6 @@ DESC: [一句15字以内的文案]
                   ...还不爽？骂回去
                 </div>
 
-                {/* 动作A/B（左右门神）：接纳 与 驱逐 */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 2px 0' }}>
                   <button
                     onClick={() => { 
@@ -532,7 +500,7 @@ DESC: [一句15字以内的文案]
                       const durationSec = Math.floor((Date.now() - responseFinishTime.current) / 1000)
                       track('fulfillment_rejected', { persona, durationSec })
                       setIsRejected(true)
-                      setTimeout(() => handleFinish(), 2000) // 驱逐后：干脆利落拉闸，2秒后踢回现实
+                      setTimeout(() => handleFinish(), 2000) 
                     }}
                     style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', opacity: 0.3, cursor: 'pointer', transition: 'all 0.3s', padding: '8px 0' }}
                     onMouseEnter={e => {e.currentTarget.style.opacity = '0.8'; e.currentTarget.style.color = '#e87070'}}
@@ -541,7 +509,6 @@ DESC: [一句15字以内的文案]
                     {triangleActions.right}
                   </button>
                 </div>
-
               </div>
             ) : isRejected ? (
                <div style={{ padding: '24px 0', textAlign: 'center', animation: 'fadeText 0.3s ease-out-forward' }}>
@@ -568,7 +535,6 @@ DESC: [一句15字以内的文案]
           </div>
         )}
 
-        {/* 第二阶段：绝杀回击区域 */}
         {rebuttalDone && (
            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeText 0.4s ease' }}>
              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRight: '2px solid rgba(255,255,255,0.1)', borderRadius: '8px', alignSelf: 'flex-end', width: '90%' }}>
@@ -584,35 +550,24 @@ DESC: [一句15字以内的文案]
            </div>
         )}
 
-        {/* 命运物件收据小票 */}
-        {actionDone && destinedItem && (
-          <div style={{ padding: '24px', borderRadius: '4px', border: '1px dashed rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.01)', display: 'flex', flexDirection: 'column', gap: '14px', fontFamily: 'monospace, Courier', animation: 'fadeText 0.6s ease-out-forward' }}>
-            <div style={{ textAlign: 'center', borderBottom: '1px dashed rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>END HERE RECEIPT</p>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '8px 0' }}>
-              <span style={{ fontSize: '32px' }}>{getItemIcon(destinedItem.id)}</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ color: 'var(--warm-yellow)', fontSize: '15px', fontWeight: 'bold' }}>{destinedItem.name}</span>
-                <span style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.8 }}>{destinedItem.desc}</span>
-              </div>
-            </div>
-            <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{rebuttalDone ? '嘴硬战损指数' : '情绪伤害烈度'}:</span>
-              <span style={{ color: '#e87070', fontSize: '16px', fontWeight: 'bold' }}>{emotionScore} / 10</span>
-            </div>
-          </div>
-        )}
-
+        {/* 核心修复：删除伪小票，只保留强动线按钮 */}
         {actionDone && (
-          <button onClick={handleFinish} style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1px solid rgba(245,200,66,0.3)', background: 'rgba(245,200,66,0.08)', color: 'var(--warm-yellow)', fontSize: '14px', letterSpacing: '0.2em', cursor: 'pointer', animation: 'fadeText 0.3s ease-in' }}>
-            到此为止
+          <button 
+            onClick={handleFinish} 
+            style={{ 
+              width: '100%', padding: '16px', borderRadius: '12px', 
+              border: '1px dashed rgba(245,200,66,0.6)', 
+              background: 'rgba(245,200,66,0.08)', 
+              color: 'var(--warm-yellow)', 
+              fontSize: '14px', letterSpacing: '0.1em', 
+              cursor: 'pointer', animation: 'fadeText 0.3s ease-in',
+              fontWeight: 'bold'
+            }}
+          >
+            走向收银台，打出小票
           </button>
         )}
 
-        {/* ======================================= */}
-        {/* 彩蛋区：一生一次的童年抽屉触发器 */}
-        {/* ======================================= */}
         {actionDone && isChild && (
           <div style={{ marginTop: '24px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '32px', textAlign: 'center', animation: 'fadeText 1s ease-in' }}>
             {hasOpenedDrawer ? (

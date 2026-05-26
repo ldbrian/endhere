@@ -4,222 +4,174 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { track } from '../lib/track'
 
+const GIFTS = [
+  { id: 'bandaid', name: '半日贴', icon: '🩹', price: '￥ 2.0', desc: '替下个流血的人买单，帮他物理封印 12 小时。' },
+  { id: 'match', name: '一根旧火柴', icon: '🔥', price: '￥ 1.0', desc: '留一根在筐里，劝下个人把烂事彻底烧了。' },
+  { id: 'milk', name: '待用热牛奶', icon: '🥛', price: '￥ 4.9', desc: '没别的用，给下个夜归人留杯热的暖暖手。' },
+]
+
+const GIFT_MSGS: Record<string, string[]> = {
+  milk: [
+    "今晚的夜路我替你跑了，早点睡。",
+    "喝下这杯牛奶，烧掉这张小票，出门别回头。",
+    "（什么也没说，只留下了这杯热牛奶）"
+  ],
+  bandaid: [
+    "这个创可贴我没用上，我挺过来了，你也可以。",
+    "伤口正在结痂，先别去抠它了。",
+    "（什么也没说，只留下了这个创可贴）"
+  ],
+  match: [
+    "陌生人，把它烧了吧，出门别回头。",
+    "我替你买单了。点火，然后忘掉它。",
+    "（什么也没说，只留下了这根火柴）"
+  ]
+}
+
 function CounterContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  
   const receiptId = searchParams.get('receiptId') || ''
-  const mode = searchParams.get('mode') || 'ai' 
+  const mode = searchParams.get('mode') || 'basket' 
   const isManagerMode = mode === 'manager'
 
-  const [inputCode, setInputCode] = useState('')
   const [mailboxStatus, setMailboxStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [mailboxMsg, setMailboxMsg] = useState('')
-  const [showCandyJar, setShowCandyJar] = useState(false)
   const [visible, setVisible] = useState(false)
+  const [basketCount, setBasketCount] = useState(0)
+
+  const [selectedGift, setSelectedGift] = useState<any>(null)
+  const [selectedMsg, setSelectedMsg] = useState<string>('')
+  const [payStep, setPayStep] = useState(false)
+  const [paySuccess, setPaySuccess] = useState(false)
 
   useEffect(() => {
     track('view_counter', { mode, receipt_id: receiptId })
     setTimeout(() => setVisible(true), 100)
-    if (isManagerMode) setShowCandyJar(true)
-  }, [mode, receiptId, isManagerMode])
+    setBasketCount(Math.floor(Math.random() * 18) + 7)
+  }, [mode, receiptId])
 
   const handleLeaveForManager = async () => {
     if (mailboxStatus === 'loading' || mailboxStatus === 'success') return
     setMailboxStatus('loading')
-    
     try {
       const entries = JSON.parse(localStorage.getItem('entries') || '[]')
       const currentEntry = entries[0]
-      const userContent = currentEntry?.content || currentEntry?.text || '无言的投递...'
-      const aiContent = currentEntry?.rawResponse || '【系统提示】：用户选择了直接留言给店长。'
-
       const res = await fetch('/api/mailbox', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiptId, userMessage: userContent, aiResponse: aiContent })
+        body: JSON.stringify({ receiptId, userMessage: currentEntry?.content || '', aiResponse: currentEntry?.rawResponse || '' })
       })
       const data = await res.json()
-      
       if (data.success) {
         setMailboxStatus('success')
         setMailboxMsg(data.message)
         track('manager_mailbox_success', { receipt_id: receiptId })
-        
-        // 👈 核心修复 3：后端成功落库邮箱后，更新本地档案室的最终状态
         const storedEntries = JSON.parse(localStorage.getItem('entries') || '[]')
-        const currentEntryIndex = storedEntries.findIndex((e: any) => e.receiptId === receiptId || e.id === storedEntries[0]?.id)
-        if (currentEntryIndex !== -1) {
-          storedEntries[currentEntryIndex].status = '等待回信'
+        const idx = storedEntries.findIndex((e: any) => e.receiptId === receiptId || e.id === storedEntries[0]?.id)
+        if (idx !== -1) {
+          storedEntries[idx].status = '等待回信'
           localStorage.setItem('entries', JSON.stringify(storedEntries))
         }
-
       } else {
         setMailboxStatus('error')
         setMailboxMsg(data.message)
       }
     } catch (e) {
       setMailboxStatus('error')
-      setMailboxMsg('吧台抽屉卡住了，请稍后再试。')
+      setMailboxMsg('吧台抽屉卡住了。')
     }
   }
 
-  const handleActivateCode = () => {
-    const cleanCode = inputCode.trim().toUpperCase()
-    if (!cleanCode) return
-    if (cleanCode === receiptId) {
-      localStorage.setItem('extra_limit_granted', '3') 
-      alert('📻 破收音机换上了新电池。今晚你多出了 3 次倾诉额度。去首页试试吧。')
-      track('activate_battery', { receipt_id: receiptId })
-      setInputCode('')
-      router.push('/')
-    } else if (cleanCode === 'FOREVER2026') {
-      localStorage.setItem('is_lifetime_vip', 'true')
-      alert('🔑 你拿到了一把不会生锈的备用钥匙。这里永远为你留一盏灯。')
-      track('activate_vip')
-      setInputCode('')
-      router.push('/')
-    } else {
-      alert('❓ 暗号对不上。如果你刚刚转账，请私信店长获取核销码。')
-    }
+  const handlePayComplete = async () => {
+    try {
+      await fetch('/api/basket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ giftId: selectedGift.id, giftIcon: selectedGift.icon, giftName: selectedGift.name, msg: selectedMsg }),
+      })
+    } catch (e) { console.error(e) }
+    setPaySuccess(true)
+    track('leave_gift_success', { gift_id: selectedGift?.id })
   }
 
   return (
-    <div style={{
-      width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column',
-      gap: '24px', padding: '60px 20px', margin: '0 auto',
-      opacity: visible ? 1 : 0, transition: 'opacity 0.6s ease',
-    }}>
-
+    <div style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '24px', padding: '60px 20px', margin: '0 auto', opacity: visible ? 1 : 0, transition: 'opacity 0.6s ease' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center', textAlign: 'center', marginBottom: '8px' }}>
-        <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.3em' }}>
-          END HERE COUNTER
-        </p>
-        <h1 style={{ color: 'var(--text-main)', fontSize: '24px', fontWeight: '300', letterSpacing: '0.15em' }}>
-          午夜收银台
-        </h1>
-        <p style={{ color: 'var(--warm-yellow)', fontFamily: 'monospace', fontSize: '12px', opacity: 0.8, letterSpacing: '0.05em' }}>
-          当前拿着的小票暗号: #{receiptId}
-        </p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.3em' }}>END HERE COUNTER</p>
+        <h1 style={{ color: 'var(--text-main)', fontSize: '24px', fontWeight: '300', letterSpacing: '0.15em' }}>午夜收银台</h1>
+        {receiptId && <p style={{ color: 'var(--warm-yellow)', fontFamily: 'monospace', fontSize: '12px', opacity: 0.8, letterSpacing: '0.05em' }}>小票暗号: #{receiptId}</p>}
       </div>
 
       {isManagerMode ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', animation: 'fadeIn 0.4s ease-out' }}>
           <div style={{ padding: '24px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
             <div style={{ textAlign: 'left', width: '100%', background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px', borderLeft: '2px solid var(--warm-yellow)' }}>
-              <p style={{ color: 'var(--warm-yellow)', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', letterSpacing: '0.1em' }}>
-                【吧台规矩】
-              </p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.8' }}>
-                1. 吧台每天<span style={{ color: 'var(--text-main)' }}>只收 7 张小票</span>，满了店长就收车。<br/>
-                2. 留一瓶水的钱 (￥4.9) 当作提神费。<br/>
-                3. <span style={{ color: 'var(--text-main)' }}>不承诺一定回，不退款。</span>看缘分。
-              </p>
+              <p style={{ color: 'var(--warm-yellow)', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>【吧台规矩】</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.8' }}>1. 每天只收 7 张小票。<br/>2. 留一瓶水的钱 (￥4.9) 当作提神费。<br/>3. 不承诺一定回。看缘分。</p>
             </div>
-            
             <img src="/pay_code.png" alt="投币码" style={{ width: '160px', height: '160px', filter: 'grayscale(100%) contrast(1.2)', opacity: 0.85, borderRadius: '8px' }} />
-            
-            <button
-              onClick={handleLeaveForManager}
-              disabled={mailboxStatus !== 'idle'}
-              style={{
-                width: '100%', padding: '16px', borderRadius: '8px', 
-                background: 'rgba(245,200,66,0.1)', border: '1px solid rgba(245,200,66,0.3)',
-                color: 'var(--warm-yellow)', fontSize: '14px', cursor: mailboxStatus === 'success' ? 'default' : 'pointer',
-                fontWeight: 'bold', letterSpacing: '0.1em', transition: 'all 0.3s ease'
-              }}
-            >
-              {mailboxStatus === 'idle' && '已塞入 ￥4.9，压下小票'}
-              {mailboxStatus === 'loading' && '正在压入小票...'}
-              {mailboxStatus === 'success' && '卷帘门正在拉下，去睡吧。'}
-              {mailboxStatus === 'error' && '❌ ' + mailboxMsg}
+            <button onClick={handleLeaveForManager} disabled={mailboxStatus !== 'idle'} style={{ width: '100%', padding: '16px', borderRadius: '8px', background: 'rgba(245,200,66,0.1)', border: '1px solid rgba(245,200,66,0.3)', color: 'var(--warm-yellow)', fontSize: '14px', cursor: mailboxStatus === 'success' ? 'default' : 'pointer', fontWeight: 'bold', letterSpacing: '0.1em' }}>
+              {mailboxStatus === 'idle' ? '已塞入 ￥4.9，压下小票' : mailboxStatus === 'loading' ? '正在压入...' : mailboxStatus === 'success' ? '卷帘门拉下，去睡吧。' : '❌ ' + mailboxMsg}
             </button>
           </div>
         </div>
       ) : (
-        <div style={{ 
-          width: '100%', padding: '24px 20px', borderRadius: '12px', 
-          background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.08)', 
-          textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.4s ease-out'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '18px' }}>🪟</span>
-            <span style={{ color: 'var(--text-main)', fontSize: '15px', letterSpacing: '0.1em', fontWeight: '500' }}>吧台旁的旧货架</span>
+        <div style={{ width: '100%', padding: '24px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeIn 0.4s ease-out' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '20px', borderBottom: '1px dashed rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span style={{ fontSize: '18px' }}>🛒</span><span style={{ color: 'var(--text-main)', fontSize: '15px', letterSpacing: '0.1em', fontWeight: '500' }}>角落的生锈铁筐</span></div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7', opacity: 0.7 }}>往里面看了一眼，筐底散落着大约 <span style={{ color: 'var(--warm-yellow)', fontWeight: 'bold' }}>{basketCount}</span> 件陌生人留下的物品。</p>
           </div>
-          
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7', opacity: 0.8 }}>
-            这家破店没有投资人。如果你愿意，可以留一点电费，支持它在深夜继续亮着。转账时请务必备注你的小票暗号：<span style={{ color: 'var(--warm-yellow)' }}>#{receiptId}</span>。
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.15)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ color: 'var(--text-main)', fontSize: '14px' }}>🔋 收音机电池</span>
-                <span style={{ color: 'var(--warm-yellow)', fontSize: '14px' }}>￥4.9</span>
+          {!payStep && !paySuccess ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <p style={{ color: 'var(--text-main)', fontSize: '13px', letterSpacing: '0.1em', fontWeight: '500' }}>结账了。顺手给下个人留点什么吗？</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {GIFTS.map(gift => (
+                  <button key={gift.id} onClick={() => { setSelectedGift(gift); setPayStep(true); setSelectedMsg(''); }} style={{ width: '100%', padding: '14px', borderRadius: '8px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', textAlign: 'left' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><span style={{ fontSize: '20px' }}>{gift.icon}</span><div style={{ display: 'flex', flexDirection: 'column' }}><span style={{ color: 'var(--text-main)', fontSize: '13px' }}>{gift.name}</span><span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.7 }}>{gift.desc}</span></div></div>
+                    <span style={{ color: 'var(--warm-yellow)', fontSize: '12px', fontWeight: 'bold' }}>{gift.price}</span>
+                  </button>
+                ))}
               </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.6, lineHeight: '1.6' }}>扫码支付，下方输入暗号激活，获取今晚额外 3 次倾诉额度。</p>
             </div>
-
-            <div style={{ padding: '14px', background: 'rgba(245,200,66,0.05)', borderRadius: '8px', border: '1px dashed rgba(245,200,66,0.25)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ color: 'var(--warm-yellow)', fontSize: '14px', fontWeight: 'bold' }}>🔑 备用钥匙 (买断)</span>
-                <span style={{ color: 'var(--warm-yellow)', fontSize: '14px', fontWeight: 'bold' }}>￥39.9</span>
+          ) : payStep && !paySuccess ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeIn 0.3s ease' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingBottom: '12px', borderBottom: '1px dashed rgba(255,255,255,0.1)' }}><span style={{ fontSize: '24px' }}>{selectedGift.icon}</span><span style={{ color: 'var(--text-main)', fontSize: '14px' }}>留一份【{selectedGift.name}】</span></div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>只能从下面选一句话贴在上面：</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {GIFT_MSGS[selectedGift.id].map((msg, idx) => (
+                  <div key={idx} onClick={() => setSelectedMsg(msg)} style={{ padding: '12px', borderRadius: '6px', border: `1px solid ${selectedMsg === msg ? 'var(--warm-yellow)' : 'rgba(255,255,255,0.1)'}`, background: selectedMsg === msg ? 'rgba(245,200,66,0.08)' : 'transparent', color: selectedMsg === msg ? 'var(--warm-yellow)' : 'var(--text-muted)', fontSize: '12px', cursor: 'pointer' }}>{msg}</div>
+                ))}
               </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.8, lineHeight: '1.6' }}>扫码支付，带截图即刻私信店长换取核销码，获取终身无限访问权。</p>
+              {selectedMsg && (
+                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                  <img src="/pay_code.png" alt="打赏码" style={{ width: '120px', height: '120px', filter: 'grayscale(100%) contrast(1.2)', opacity: 0.85, borderRadius: '8px' }} />
+                  <p style={{ color: 'var(--text-muted)', fontSize: '11px' }}>扫码支付 {selectedGift.price}</p>
+                  <div style={{ display: 'flex', width: '100%', gap: '12px' }}>
+                    <button onClick={() => {setPayStep(false); setSelectedMsg('');}} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', borderRadius: '8px', fontSize: '13px' }}>放回去</button>
+                    <button onClick={handlePayComplete} style={{ flex: 2, padding: '12px', background: 'rgba(245,200,66,0.1)', border: '1px solid rgba(245,200,66,0.3)', color: 'var(--warm-yellow)', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold' }}>我已经付了</button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-
-          <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-            <img src="/pay_code.png" alt="投币码" style={{ width: '140px', height: '140px', filter: 'grayscale(100%) contrast(1.2)', opacity: 0.85, borderRadius: '8px' }} />
-            
-            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
-              <input
-                type="text"
-                value={inputCode}
-                onChange={(e) => setInputCode(e.target.value)}
-                placeholder={`在此处输入流水号或暗号...`}
-                style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}
-              />
-              <button 
-                onClick={handleActivateCode} 
-                style={{ padding: '0 20px', borderRadius: '8px', background: 'var(--warm-yellow)', color: '#121212', fontSize: '14px', fontWeight: 'bold' }}
-              >
-                激活
-              </button>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '32px 0 16px', animation: 'fadeIn 0.5s ease' }}>
+              <span style={{ fontSize: '32px', opacity: 0.8 }}>📦</span>
+              <p style={{ color: 'var(--text-main)', fontSize: '14px', marginTop: '16px', letterSpacing: '0.1em' }}>滴——支付成功。</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '8px', opacity: 0.7, lineHeight: '1.8' }}>你没有把它塞进自己的兜里。<br/>而是顺手扔进了旁边的铁筐里。</p>
             </div>
-          </div>
+          )}
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-        <button 
-          onClick={() => router.push('/archive')} 
-          style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-main)', fontSize: '13px', letterSpacing: '0.15em', cursor: 'pointer', opacity: 0.8 }}
-        >
-          去看我的情绪档案
-        </button>
-        <button 
-          onClick={() => router.push('/')} 
-          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', opacity: 0.5, letterSpacing: '0.1em', marginTop: '8px' }}
-        >
-          回到店外
-        </button>
+        <button onClick={() => router.push('/archive')} style={{ width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-main)', fontSize: '13px', letterSpacing: '0.15em', cursor: 'pointer', opacity: 0.8 }}>推门离开，去看看抽屉</button>
       </div>
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   )
 }
 
 export default function CounterPage() {
-  return (
-    <Suspense fallback={<div style={{ textAlign: 'center', marginTop: '100px', color: 'var(--text-muted)' }}>走向收银台...</div>}>
-      <CounterContent />
-    </Suspense>
-  )
+  return <Suspense><CounterContent /></Suspense>
 }

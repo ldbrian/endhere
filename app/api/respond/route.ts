@@ -18,7 +18,6 @@ const RIN_STATES = [
 ]
 
 export async function POST(req: Request) {
-  // 接收前端传来的 memoryContext
   const { content, emotion, persona, systemPrompt, clientHour, memoryContext } = await req.json()
   
   const hour = typeof clientHour === 'number' ? clientHour : new Date().getHours()
@@ -27,12 +26,14 @@ export async function POST(req: Request) {
   const randomAshState = ASH_STATES[Math.floor(Math.random() * ASH_STATES.length)]
   const randomRinState = RIN_STATES[Math.floor(Math.random() * RIN_STATES.length)]
 
-  // 核心改动：加入记忆上下文，加入交接班印象输出格式
+  // === 核心修改：强制 AI 在守门人模式下也必须保持 UI 标签格式 ===
+  const safeMemoryContext = (memoryContext || '') + `\n\n【格式强制警告】：无论你正常回复，还是触发了“绝对禁区”的守门人模式去拒绝用户，你都**必须**严格输出 <解析>、<主旨>、<命运物件>、<交接班印象> 这四个XML标签！如果拒绝讨论，请将拒绝的话写在 <解析> 和 <主旨> 里。`
+
   const DYNAMIC_PROMPTS: Record<string, string> = {
     Ash: `你是Ash，用户的过命兄弟/异性死党。
 【当前环境】：${timeContext}
 【你此刻的真实状态】：${randomAshState}
-${memoryContext || ''}
+${safeMemoryContext}
 
 输出格式严格如下，不得更改：
 <解析>此处写1-2句话。根据客观动作数据，用最市井、糙汉的口吻揭穿他。绝对不要连贯的大长句！可以带人类停顿(...)。</解析>
@@ -47,7 +48,7 @@ DESC: [15字以内的硬核说明文案]
     Rin: `你是Rin，无条件护短的贴心姐妹/闺蜜。
 【当前环境】：${timeContext}
 【你此刻的真实状态】：${randomRinState}
-${memoryContext || ''}
+${safeMemoryContext}
 
 输出格式严格如下：
 <解析>此处写1-2句话。根据动作数据，用真实的停顿，心疼并接纳他，但不要像心理医生。</解析>
@@ -61,7 +62,7 @@ DESC: [15字以内说明]
 
     Child: `你是Child，他是当年8岁时的用户自己。
 【当前环境】：${timeContext}
-${memoryContext || ''}
+${safeMemoryContext}
 
 输出格式严格如下：
 <解析>此处写1-2句话。用8岁小孩极其幼稚、懵懂的口吻！绝对禁止任何诗意的比喻。表达疑惑和笨拙的心疼。</解析>
