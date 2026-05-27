@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { PERSONAS, getRandomAction } from '../lib/personas'
 import { track } from '../lib/track'
 import { getMemoryPromptContext, updateCustomerVibe } from '../lib/memory'
+import { useBasketClaim } from '../hooks/useBasketClaim' // 引入拦截器
 
 function getStatusByScore(score: number) {
   if (score >= 8) return { label: '还在痛', color: '#e87070' }
@@ -51,6 +52,10 @@ function RuminateContent() {
   const entryId = searchParams.get('id')
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  // === 引入命中拦截器 ===
+  const { checkBasket, takeGift, returnGift } = useBasketClaim()
+  const [queuedGift, setQueuedGift] = useState<any>(null)
+
   useEffect(() => {
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     const found = entries.find((e: any) => String(e.id) === String(entryId))
@@ -65,7 +70,7 @@ function RuminateContent() {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [analysis, punchline, action])
+  }, [analysis, punchline, action, queuedGift]) // 确保弹窗时也能滚动到底部
 
   const currentPersona = PERSONAS.find(p => p.id === persona)
 
@@ -178,13 +183,23 @@ ${memoryContext}`
     setSaved(true)
   }
 
-  // === 核心修改：不再跳转 /release，而是将该记录置顶，并送往收银台进行销毁/归档 ===
-  const handleProceedToCounter = () => {
+  // === 拦截层：点击“打出小票”时，尝试拦截一根火柴 ===
+  const initiateProceedToCounter = async () => {
+    track('ruminate_try_proceed', { entry_id: entryId })
+    const gift = await checkBasket('match')
+    if (gift) {
+      setQueuedGift(gift) // 命中火柴，弹窗拦截
+    } else {
+      performProceedToCounter() // 没命中，按原计划走
+    }
+  }
+
+  // 原本走向收银台的逻辑
+  const performProceedToCounter = () => {
     track('ruminate_to_counter', { entry_id: entryId })
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     const idx = entries.findIndex((e: any) => String(e.id) === String(entryId))
     if (idx > 0) {
-      // 如果它不是第一条，把它拔到最前面，让 done/page.tsx 能够正确打印它
       const [item] = entries.splice(idx, 1)
       entries.unshift(item)
       localStorage.setItem('entries', JSON.stringify(entries))
@@ -276,11 +291,10 @@ ${memoryContext}`
         </div>
       )}
 
-      {/* === 核心修改：无缝接入收银台结算流程 === */}
       {saved && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', animation: 'fadeIn 0.5s ease' }}>
           <button
-            onClick={handleProceedToCounter}
+            onClick={initiateProceedToCounter}
             style={{
               width: '100%', padding: '16px', borderRadius: '12px',
               border: '1px dashed var(--warm-yellow)', background: 'rgba(245,200,66,0.08)',
@@ -288,8 +302,58 @@ ${memoryContext}`
               letterSpacing: '0.15em', cursor: 'pointer',
             }}
           >
-            打出小票，走向收银台
+            打出小票，准备销毁
           </button>
+        </div>
+      )}
+
+      {/* 命运拦截 UI：火柴 */}
+      {queuedGift && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(18,16,14,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', backdropFilter: 'blur(8px)' }}>
+          <div style={{ background: '#1e1c18', border: '1px solid rgba(245,200,66,0.3)', borderRadius: '16px', padding: '28px 24px', width: '100%', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.8)', animation: 'toastSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+            
+            <p style={{ color: 'var(--warm-yellow)', fontSize: '11px', letterSpacing: '0.2em', margin: 0 }}>
+              【 铁筐里有陌生人留下的火柴 】
+            </p>
+            
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <span style={{ fontSize: '42px' }}>{queuedGift.icon}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ color: 'var(--text-main)', fontSize: '15px', fontWeight: 'bold' }}>{queuedGift.name}</span>
+                {queuedGift.timeLabel && <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{queuedGift.timeLabel} 某人留下</span>}
+              </div>
+            </div>
+
+            <div style={{ padding: '14px', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', borderLeft: '2px solid rgba(245,200,66,0.4)' }}>
+              <p style={{ color: 'var(--text-main)', fontSize: '13px', lineHeight: '1.7', fontStyle: 'italic', opacity: 0.9, margin: 0 }}>
+                "{queuedGift.msg}"
+              </p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+              <button onClick={async () => {
+                await takeGift(queuedGift.id)
+                // 收下火柴，直接带着 strangerMatch=true 的参数去销毁页，让那边的火烧得更旺
+                const entries = JSON.parse(localStorage.getItem('entries') || '[]')
+                const idx = entries.findIndex((e: any) => String(e.id) === String(entryId))
+                if (idx > 0) {
+                  const [item] = entries.splice(idx, 1)
+                  entries.unshift(item)
+                  localStorage.setItem('entries', JSON.stringify(entries))
+                }
+                router.push('/destroy?strangerMatch=true')
+              }} style={{ flex: 2, padding: '14px', borderRadius: '10px', border: '1px solid rgba(245,200,66,0.5)', background: 'rgba(245,200,66,0.1)', color: 'var(--warm-yellow)', fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.1em', cursor: 'pointer' }}>
+                收下，划亮它去烧小票
+              </button>
+              
+              <button onClick={async () => {
+                await returnGift(queuedGift.id)
+                performProceedToCounter() // 放回火柴，按原计划走
+              }} style={{ flex: 1, padding: '14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', opacity: 0.7 }}>
+                放回去
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -298,6 +362,7 @@ ${memoryContext}`
       <style>{`
         @keyframes pulse { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastSlideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
       `}</style>
     </div>
   )

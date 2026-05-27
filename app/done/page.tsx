@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from '../lib/track'
+import { useBasketClaim } from '../hooks/useBasketClaim' // 引入我们刚写的拦截器
 
 const ITEMS = [
   { id: 'candle', icon: '🕯️', name: '深夜的烛光', desc: '你在最黑的时候，还是点了一盏灯。' },
@@ -21,12 +22,13 @@ export default function DonePage() {
   const [receiptId, setReceiptId] = useState('')
   const [isManagerMode, setIsManagerMode] = useState(false)
   
-  // 核心盲盒缓存（一旦取到，绝不流失，但也不进背包，只等待动作触发）
+  // 核心盲盒状态
   const [queuedGift, setQueuedGift] = useState<any>(null)
   // 控制拦截弹窗 'none' | 'match' | 'bandaid' | 'milk'
   const [interceptModal, setInterceptModal] = useState<'none' | 'match' | 'bandaid' | 'milk'>('none')
   
   const router = useRouter()
+  const { checkBasket, takeGift, returnGift } = useBasketClaim() // 挂载拦截器
 
   useEffect(() => {
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
@@ -52,25 +54,11 @@ export default function DonePage() {
     }
 
     setTimeout(() => setVisible(true), 100)
-
-    // 进页面静默拉取盲盒（单次登录防刷：用 sessionStorage 阻断）
-    if (!isManagerMode && !sessionStorage.getItem('gift_checked')) {
-      let visitCount = 0
-      try { visitCount = JSON.parse(localStorage.getItem('end_here_customer_profile') || '{}').visitCount || 0 } catch {}
-      
-      fetch(`/api/basket?visitCount=${visitCount}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.item) {
-            setQueuedGift(data.item)
-            sessionStorage.setItem('gift_checked', 'true') // 本次聊天不再触发任何新掉落
-          }
-        }).catch(() => {})
-    }
+    // 移除了旧的 useEffect 里的 fetch，改为动作触发
   }, [isManagerMode])
 
-  // 打票瞬间
-  const handleSave = () => {
+  // 打票瞬间 -> 尝试拦截牛奶或店长券
+  const handleSave = async () => {
     track('save_entry', { scoreEnd, item_id: item?.id })
     const entries = JSON.parse(localStorage.getItem('entries') || '[]')
     if (entries.length > 0) {
@@ -82,40 +70,48 @@ export default function DonePage() {
     }
     setSaved(true)
 
-    // 如果盲盒是牛奶或者店长券，纯温暖，直接弹！
-    if (queuedGift && (queuedGift.giftId === 'milk' || queuedGift.giftId === 'manager_coupon')) {
-      setInterceptModal('milk')
+    // 非店长模式下，打票后检查有没有牛奶或店长券的缘分
+    if (!isManagerMode) {
+      const gift = await checkBasket('milk')
+      if (gift) {
+        setQueuedGift(gift)
+        setInterceptModal('milk')
+      }
     }
   }
 
-  // 点击：到此为止 -> 触发火柴拦截，否则去 /destroy
-  const handleEndHere = () => {
-    if (queuedGift && queuedGift.giftId === 'match') {
+  // 点击：到此为止 -> 尝试拦截火柴，否则去 /destroy
+  const handleEndHere = async () => {
+    const gift = await checkBasket('match')
+    if (gift) {
+      setQueuedGift(gift)
       setInterceptModal('match')
     } else {
       router.push('/destroy')
     }
   }
 
-  // 点击：收进抽屉 -> 触发创可贴拦截，否则去 /archive
-  const handleArchive = () => {
-    if (queuedGift && queuedGift.giftId === 'bandaid') {
+  // 点击：收进抽屉 -> 尝试拦截创可贴，否则去 /archive
+  const handleArchive = async () => {
+    const gift = await checkBasket('bandaid')
+    if (gift) {
+      setQueuedGift(gift)
       setInterceptModal('bandaid')
     } else {
       router.push('/archive')
     }
   }
 
-  // 拦截器：使用陌生人物品 (Patch Take -> 执行对应路线)
+  // 拦截器：使用陌生人物品 (核销并执行对应路线)
   const handleUseGift = async () => {
     if (!queuedGift) return
-    if (!queuedGift.isManagerCoupon) {
-      await fetch('/api/basket', { method: 'PATCH', body: JSON.stringify({ id: queuedGift.id, action: 'take' }) }).catch(()=>{})
-    }
     
-    if (queuedGift.giftId === 'match') {
+    // 调用统一核销接口，写入 localStorage 防刷并更新数据库
+    await takeGift(queuedGift.id)
+    
+    if (interceptModal === 'match') {
       router.push('/destroy?strangerMatch=true')
-    } else if (queuedGift.giftId === 'bandaid') {
+    } else if (interceptModal === 'bandaid') {
       const entries = JSON.parse(localStorage.getItem('entries') || '[]')
       if (entries.length > 0) {
         entries[0].isSealed = true
@@ -124,25 +120,25 @@ export default function DonePage() {
       }
       router.push('/archive')
     } else {
-      setInterceptModal('none') // 牛奶/券，喝掉即可，模态框消失
+      setInterceptModal('none') // 牛奶/券，喝掉即可，留在当前页继续选择去向
     }
   }
 
-  // 拦截器：放回筐里 (Patch Return -> 执行原定路线)
+  // 拦截器：放回筐里 (核销防刷，执行原定路线)
   const handleReturnGift = async () => {
     if (!queuedGift) return
-    if (!queuedGift.isManagerCoupon) {
-      await fetch('/api/basket', { method: 'PATCH', body: JSON.stringify({ id: queuedGift.id, action: 'return' }) }).catch(()=>{})
-    }
     
-    if (queuedGift.giftId === 'match') router.push('/destroy')
-    else if (queuedGift.giftId === 'bandaid') router.push('/archive')
+    await returnGift(queuedGift.id)
+    
+    if (interceptModal === 'match') router.push('/destroy')
+    else if (interceptModal === 'bandaid') router.push('/archive')
     else setInterceptModal('none') // 牛奶放回
   }
 
   return (
     <div style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '28px', padding: '50px 20px', opacity: visible ? 1 : 0, transition: 'opacity 0.6s ease', margin: '0 auto', position: 'relative' }}>
 
+      {/* 小票 UI 保持不变 */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '24px', padding: '36px 24px 40px', background: '#fbfaf7', color: '#2a2a2a', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', position: 'relative', fontFamily: 'monospace, "PingFang SC"', clipPath: 'polygon(0% 0%, 4% 2%, 8% 0%, 12% 2%, 16% 0%, 20% 2%, 24% 0%, 28% 2%, 32% 0%, 36% 2%, 40% 0%, 44% 2%, 48% 0%, 52% 2%, 56% 0%, 60% 2%, 64% 0%, 68% 2%, 72% 0%, 76% 2%, 80% 0%, 84% 2%, 88% 0%, 92% 2%, 96% 0%, 100% 2%, 100% 98%, 96% 100%, 92% 98%, 88% 100%, 84% 98%, 80% 100%, 76% 98%, 72% 100%, 68% 98%, 64% 100%, 60% 98%, 56% 100%, 52% 98%, 48% 100%, 44% 98%, 40% 100%, 36% 98%, 32% 100%, 28% 98%, 24% 100%, 20% 98%, 16% 100%, 12% 98%, 8% 100%, 4% 98%, 0% 100%)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', opacity: 0.7 }}>
           <p style={{ fontSize: '9px', letterSpacing: '3px', margin: 0 }}>*{receiptId}*</p>
@@ -199,7 +195,7 @@ export default function DonePage() {
         </div>
       )}
 
-      {/* 命运的相遇：强行阻断式弹窗（无背包，当场抉择） */}
+      {/* 命运的相遇弹窗 UI 保持不变 */}
       {interceptModal !== 'none' && queuedGift && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(18,16,14,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', backdropFilter: 'blur(8px)' }}>
           <div style={{ background: '#1e1c18', border: '1px solid rgba(245,200,66,0.3)', borderRadius: '16px', padding: '28px 24px', width: '100%', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.8)', animation: 'toastSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>

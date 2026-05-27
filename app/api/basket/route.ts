@@ -7,31 +7,18 @@ const supabase = createClient(
 
 // =====================================================
 // Supabase 建表 SQL（首次部署前执行一次）:
-//
-// create table iron_basket (
-//   id           uuid primary key default gen_random_uuid(),
-//   gift_id      text not null,
-//   gift_icon    text not null,
-//   gift_name    text not null,
-//   msg          text not null,
-//   status       text not null default 'available',
-//   left_at      timestamptz not null default now(),
-//   taken_at     timestamptz,
-//   donor_ip     text
-// );
-// alter table iron_basket enable row level security;
-// create policy "anyone can insert" on iron_basket for insert with check (true);
-// create policy "anyone can read available" on iron_basket for select using (status = 'available');
-// create policy "anyone can take" on iron_basket for update using (true);
+// ... (保留你原来的 SQL 注释)
 // =====================================================
 
-// GET /api/basket?visitCount=N&ip=x.x.x.x
-// 接收者：随机取出一件可用物品（排除自己投的）
+// GET /api/basket?visitCount=N&type=xxx
+// 接收者：按先入先出（FIFO）取出一件指定类型的可用物品（排除自己投的）
 // 店长打车券：visitCount > 1 的回头客有额外 3% 概率获得（永远存在，不从 DB 取）
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
     const visitCount = parseInt(searchParams.get('visitCount') || '0', 10)
+    // 新增：允许前端指定需要的物品类型（如 'milk', 'bandaid', 'match'）
+    const type = searchParams.get('type') 
     const callerIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
 
     // === 店长打车券：特殊逻辑，不存 DB，仅判断资格 ===
@@ -58,28 +45,30 @@ export async function GET(req: Request) {
       })
     }
 
-    // === 普通铁筐物品：从 DB 随机取一件，排除自己投的 ===
-    const { count } = await supabase
-      .from('iron_basket')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'available')
-      .neq('donor_ip', callerIp) // 防自领
-
-    if (!count || count === 0) {
-      return Response.json({ success: true, item: null })
-    }
-
-    const randomOffset = Math.floor(Math.random() * count)
-
-    const { data, error } = await supabase
+    // === 普通铁筐物品：按 FIFO (先入先出) 提取可用物品 ===
+    let query = supabase
       .from('iron_basket')
       .select('id, gift_id, gift_icon, gift_name, msg, left_at')
       .eq('status', 'available')
-      .neq('donor_ip', callerIp)
-      .range(randomOffset, randomOffset)
-      .single()
+      .neq('donor_ip', callerIp) // 防自领
+
+    // 如果前端指定了类型，则增加过滤条件
+    if (type) {
+      query = query.eq('gift_id', type)
+    }
+
+    // 核心改造：按时间正序排列（最早留下的优先被领走），取第一条
+    const { data, error } = await query
+      .order('left_at', { ascending: true })
+      .limit(1)
+      .maybeSingle() // 使用 maybeSingle 避免 0 条数据时报错
 
     if (error) throw error
+
+    // 如果没有找到对应的可用物品
+    if (!data) {
+      return Response.json({ success: true, item: null })
+    }
 
     const leftAt = new Date(data.left_at)
     const hoursAgo = Math.max(1, Math.floor((Date.now() - leftAt.getTime()) / (1000 * 60 * 60)))
@@ -137,7 +126,7 @@ export async function PATCH(req: Request) {
         .from('iron_basket')
         .update({ status: 'taken', taken_at: new Date().toISOString() })
         .eq('id', id)
-        .eq('status', 'available')
+        .eq('status', 'available') // 双保险：确保只认领未被拿走的
       if (error) throw error
       return Response.json({ success: true })
     }
