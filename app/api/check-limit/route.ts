@@ -5,7 +5,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const DAILY_LIMIT = 1
+const DAILY_LIMIT = 3
 
 export async function POST(req: Request) {
   // 优化 IP 获取逻辑，兼容 Vercel 和本地环境
