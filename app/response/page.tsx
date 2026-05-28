@@ -125,23 +125,41 @@ function parseResponse(raw: string): { analysis: string; punchline: string; vibe
   const analysisMatch = raw.match(/<解析>([\s\S]*?)<\/解析>/)
   const punchlineMatch = raw.match(/<主旨>([\s\S]*?)<\/主旨>/)
   const vibeMatch = raw.match(/<交接班印象>([\s\S]*?)<\/交接班印象>/)
-  return {
-    analysis: analysisMatch ? analysisMatch[1].trim() : '',
-    punchline: punchlineMatch ? punchlineMatch[1].trim() : '',
-    vibeTag: vibeMatch ? vibeMatch[1].trim() : '',
+  
+  let analysis = analysisMatch ? analysisMatch[1].trim() : ''
+  let punchline = punchlineMatch ? punchlineMatch[1].trim() : ''
+  const vibeTag = vibeMatch ? vibeMatch[1].trim() : ''
+
+  // [CTO 防御性补丁] 极限兜底：如果 AI 完全没按规矩出牌（没有 <主旨>）
+  // 强行提取干净的文本作为 punchline，确保前端按钮能够正常渲染出列！
+  if (!analysis && !punchline && raw.trim()) {
+    punchline = raw.replace(/<<<ACTION>>>/g, '').replace(/<[^>]+>/g, '').trim()
+    analysis = '（他没按套路出牌，直接丢下一句话）'
   }
+
+  return { analysis, punchline, vibeTag }
 }
 
 function parseItem(raw: string): DestinedItem | null {
   const match = raw.match(/<命运物件>([\s\S]*?)<\/命运物件>/)
-  if (!match) return null
+  
+  // [CTO 防御性补丁] 如果连物品都没有返回，给一个保底默认值，防止下游报错
+  if (!match) {
+    return {
+      id: 'rusty_anchor',
+      name: '无名的情绪碎屑',
+      desc: '吧台掉落的一句话'
+    }
+  }
+
   const content = match[1]
   const idMatch = content.match(/ID:\s*([^\n]+)/)
   const nameMatch = content.match(/NAME:\s*([^\n]+)/)
   const descMatch = content.match(/DESC:\s*([^\n]+)/)
+  
   return {
     id: idMatch ? idMatch[1].trim() : 'rusty_anchor',
-    name: nameMatch ? nameMatch[1].trim() : '不具名的情绪碎屑',
+    name: nameMatch ? nameMatch[1].trim() : '无名的情绪碎屑',
     desc: descMatch ? descMatch[1].trim() : '带走它，今晚到此为止。',
   }
 }
@@ -285,6 +303,7 @@ export default function ResponsePage() {
       setDone(true)
     } catch {
       setAnalysis('出了点问题，请稍后再试。')
+      setPunchline('信号不好，店长让你早点休息。') // [CTO 补充] 必须有 punchline 才能激活按钮
       setDone(true)
     } finally {
       setLoading(false)
