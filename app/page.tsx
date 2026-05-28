@@ -5,6 +5,13 @@ import { useRouter } from 'next/navigation'
 import { track } from './lib/track'
 import PlasticBag from './components/PlasticBag' // 根据你的实际路径调整
 import { recordCustomerAction } from './lib/memory'
+import { createClient } from '@supabase/supabase-js'
+
+// 初始化 Supabase 客户端 (用于读取世界状态)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 const EMOTIONS = [
   { id: 'choke', label: '胸口堵得慌', emoji: '😮‍💨' },
@@ -20,13 +27,31 @@ const EASTER_EGG_NOTES = [
   { id: 'child_shoes', author: '8岁的自己', text: '今天穿了最喜欢的新鞋子出门，但是踩到了好深好深的水坑！\n鞋子全变黑了，回家肯定又要挨骂了……\n我现在不敢回家，你可以把我藏在你的档案室里一天吗？' }
 ]
 
+// 灵魂吐槽字典
+const EVENT_QUOTES = {
+  broken_bulb: [
+    "Ash: 店里的灯泡一直闪，早该换了，抠门店长。",
+    "Rin: 怎么突然黑了？...唉，非得等到全黑才想起来修。",
+    "Child: ...叔叔，灯坏了吗？我有点怕。"
+  ],
+  rain: [
+    "Ash: 外面下大雨呢，你跑单注意点。",
+    "Rin: 下雨了，指不定谁今晚没带伞。",
+    "Child: 雨声...好像以前那个夏天的声音。"
+  ]
+}
+
 export default function Home() {
   const [selected, setSelected] = useState<string | null>(null)
   const [score, setScore] = useState(7)
   const [isBulbFixed, setIsBulbFixed] = useState(false)
-  const [managerStatus, setManagerStatus] = useState('● 确认店长状态中...')
-  const [statusColor, setStatusColor] = useState('var(--text-muted)')
   const [easterEgg, setEasterEgg] = useState<{ id: string, text: string, author: string } | null>(null)
+
+  // ==========================================
+  // [CTO 注入] 物理世界广播引擎状态
+  // ==========================================
+  const [activeEvent, setActiveEvent] = useState<'clear' | 'rain' | 'broken_bulb'>('clear')
+  const [ambientQuote, setAmbientQuote] = useState<string | null>(null)
 
   const router = useRouter()
 
@@ -36,22 +61,53 @@ export default function Home() {
       setIsBulbFixed(true)
     }
 
-    const hour = new Date().getHours()
-    if (hour >= 6 && hour < 18) {
-      setManagerStatus('● 店长跑车挣电费中，暂由 AI 看店')
-      setStatusColor('var(--text-muted)')
-    } else if (hour >= 18 && hour < 23) {
-      setManagerStatus('● 店长补觉中，晚点亲自营业')
-      setStatusColor('#a0c4a0')
-    } else {
-      setManagerStatus('● 店长已深夜上线，吧台可压小票')
-      setStatusColor('var(--warm-yellow)')
-    }
-
     if (Math.random() < 0.05) {
       setEasterEgg(EASTER_EGG_NOTES[Math.floor(Math.random() * EASTER_EGG_NOTES.length)])
     }
+
+    // 1. 轮询读取物理世界状态
+    const fetchState = async () => {
+      try {
+        const { data } = await supabase.from('world_state').select('event_type').eq('id', true).single()
+        if (data) setActiveEvent(data.event_type as any)
+      } catch (e) {}
+    }
+    fetchState()
+    const interval = setInterval(fetchState, 30000)
+    return () => clearInterval(interval)
   }, [])
+
+  // 2. 吐槽胶囊轮播逻辑
+  useEffect(() => {
+    if (activeEvent === 'clear') {
+      setAmbientQuote(null)
+      return
+    }
+
+    let timeoutId: NodeJS.Timeout
+    const quotes = EVENT_QUOTES[activeEvent]
+
+    const scheduleNextQuote = () => {
+      // 随机等待 10秒 到 25秒 之间
+      const waitTime = Math.floor(Math.random() * 15000) + 10000
+      
+      timeoutId = setTimeout(() => {
+        // 随机抽取一句吐槽
+        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)]
+        setAmbientQuote(randomQuote)
+
+        // 展示 6 秒后恢复为基础环境状态
+        timeoutId = setTimeout(() => {
+          setAmbientQuote(null)
+          scheduleNextQuote()
+        }, 6000)
+
+      }, waitTime)
+    }
+
+    scheduleNextQuote()
+    return () => clearTimeout(timeoutId)
+  }, [activeEvent])
 
   const handleEnter = () => {
     if (!selected) return
@@ -63,18 +119,43 @@ export default function Home() {
   return (
     <div style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '40px', padding: '40px 24px 60px' }}>
       <PlasticBag />
-      {/* 背景光晕、状态牌、Logo及选项 */}
       <div style={{ position: 'fixed', top: '35%', left: '50%', transform: 'translate(-50%, -50%)', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(245,200,66,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
-      <div style={{ padding: '6px 16px', borderRadius: '20px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '-10px' }}>
-        <span style={{ color: statusColor, fontSize: '12px', transition: 'color 1s ease' }}>{managerStatus.charAt(0)}</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.05em' }}>{managerStatus.slice(2)}</span>
+      {/* ========================================== */}
+      {/* 核心重构区：原生广播胶囊 */}
+      {/* ========================================== */}
+      <div style={{ height: '32px', marginBottom: '-10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {activeEvent !== 'clear' && (
+          <div style={{ 
+            padding: '6px 16px', borderRadius: '20px', 
+            background: ambientQuote ? 'rgba(20, 18, 15, 0.85)' : 'rgba(255,255,255,0.02)', 
+            border: ambientQuote ? '1px solid rgba(245,200,66,0.25)' : '1px dashed var(--border)', 
+            display: 'flex', alignItems: 'center', gap: '8px', 
+            animation: 'fadeIn 0.5s ease',
+            maxWidth: '320px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            transition: 'all 0.4s ease',
+            boxShadow: ambientQuote ? '0 8px 20px rgba(0,0,0,0.4)' : 'none'
+          }}>
+            {ambientQuote ? (
+              <>
+                <span style={{ fontSize: '13px', opacity: 0.9 }}>💬</span>
+                <span style={{ color: 'var(--warm-yellow)', fontSize: '11px', letterSpacing: '0.05em' }}>{ambientQuote}</span>
+              </>
+            ) : (
+              <>
+                <span style={{ color: 'var(--text-muted)', fontSize: '10px', opacity: 0.6, animation: 'pulseDot 2s infinite' }}>●</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em', opacity: 0.6 }}>
+                  {activeEvent === 'rain' ? '避难所外正在下雨...' : '吧台的灯泡快烧断了...'}
+                </span>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
         <img src="/logo.png" alt="End Here" className={isBulbFixed ? "" : "flicker-bulb"} style={{ width: '72px', height: '72px', opacity: 0.9 }} />
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.35em' }}>END HERE</p>
-        {/* === 卸下包袱，变成一句陈述 === */}
         <h1 className={isBulbFixed ? "" : "flicker-bulb"} style={{ color: 'var(--text-main)', fontSize: ' 22px', fontWeight: '300', letterSpacing: '0.1em', lineHeight: '1.6' }}>
           如果有点撑不住 进来坐会儿
         </h1>
@@ -117,7 +198,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* === 核心修改区：底部的三大按钮与空间气味 === */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <button
           onClick={handleEnter}
@@ -132,7 +212,6 @@ export default function Home() {
             transition: 'all 0.3s ease', opacity: selected ? 1 : 0.4 
           }}
         >
-          {/* === 变成最低心理门槛的动作 === */}
           {selected ? '进来坐会儿' : '先选个感觉'}
         </button>
 
@@ -146,7 +225,6 @@ export default function Home() {
           </button>
         </div>
 
-        {/* === 退去文学化，变成真实的白话 === */}
         <p style={{ 
           color: 'var(--text-muted)', fontSize: '11px', 
           textAlign: 'center', lineHeight: '1.8', opacity: 0.4,
@@ -159,8 +237,12 @@ export default function Home() {
       
       <style>{`
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px) rotate(-1.5deg); }
-          to { opacity: 1; transform: translateY(0) rotate(-1.5deg); }
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulseDot {
+          0%, 100% { opacity: 0.2; }
+          50% { opacity: 0.8; }
         }
       `}</style>
     </div>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { PERSONAS, getRandomAction } from '../lib/personas'
 import { track, checkLimit } from '../lib/track'
 import { getMemoryPromptContext, updateCustomerVibe } from '../lib/memory'
+import { useShelterStore } from '../store/useShelterStore' // <-- [CTO 注入] 引入全局 Store
 
 // ==========================================
 // 绝版组件：35秒时光抽屉 (一生一次) - 终极剧本版
@@ -178,6 +179,9 @@ export default function ResponsePage() {
   const [showChildDrawer, setShowChildDrawer] = useState(false)
   const [hasOpenedDrawer, setHasOpenedDrawer] = useState(false)
 
+  // <-- [CTO 注入] 接入 Store
+  const { addEntry } = useShelterStore()
+
   useEffect(() => {
     const savedContent = sessionStorage.getItem('entry_content') || ''
     const savedEmotion = sessionStorage.getItem('entry_emotion') || 'sad'
@@ -350,30 +354,35 @@ DESC: [一句15字以内的文案]
     }
   }
 
+  // <-- [CTO 核心接管区] 彻底抛弃 localStorage，使用 Store 写入
   const handleFinish = () => {
     if (vibeTag) {
       updateCustomerVibe(vibeTag)
     }
 
-    const entries = JSON.parse(localStorage.getItem('entries') || '[]')
-    entries.unshift({
+    const startScore = parseInt(emotionScore, 10)
+
+    addEntry({
       id: Date.now(),
+      timestamp: Date.now(), // 关键字段：为旧抽屉(archive)的时间滤镜提供标尺
       emotion,
       content,
       persona,
-      response: rawResponse,
+      rawResponse, // 统一使用 rawResponse
       analysis,
       punchline,
       destinedItem, 
       createdAt: new Date().toISOString(),
-      emotionStart: parseInt(emotionScore),
-      status: 'processed',
+      emotionStart: startScore,
+      emotionEnd: startScore, // 预置缺省值，done页面会更新
+      status: '处理中',
     })
-    localStorage.setItem('entries', JSON.stringify(entries))
+
     sessionStorage.removeItem('entry_content')
     sessionStorage.removeItem('entry_emotion')
     router.push('/done')
   }
+  // <-- 核心接管完毕
 
   const getCustomAction = () => {
     if (persona === 'Ash') {

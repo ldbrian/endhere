@@ -1,12 +1,12 @@
 'use client'
-
 import { useState, Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PERSONAS, PERSONA_PLACEHOLDERS, PERSONA_BUTTONS } from '../lib/personas'
 import { track } from '../lib/track'
+import { useShelterStore } from '../store/useShelterStore' // 接入全局 Store
 
 const EMOTION_LABELS: Record<string, string> = {
-  choke: '胸口堵得慌', tear: '眼眶有点热', numb: '整个人木木的', angry: '心里有股无名火', shattered: '感觉快碎掉了'
+  choke: '有点难受', tear: '想哭', numb: '麻木', angry: '愤怒', shattered: '崩溃'
 }
 
 function WriteContent() {
@@ -14,12 +14,15 @@ function WriteContent() {
   const [persona, setPersona] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [focused, setFocused] = useState(false)
-  const [childName, setChildName] = useState('8岁的自己') 
-
+  const [childName, setChildName] = useState('8岁')
+  
   const router = useRouter()
   const searchParams = useSearchParams()
   const emotion = searchParams.get('emotion') || 'sad'
-  const emotionLabel = EMOTION_LABELS[emotion] || '难过'
+  const emotionLabel = EMOTION_LABELS[emotion] || '复杂'
+
+  // 引入全局添加方法
+  const { addEntry } = useShelterStore()
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -30,7 +33,7 @@ function WriteContent() {
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value.trim()
-    const finalName = newName === '' ? '8岁的自己' : newName
+    const finalName = newName === '' ? '8岁' : newName
     setChildName(finalName)
     localStorage.setItem('child_nickname', finalName)
   }
@@ -41,35 +44,56 @@ function WriteContent() {
     if (!content.trim() || !persona || loading) return
     setLoading(true)
     track('submit_entry', { persona, emotion, content_length: content.length })
+    
+    // 跨页面传参暂存（不涉及核心列表数据，保留 sessionStorage 无妨）
     sessionStorage.setItem('entry_content', content)
     sessionStorage.setItem('entry_emotion', emotion)
     localStorage.setItem('preferred_persona', persona)
     
-    // === 核心拦截：如果选的是店长，不找AI，直接打小票进结算页 ===
+    // === 店长模式直通车 & CLI 控制台 ===
     if (persona === 'Manager') {
+      const isCommand = content.trim().startsWith('/')
+      
+      // 如果是系统指令，直接拦截发送，不生成小票
+      if (isCommand) {
+        fetch('/api/mailbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ receiptId: `CLI-${Date.now()}`, userMessage: content, aiResponse: 'CLI_EXEC' })
+        }).then(async (res) => {
+          const data = await res.json()
+          alert(data.message) // 极简反馈，告诉你指令是否成功
+          setContent('') // 清空输入框
+          setLoading(false)
+        }).catch(() => {
+          alert('指令发送失败，检查网络')
+          setLoading(false)
+        })
+        return 
+      }
+
+      // 如果不是指令，走原本的店长普通留言逻辑
       const initialScore = parseInt(sessionStorage.getItem('emotion_score') || '7', 10)
       const mockEntry = {
         id: Date.now(),
+        timestamp: Date.now(),
         createdAt: new Date().toISOString(),
         emotionStart: initialScore,
         emotionEnd: initialScore,
         emotion: emotion,
-        status: '未投递', // 👈 核心修复：一开始只能是未投递草稿
+        status: '待处理',
         persona: 'Manager',
         content: content,
-        rawResponse: '【系统提示】：你选择了直接留言给店长，没有触发人工智能。',
+        rawResponse: '意见已投递，等待店长查看',
         released: false
       }
       
-      const existing = JSON.parse(localStorage.getItem('entries') || '[]')
-      // 将新记录插到最前面
-      localStorage.setItem('entries', JSON.stringify([mockEntry, ...existing])) 
-      
+      addEntry(mockEntry)
       router.push('/done')
       return
     }
 
-    // 如果选的是其他人，正常去找大模型聊天
+    // 正常流转到 AI 响应页
     router.push('/response')
   }
 
@@ -81,7 +105,7 @@ function WriteContent() {
   const getButtonText = () => {
     if (!persona) return ''
     if (persona === 'Child') {
-      return childName === '8岁的自己' ? '交给 8岁的自己' : `穿越回去，交给 ${childName}`
+      return childName === '8岁' ? '写给 8岁的自己' : `写给 ${childName}`
     }
     return PERSONA_BUTTONS[persona] || ''
   }
@@ -97,22 +121,21 @@ function WriteContent() {
       transition: 'all 0.4s ease',
       margin: '0 auto',
     }}>
-
-      {/* 顶部提示 */}
+      {/* 头部标题区 */}
       <div style={{
         display: 'flex', flexDirection: 'column', gap: '8px',
         opacity: focused ? 0.3 : 1,
         transition: 'opacity 0.4s ease',
       }}>
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.2em' }}>
-          END HERE
+          END HERE 避难所
         </p>
         <p style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: '300', letterSpacing: '0.1em', lineHeight: '1.8' }}>
-          你感到<span style={{ color: 'var(--warm-yellow)' }}>「{emotionLabel}」</span>
+          带着 <span style={{ color: 'var(--warm-yellow)' }}> {emotionLabel} </span> 的情绪，<br/>今晚想把烂事留给谁？
         </p>
       </div>
 
-      {/* 第一步：选角色 */}
+      {/* 倾听者选择区 */}
       <div style={{
         display: 'flex', 
         flexDirection: 'column', 
@@ -126,10 +149,10 @@ function WriteContent() {
           opacity: focused ? 0.3 : 1,
           transition: 'opacity 0.4s ease',
         }}>
-          你想跟谁说？
+          选择倾听者
         </p>
         
-        {/* --- 上层：3个 AI 店员 (横向并排) --- */}
+        {/* --- 常规 AI 选项 (横向排列) --- */}
         <div style={{ display: 'flex', gap: '10px' }}>
           {PERSONAS.filter(p => p.id !== 'Manager').map(p => {
             const isSelected = persona === p.id;
@@ -154,7 +177,7 @@ function WriteContent() {
                   }}
                 >
                   <span style={{ fontSize: '14px', fontWeight: '500' }}>
-                    {p.id === 'Child' && childName !== '8岁的自己' ? childName : p.name}
+                    {p.id === 'Child' && childName !== '8岁' ? childName : p.name}
                   </span>
                   
                   {p.id === 'Child' ? (
@@ -166,7 +189,7 @@ function WriteContent() {
                       animation: 'pulse 2s infinite',
                       whiteSpace: 'nowrap'
                     }}>
-                      ⏳ 记忆唤醒
+                      可自定义
                     </span>
                   ) : (
                     <span style={{ fontSize: '10px', opacity: 0.6 }}>{p.sub}</span>
@@ -177,7 +200,7 @@ function WriteContent() {
           })}
         </div>
 
-        {/* --- 下层：活人店长专属通道 (横向满宽、虚线物理感) --- */}
+        {/* --- 店长模式选项 (单独成行) --- */}
         {PERSONAS.filter(p => p.id === 'Manager').map(p => {
           const isSelected = persona === p.id;
           return (
@@ -199,21 +222,21 @@ function WriteContent() {
               >
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
                   <span style={{ fontSize: '14px', fontWeight: '500', color: isSelected ? p.color : 'var(--text-main)' }}>
-                    📝 {p.name}
+                      {p.name}
                   </span>
                   <span style={{ fontSize: '11px', opacity: 0.7 }}>
                     {p.sub}
                   </span>
                 </div>
                 <span style={{ fontSize: '11px', opacity: isSelected ? 1 : 0.4, border: `1px solid ${isSelected ? p.color : 'var(--text-muted)'}`, padding: '4px 8px', borderRadius: '6px' }}>
-                  专属通道
+                  不经过 AI
                 </span>
               </button>
             </div>
           )
         })}
 
-        {/* 改名抽屉 */}
+        {/* 动态输入框：Child 称呼 */}
         <div style={{ 
           width: '100%',
           maxHeight: persona === 'Child' ? '80px' : '0px',
@@ -236,14 +259,14 @@ function WriteContent() {
             boxShadow: '0 0 12px rgba(245,200,66,0.02)',
           }}>
             <span style={{ color: 'var(--warm-yellow)', fontSize: '11px', whiteSpace: 'nowrap', opacity: 0.8 }}>
-              ✉️ 小时候，奶奶怎么叫你？
+              他/她的名字是：
             </span>
             <input 
-              type="text"
-              placeholder="点此输入你的乳名"
+              type="text" 
+              placeholder="例如：小明，或者 18岁的自己" 
               maxLength={6}
               onChange={handleNameChange}
-              style={{
+              style={{ 
                 background: 'transparent', border: 'none', 
                 borderBottom: '1px solid rgba(255,255,255,0.15)',
                 color: 'var(--text-main)', fontSize: '12px', 
@@ -255,7 +278,7 @@ function WriteContent() {
         </div>
       </div>
 
-      {/* 第二步：输入框 */}
+      {/* 文本输入与提交区 */}
       {persona && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', animation: 'fadeIn 0.3s ease-out forwards' }}>
           <div style={{ position: 'relative' }}>
@@ -288,7 +311,7 @@ function WriteContent() {
               {content.length}
             </p>
           </div>
-
+          
           <button
             onClick={handleSubmit}
             disabled={!content.trim() || loading}
@@ -303,7 +326,7 @@ function WriteContent() {
               opacity: content.trim() ? 1 : 0.3,
             }}
           >
-            {loading ? '正在传递...' : getButtonText()}
+            {loading ? '写字中...' : getButtonText()}
           </button>
         </div>
       )}
@@ -318,7 +341,7 @@ function WriteContent() {
             alignSelf: 'center', marginTop: '8px'
           }}
         >
-          ← 返回
+          返回吧台
         </button>
       )}
 

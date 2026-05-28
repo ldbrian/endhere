@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import WorldEngine from './components/WorldEngine' // <-- [CTO 注入] 引入世界引擎
 
 export const metadata: Metadata = {
-  title: '到此为止 · End Here',
-  description: '写下来。到此为止。',
+  title: 'End Here',
+  description: '避难所',
   manifest: '/manifest.json',
   icons: {
     icon: '/favicon.png',
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: '到此为止',
+    title: 'End Here',
   },
 }
 
@@ -31,6 +32,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body>
+        {/* [CTO 注入] 将世界引擎挂载到根节点，静默监听 Supabase 的物理状态 */}
+        <WorldEngine />
+        
         <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {children}
         </main>

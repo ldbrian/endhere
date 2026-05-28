@@ -1,11 +1,13 @@
 'use client'
-
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { track } from '../lib/track'
+import { useShelterStore } from '../store/useShelterStore' // 接入全局 Store
 
 function DestroyContent() {
-  const [entry, setEntry] = useState<any>(null)
+  const { entries, updateEntry } = useShelterStore()
+  const entry = entries[0] // 响应式绑定最新的一条小票
+  
   const [destroyState, setDestroyState] = useState<'choosing' | 'crushing' | 'burning' | 'destroyed'>('choosing')
   const [usedStrangerMatch, setUsedStrangerMatch] = useState(false)
   const router = useRouter()
@@ -13,16 +15,14 @@ function DestroyContent() {
   const isStrangerMatch = searchParams.get('strangerMatch') === 'true'
 
   useEffect(() => {
-    const entries = JSON.parse(localStorage.getItem('entries') || '[]')
-    if (entries.length > 0) {
-      setEntry(entries[0])
-    } else {
+    // 防御性路由：如果没有小票，直接踢回主页
+    if (!entry) {
       router.push('/')
     }
-  }, [router])
+  }, [entry, router])
 
   useEffect(() => {
-    // 核心拦截：如果是拿着陌生人的火柴进来的，直接引燃！不需要选！
+    // 陌生人火柴自动焚毁逻辑
     if (isStrangerMatch && entry && destroyState === 'choosing') {
       setUsedStrangerMatch(true)
       setDestroyState('burning')
@@ -46,15 +46,16 @@ function DestroyContent() {
   }
 
   const executeDeleteFromDB = () => {
-    const entries = JSON.parse(localStorage.getItem('entries') || '[]')
-    if (entries.length > 0) {
-      entries[0].content = '【此小票已被物理销毁，仅留灰烬】'
-      entries[0].rawResponse = ''
-      entries[0].analysis = ''
-      entries[0].punchline = ''
-      entries[0].status = '彻底销毁'
-      entries[0].released = true
-      localStorage.setItem('entries', JSON.stringify(entries))
+    if (entry) {
+      // 绝对安全的状态更新，告别 JSON.parse
+      updateEntry(entry.id, {
+        content: '一团模糊的灰烬',
+        rawResponse: '',
+        analysis: '',
+        punchline: '',
+        status: '彻底消失',
+        released: true
+      })
     }
   }
 
@@ -65,7 +66,7 @@ function DestroyContent() {
       
       {usedStrangerMatch && destroyState === 'burning' && (
         <div style={{ color: '#e87070', fontSize: '13px', letterSpacing: '0.1em', animation: 'fadeIn 0.5s ease', textAlign: 'center' }}>
-          🔥 你划亮了陌生人留下的火柴...
+          借用陌生人的火柴<br/>火光很暖
         </div>
       )}
 
@@ -76,20 +77,22 @@ function DestroyContent() {
           <p style={{ fontSize: '9px', letterSpacing: '3px', margin: 0 }}>*{entry.receiptId || entry.id}*</p>
         </div>
         <div style={{ width: '100%', height: '1px', borderTop: '1px dashed #8c8273', opacity: 0.3 }} />
-        <h2 style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.05em', color: '#1a1612', textAlign: 'center' }}>待销毁记录</h2>
+        
+        <h2 style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.05em', color: '#1a1612', textAlign: 'center' }}>等待销毁的记录</h2>
         <p style={{ fontSize: '13px', lineHeight: '1.6', opacity: 0.8 }}>{entry.content.length > 50 ? entry.content.slice(0, 50) + '...' : entry.content}</p>
       </div>
 
       {destroyState === 'choosing' && (
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px', animation: 'fadeIn 0.3s ease' }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: '11px', textAlign: 'center', marginBottom: '8px', letterSpacing: '0.1em' }}>你要怎么处理这张小票？(动作不可逆)</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '11px', textAlign: 'center', marginBottom: '8px', letterSpacing: '0.1em' }}>该如何处理它？(动作不可逆)</p>
           <button onClick={handleCrush} style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)', background: 'rgba(255,255,255,0.03)', color: 'var(--text-muted)', fontSize: '13px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>🗑️ 揉成一团扔了</span><span style={{ fontSize: '11px', opacity: 0.5 }}>免费</span>
+            <span>物理揉碎</span><span style={{ fontSize: '11px', opacity: 0.5 }}>安静地丢弃</span>
           </button>
           <button onClick={handleBurn} style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px dashed #e87070', background: 'rgba(232,112,112,0.05)', color: '#e87070', fontSize: '13px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>🔥 划根火柴烧成灰</span><span style={{ fontSize: '11px', fontWeight: 'bold' }}>￥ 1.00</span>
+            <span>划根火柴烧掉</span><span style={{ fontSize: '11px', fontWeight: 'bold' }}>消耗 1.00</span>
           </button>
-          <button onClick={() => router.push('/archive')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', marginTop: '12px', opacity: 0.5, cursor: 'pointer' }}>算了，再放回抽屉吧</button>
+          
+          <button onClick={() => router.push('/archive')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', marginTop: '12px', opacity: 0.5, cursor: 'pointer' }}>还是算了吧，放进抽屉</button>
         </div>
       )}
 
@@ -97,8 +100,8 @@ function DestroyContent() {
         <div style={{ width: '100%', textAlign: 'center', animation: 'fadeIn 1s ease', marginTop: '40px' }}>
           <div style={{ fontSize: '48px', opacity: 0.4, marginBottom: '20px' }}>💨</div>
           <p style={{ color: 'var(--text-main)', fontSize: '16px', letterSpacing: '0.2em', marginBottom: '8px' }}>风一吹，什么都没了。</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.6, marginBottom: '40px' }}>这件事已经从物理层面上被彻底抹杀。</p>
-          <button onClick={() => router.push('/archive')} style={{ padding: '12px 32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em', cursor: 'pointer' }}>关上抽屉</button>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.6, marginBottom: '40px' }}>你该往前走了。</p>
+          <button onClick={() => router.push('/archive')} style={{ padding: '12px 32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em', cursor: 'pointer' }}>去抽屉看一眼</button>
         </div>
       )}
 
