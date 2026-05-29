@@ -3,248 +3,828 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from './lib/track'
-import PlasticBag from './components/PlasticBag' // 根据你的实际路径调整
+import PlasticBag from './components/PlasticBag'
 import { recordCustomerAction } from './lib/memory'
 import { createClient } from '@supabase/supabase-js'
 
-// 初始化 Supabase 客户端 (用于读取世界状态)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
 const EMOTIONS = [
-  { id: 'choke', label: '胸口堵得慌', emoji: '😮‍💨' },
-  { id: 'tear', label: '眼眶有点热', emoji: '🥺' },
-  { id: 'numb', label: '整个人木木的', emoji: '🫥' },
-  { id: 'angry', label: '心里有股无名火', emoji: '🔥' },
-  { id: 'shattered', label: '感觉快碎掉了', emoji: '🩹' },
+  { id: 'choke', label: '胸口堵得慌' },
+  { id: 'tear', label: '眼眶有点热' },
+  { id: 'numb', label: '整个人木木的' },
+  { id: 'angry', label: '心里有无名火' },
+  { id: 'shattered', label: '感觉快碎了' },
 ]
 
-const EASTER_EGG_NOTES = [
-  { id: 'ash_noodle', author: 'Ash', text: '大半夜饿得胃疼，挑了盒最贵的泡面，撕开倒完开水才发现里面根本没装调料包。\n老子现在只能吃一碗泡了热水的硬纸板。今天连吃个垃圾食品都不配拥有完整的垃圾吗？\n今晚别跟我说话。' },
-  { id: 'rin_puddle', author: 'Rin', text: '下班太累没看路，一脚踩进了共享单车旁的黑水坑里。\n一路踩着湿透的鞋子挤地铁，到家门口一摸口袋，钥匙锁在吧台了。\n我现在正坐在家门口的楼道里吹穿堂风。对不起，今天实在不想温柔了。' },
-  { id: 'child_shoes', author: '8岁的自己', text: '今天穿了最喜欢的新鞋子出门，但是踩到了好深好深的水坑！\n鞋子全变黑了，回家肯定又要挨骂了……\n我现在不敢回家，你可以把我藏在你的档案室里一天吗？' }
+// 倒霉小票池（5% 随机）
+const MISHAPS = [
+  '泡面没调料包',
+  '钥匙掉水沟里了',
+  '踩到口香糖',
+  '伞被风吹翻',
+  '手机摔出一条裂痕',
+  '店员跑车被贴条了',
 ]
-
-// 灵魂吐槽字典
-const EVENT_QUOTES = {
-  broken_bulb: [
-    "Ash: 店里的灯泡一直闪，早该换了，抠门店长。",
-    "Rin: 怎么突然黑了？...唉，非得等到全黑才想起来修。",
-    "Child: ...叔叔，灯坏了吗？我有点怕。"
-  ],
-  rain: [
-    "Ash: 外面下大雨呢，你跑单注意点。",
-    "Rin: 下雨了，指不定谁今晚没带伞。",
-    "Child: 雨声...好像以前那个夏天的声音。"
-  ]
-}
 
 export default function Home() {
   const [selected, setSelected] = useState<string | null>(null)
-  const [score, setScore] = useState(7)
-  const [isBulbFixed, setIsBulbFixed] = useState(false)
-  const [easterEgg, setEasterEgg] = useState<{ id: string, text: string, author: string } | null>(null)
+  const [score] = useState(7)          // 保留原逻辑，虽然 UI 没用到但后端可能需要
+  const [showEmotions, setShowEmotions] = useState(false)
 
-  // ==========================================
-  // [CTO 注入] 物理世界广播引擎状态
-  // ==========================================
+  const [ashMumble, setAshMumble] = useState<string | null>(null)
+  const [rinMumble, setRinMumble] = useState<string | null>(null)
+  
+
+  // 世界状态
   const [activeEvent, setActiveEvent] = useState<'clear' | 'rain' | 'broken_bulb'>('clear')
-  const [ambientQuote, setAmbientQuote] = useState<string | null>(null)
+  const [timeStateStr, setTimeStateStr] = useState<string>('...')
+  const [hasBasketItems, setHasBasketItems] = useState(false)
+
+  // 新增：墙壁 LED 时钟状态
+  const [clockTime, setClockTime] = useState({ h: '--', m: '--' })
+
+  // 物理随机偏移量
+  const [randOffsets, setRandOffsets] = useState({ paper: 1, board: -1, receipt: 8, basket: -1 })
+
+  // NPC 状态
+  const [ashStatus, setAshStatus] = useState('理货中')
+  const [rinStatus, setRinStatus] = useState('打盹中')
+
+  // 倒霉小票
+  const [mishap, setMishap] = useState<string | null>(null)
 
   const router = useRouter()
 
+  // 5% 概率展示倒霉小票（每次刷新页面或每天第一次）
+  useEffect(() => {
+    const alreadyShown = sessionStorage.getItem('mishap_shown')
+    if (!alreadyShown && Math.random() < 0.05) {
+      const randomMishap = MISHAPS[Math.floor(Math.random() * MISHAPS.length)]
+      setMishap(randomMishap)
+      sessionStorage.setItem('mishap_shown', 'true')
+      // 10 秒后自动消失
+      setTimeout(() => setMishap(null), 10000)
+    }
+  }, [])
+  // 墙壁 LED 时钟走时引擎
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date()
+      setClockTime({
+        h: String(now.getHours()).padStart(2, '0'),
+        m: String(now.getMinutes()).padStart(2, '0')
+      })
+    }
+    updateClock() // 挂载时立即执行一次
+    const clockInterval = setInterval(updateClock, 1000) // 每秒跳动
+    return () => clearInterval(clockInterval)
+  }, [])
+
+  useEffect(() => {
+    const hour = new Date().getHours()
+
+    if (hour >= 0 && hour < 5) setTimeStateStr('凌晨了，街上没人...')
+    else if (hour >= 5 && hour < 8) setTimeStateStr('天快亮了...')
+    else if (hour >= 8 && hour < 18) setTimeStateStr('白天，外面有点吵...')
+    else if (hour >= 18 && hour < 20) setTimeStateStr('太阳下山了...')
+    else setTimeStateStr('今晚夜色很沉...')
+
+    const ashQuotes = [
+      '啧...',
+      '这破账本...',
+      '（点烟声）',
+      '怎么又停电了...',
+      '门别关',
+      '随便坐',
+    ]
+
+    const rinQuotes = [
+      '（翻书声）',
+      '有点困...',
+      '雨还不停...',
+      '（擦杯子）',
+      '...嗯？',
+      '今晚外面挺吵吧',
+      '不写东西也没关系',
+    ]
+
+    const triggerMumble = (setMumble: any, quotes: string[]) => {
+      if (Math.random() > 0.45) {
+        setMumble(quotes[Math.floor(Math.random() * quotes.length)])
+
+        setTimeout(() => {
+          setMumble(null)
+        }, 4000)
+      }
+    }
+
+    const mumbleInterval = setInterval(() => {
+      if (Math.random() > 0.5) {
+        triggerMumble(setAshMumble, ashQuotes)
+      } else {
+        triggerMumble(setRinMumble, rinQuotes)
+      }
+    }, 9000)
+
+    return () => clearInterval(mumbleInterval)
+  }, [])
+
   useEffect(() => {
     recordCustomerAction('visit')
-    if (localStorage.getItem('fixed_light') === 'true' || localStorage.getItem('is_lifetime_vip') === 'true') {
-      setIsBulbFixed(true)
-    }
 
-    if (Math.random() < 0.05) {
-      setEasterEgg(EASTER_EGG_NOTES[Math.floor(Math.random() * EASTER_EGG_NOTES.length)])
-    }
-
-    // 1. 轮询读取物理世界状态
     const fetchState = async () => {
       try {
-        const { data } = await supabase.from('world_state').select('event_type').eq('id', true).single()
-        if (data) setActiveEvent(data.event_type as any)
+        const { data: envData } = await supabase.from('world_state').select('event_type').eq('id', true).single()
+        if (envData) setActiveEvent(envData.event_type as any)
+        
+        // 核心修复：不要傻乎乎的用 count 查全表，要校验时间
+        const { data: basketData } = await supabase.from('iron_basket').select('created_at').eq('status', 'available')
+        if (basketData) {
+          const now = Date.now()
+          const hasValid = basketData.some(item => (now - new Date(item.created_at).getTime()) <= 24 * 60 * 60 * 1000)
+          setHasBasketItems(hasValid)
+        }
       } catch (e) {}
     }
+
     fetchState()
+
     const interval = setInterval(fetchState, 30000)
+
     return () => clearInterval(interval)
   }, [])
 
-  // 2. 吐槽胶囊轮播逻辑
-  useEffect(() => {
-    if (activeEvent === 'clear') {
-      setAmbientQuote(null)
-      return
-    }
-
-    let timeoutId: NodeJS.Timeout
-    const quotes = EVENT_QUOTES[activeEvent]
-
-    const scheduleNextQuote = () => {
-      // 随机等待 10秒 到 25秒 之间
-      const waitTime = Math.floor(Math.random() * 15000) + 10000
-      
-      timeoutId = setTimeout(() => {
-        // 随机抽取一句吐槽
-        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)]
-        setAmbientQuote(randomQuote)
-
-        // 展示 6 秒后恢复为基础环境状态
-        timeoutId = setTimeout(() => {
-          setAmbientQuote(null)
-          scheduleNextQuote()
-        }, 6000)
-
-      }, waitTime)
-    }
-
-    scheduleNextQuote()
-    return () => clearTimeout(timeoutId)
-  }, [activeEvent])
-
-  const handleEnter = () => {
-    if (!selected) return
-    track('enter_write', { emotion: selected, score })
+  const handleEnter = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const finalEmotion = selected || 'numb'
+    track('enter_write', { emotion: finalEmotion, score })
     sessionStorage.setItem('emotion_score', String(score))
-    router.push(`/write?emotion=${selected}`)
+    router.push(`/write?emotion=${finalEmotion}`)
+  }
+
+  const ashIsMissing = ashStatus === '后巷抽烟' || ashStatus === '不知道去哪了'
+
+  const printBlankReceipt = () => {
+    // 模拟热敏纸空白小票
+    alert('「你什么也没说。店也不知道你在想什么。这样也行。」')
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '40px', padding: '40px 24px 60px' }}>
-      <PlasticBag />
-      <div style={{ position: 'fixed', top: '35%', left: '50%', transform: 'translate(-50%, -50%)', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(245,200,66,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
-
-      {/* ========================================== */}
-      {/* 核心重构区：原生广播胶囊 */}
-      {/* ========================================== */}
-      <div style={{ height: '32px', marginBottom: '-10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {activeEvent !== 'clear' && (
-          <div style={{ 
-            padding: '6px 16px', borderRadius: '20px', 
-            background: ambientQuote ? 'rgba(20, 18, 15, 0.85)' : 'rgba(255,255,255,0.02)', 
-            border: ambientQuote ? '1px solid rgba(245,200,66,0.25)' : '1px dashed var(--border)', 
-            display: 'flex', alignItems: 'center', gap: '8px', 
-            animation: 'fadeIn 0.5s ease',
-            maxWidth: '320px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            transition: 'all 0.4s ease',
-            boxShadow: ambientQuote ? '0 8px 20px rgba(0,0,0,0.4)' : 'none'
-          }}>
-            {ambientQuote ? (
-              <>
-                <span style={{ fontSize: '13px', opacity: 0.9 }}>💬</span>
-                <span style={{ color: 'var(--warm-yellow)', fontSize: '11px', letterSpacing: '0.05em' }}>{ambientQuote}</span>
-              </>
-            ) : (
-              <>
-                <span style={{ color: 'var(--text-muted)', fontSize: '10px', opacity: 0.6, animation: 'pulseDot 2s infinite' }}>●</span>
-                <span style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.1em', opacity: 0.6 }}>
-                  {activeEvent === 'rain' ? '避难所外正在下雨...' : '吧台的灯泡快烧断了...'}
-                </span>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
-        <img src="/logo.png" alt="End Here" className={isBulbFixed ? "" : "flicker-bulb"} style={{ width: '72px', height: '72px', opacity: 0.9 }} />
-        <p style={{ color: 'var(--text-muted)', fontSize: '11px', letterSpacing: '0.35em' }}>END HERE</p>
-        <h1 className={isBulbFixed ? "" : "flicker-bulb"} style={{ color: 'var(--text-main)', fontSize: ' 22px', fontWeight: '300', letterSpacing: '0.1em', lineHeight: '1.6' }}>
-          如果有点撑不住 进来坐会儿
-        </h1>
-      </div>
-
-      <div style={{ width: '40px', height: '1px', background: 'var(--border)' }} />
-
-      {easterEgg && (
-        <div style={{ width: '100%', padding: '16px 20px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '4px', transform: 'rotate(-1.5deg)', position: 'relative', animation: 'fadeIn 0.6s ease-out' }}>
-          <div style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '24px' }}>📌</div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '11px', marginBottom: '10px', opacity: 0.6 }}>【收银台上钉着一张字条】</p>
-          <p style={{ color: 'var(--text-main)', fontSize: '13px', lineHeight: '1.8', opacity: 0.85, whiteSpace: 'pre-wrap' }}>{easterEgg.text}</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '12px', textAlign: 'right', opacity: 0.5 }}>—— {easterEgg.author} 留</p>
-        </div>
-      )}
-
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <p style={{ color: 'var(--text-muted)', fontSize: '12px', textAlign: 'center', letterSpacing: '0.15em' }}>现在的真实感觉是</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
-          {EMOTIONS.map((e) => (
-            <button key={e.id} onClick={() => setSelected(e.id)} style={{ width: '100%', padding: '12px 20px', borderRadius: '999px', border: `1px solid ${selected === e.id ? 'var(--warm-yellow)' : 'var(--border)'}`, background: selected === e.id ? 'rgba(245,200,66,0.1)' : 'transparent', color: selected === e.id ? 'var(--warm-yellow)' : 'var(--text-muted)', fontSize: '13px', cursor: 'pointer', transition: 'all 0.25s ease', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ letterSpacing: '0.05em' }}>{e.label}</span>
-              <span style={{ fontSize: '15px' }}>{e.emoji}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {selected && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em' }}>这股感觉有多重</p>
-            <p style={{ color: 'var(--warm-yellow)', fontSize: '20px', fontWeight: '300' }}>{score}</p>
-          </div>
-          <input type="range" min={1} max={10} value={score} onChange={(e) => setScore(parseInt(e.target.value))} style={{ width: '100%', accentColor: 'var(--warm-yellow)', cursor: 'pointer' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.5 }}>还好</span>
-            <span style={{ color: 'var(--text-muted)', fontSize: '11px', opacity: 0.5 }}>已经满了</span>
-          </div>
-        </div>
-      )}
-
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <button
-          onClick={handleEnter}
-          disabled={!selected}
-          style={{ 
-            width: '100%', padding: '16px', borderRadius: '12px', 
-            border: `1px solid ${selected ? 'rgba(245,200,66,0.3)' : 'var(--border)'}`, 
-            background: selected ? 'rgba(245,200,66,0.08)' : 'transparent', 
-            color: selected ? 'var(--warm-yellow)' : 'var(--text-muted)', 
-            fontSize: '15px', letterSpacing: '0.15em', 
-            cursor: selected ? 'pointer' : 'not-allowed', 
-            transition: 'all 0.3s ease', opacity: selected ? 1 : 0.4 
-          }}
-        >
-          {selected ? '进来坐会儿' : '先选个感觉'}
-        </button>
-
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => router.push('/archive')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em', cursor: 'pointer', transition: 'all 0.3s ease', opacity: 0.8 }}>
-            拉开抽屉看看
-          </button>
-          
-          <button onClick={() => router.push('/counter')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: '1px dashed rgba(245,200,66,0.3)', background: 'rgba(245,200,66,0.05)', color: 'var(--warm-yellow)', fontSize: '12px', letterSpacing: '0.1em', cursor: 'pointer', transition: 'all 0.3s ease', opacity: 0.8 }}>
-            🏪 走向吧台
-          </button>
-        </div>
-
-        <p style={{ 
-          color: 'var(--text-muted)', fontSize: '11px', 
-          textAlign: 'center', lineHeight: '1.8', opacity: 0.4,
-          marginTop: '4px'
-        }}>
-          不用注册。写完就撕。<br/>
-          没人知道你今晚来过。
-        </p>
-      </div>
-      
+    <>
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
         }
+
+        body {
+          background: #13110f;
+        }
+
+        .root-container {
+          background: #141210;
+          width: 100%;
+          max-width: 860px;
+          margin: 0 auto;
+          min-height: 100dvh;
+          position: relative;
+          overflow-x: hidden;
+          font-family: 'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+          box-shadow:
+            0 0 120px rgba(0,0,0,0.9),
+            0 0 10px rgba(245,200,66,0.03);
+        }
+
+        .floor {
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: 0;
+          position: relative;
+        }
+
+        @media (max-width: 768px) {
+          .floor {
+            grid-template-columns: 1fr;
+          }
+
+          .zone-corner {
+            min-height: 55dvh !important;
+            border-right: none !important;
+          }
+
+          .zone-counter {
+            min-height: 45dvh !important;
+            border-left: none !important;
+            border-top: 1px solid rgba(245,200,66,0.1) !important;
+          }
+        }
+
+        @keyframes flicker {
+          0%,89%,100%{opacity:1}
+          90%{opacity:.7}
+          92%{opacity:.9}
+          94%{opacity:.75}
+          96%{opacity:1}
+        }
+
         @keyframes pulseDot {
-          0%, 100% { opacity: 0.2; }
-          50% { opacity: 0.8; }
+          0%,100%{opacity:.15}
+          50%{opacity:.6}
+        }
+
+        @keyframes fadeUp {
+          from{opacity:0;transform:translateY(8px)}
+          to{opacity:1;transform:translateY(0)}
+        }
+
+        @keyframes fanSpin {
+          100% {transform: rotate(360deg)}
+        }
+
+        /* 新增：LED 电子钟冒号闪烁 */
+        @keyframes blinkClock { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
+
+        @keyframes fadeInOut {
+          0% {
+            opacity: 0;
+            transform: translateX(-5px);
+          }
+
+          10% {
+            opacity: 1;
+            transform: translateX(0);
+          }
+
+          90% {
+            opacity: 1;
+            transform: translateX(0);
+          }
+
+          100% {
+            opacity: 0;
+            transform: translateX(5px);
+          }
         }
       `}</style>
-    </div>
+
+      <div className="root-container flex flex-col">
+
+        {/* CRT 扫描线 */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px)',
+            pointerEvents: 'none',
+            zIndex: 50,
+          }}
+        ></div>
+
+        {/* 空气层 */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'radial-gradient(circle at 70% 20%, rgba(245,200,66,0.04), transparent 35%)',
+            pointerEvents: 'none',
+            zIndex: 2,
+            opacity: 0.7,
+          }}
+        ></div>
+
+        {/* Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            padding: '22px 24px 16px',
+            position: 'relative',
+            zIndex: 10,
+          }}
+        >
+          <div>
+            <div
+              onClick={() => router.push('/')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                cursor: 'pointer',
+                opacity: 0.92,
+              }}
+            >
+              <img
+                src="/logo.png"
+                alt="End Here"
+                style={{
+                  width: '26px',
+                  height: '26px',
+                  filter:
+                    'grayscale(100%) sepia(100%) hue-rotate(5deg) brightness(1.5) contrast(1.2)',
+                }}
+              />
+
+              <span
+                style={{
+                  color: '#e8e0d5',
+                  fontSize: '15px',
+                  letterSpacing: '.22em',
+                  fontWeight: 400,
+                }}
+              >
+                END HERE
+              </span>
+
+              <span
+                style={{
+                  color: '#9a8f85',
+                  fontSize: '10px',
+                  letterSpacing: '.1em',
+                  opacity: 0.5,
+                }}
+              >
+                便利店
+              </span>
+            </div>
+
+            <p
+              style={{
+                color: '#9a8f85',
+                fontSize: '9px',
+                letterSpacing: '.15em',
+                opacity: 0.4,
+                marginTop: '8px',
+                paddingLeft: '36px',
+              }}
+            >
+              门没锁 · 随便待会儿
+            </p>
+          </div>
+
+          <div
+            style={{
+              pointerEvents: 'auto',
+              zIndex: 60,
+              transform: 'rotate(2deg)',
+              opacity: 0.9,
+            }}
+          >
+            <PlasticBag />
+          </div>
+        </div>
+
+        <div className="floor flex-1" style={{ position: 'relative', zIndex: 1 }}>
+
+          {/* ─── 左/上: 施工区 (蓝图清晰化升级) ─── */}
+          <div className="zone-construction" style={{ position: 'relative', borderRight: '1px solid rgba(255,255,255,0.03)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            
+            {/* 维持环境氛围：缓慢旋转的吊扇阴影 */}
+            <div style={{ position: 'absolute', top: '-15%', left: '25%', width: '150%', height: '80%', background: 'conic-gradient(from 0deg, rgba(0,0,0,0.8) 0deg, transparent 40deg, rgba(0,0,0,0.8) 120deg, transparent 160deg, rgba(0,0,0,0.8) 240deg, transparent 280deg)', opacity: 0.08, animation: 'fanSpin 16s linear infinite', pointerEvents: 'none', zIndex: 1 }}></div>
+
+            {/* 维持环境氛围：角落的猫 */}
+            <div style={{ position: 'absolute', bottom: '3%', left: '8%', opacity: 0.08, zIndex: 5, pointerEvents: 'none' }}>
+              <svg width="35" height="18" viewBox="0 0 40 20" fill="currentColor" color="#e8e0d5">
+                <path d="M10 20 C5 20, 0 15, 0 10 C0 5, 10 5, 15 10 C20 15, 30 15, 35 10 C38 7, 40 10, 40 15 C40 20, 20 20, 10 20 Z" />
+                <path d="M30 12 L32 5 L35 10 Z" />
+                <path d="M35 10 L38 5 L40 12 Z" />
+              </svg>
+            </div>
+
+            {/* 核心重构：提升网格能见度，opacity 提至 0.75 */}
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '3fr 4.5fr 2.5fr', gridTemplateRows: '2fr 1fr', gap: '8px', padding: '24px', opacity: 0.75, pointerEvents: 'none', zIndex: 2 }}>
+              
+              {/* [左上] 冰柜位 */}
+              <div style={{ border: '1px dashed rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'repeating-linear-gradient(45deg, #f5c842, #f5c842 4px, transparent 4px, transparent 8px)', opacity: 0.4 }}></div>
+                <span style={{ color: '#a89f91', fontSize: '11px', writingMode: 'vertical-lr', letterSpacing: '0.4em' }}>[ 冰柜区 ]</span>
+              </div>
+
+              {/* [中上] 货架区 */}
+              <div style={{ border: '1px dashed rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'repeating-linear-gradient(45deg, #f5c842, #f5c842 4px, transparent 4px, transparent 8px)', opacity: 0.4 }}></div>
+                <span style={{ color: '#a89f91', fontSize: '12px', letterSpacing: '0.3em' }}>货架占位</span>
+                <div style={{ width: '70%', height: '1px', background: 'rgba(255,255,255,0.08)' }}></div>
+                <div style={{ width: '70%', height: '1px', background: 'rgba(255,255,255,0.08)' }}></div>
+              </div>
+
+              {/* [右上] LED 电子时钟 (做活了！) */}
+              <div style={{ border: '1px dashed rgba(255,255,255,0.06)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: '12px' }}>
+                <div style={{ 
+                  background: 'rgba(15,8,0,0.85)', 
+                  border: '1px solid rgba(255,70,0,0.15)', 
+                  padding: '4px 6px', 
+                  borderRadius: '2px',
+                  boxShadow: 'inset 0 0 8px rgba(0,0,0,0.9), 0 0 4px rgba(255,70,0,0.1)',
+                  display: 'flex', alignItems: 'center'
+                }}>
+                   <span style={{ 
+                     fontFamily: 'monospace', color: '#f24822', fontSize: '12px', 
+                     fontWeight: 'bold', letterSpacing: '0.1em', 
+                     textShadow: '0 0 5px rgba(242,72,34,0.6)' 
+                   }}>
+                     {clockTime.h}<span style={{ animation: 'blinkClock 2s infinite' }}>:</span>{clockTime.m}
+                   </span>
+                </div>
+              </div>
+
+              {/* [左下] 角落的凳子 (修复空洞感，增加简易轮廓) */}
+              <div 
+                onClick={() => router.push('/sit')}
+                style={{ 
+                  border: '1px dashed rgba(255,255,255,0.06)', 
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
+                  padding: '10px', cursor: 'pointer', transition: 'all 0.4s ease', pointerEvents: 'auto',
+                  gap: '8px'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(245,200,66,0.2)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
+              >
+                {/* 简易的破木凳几何轮廓 */}
+                <div style={{ width: '18px', height: '14px', borderTop: '2.5px solid rgba(168,159,145,0.4)', borderLeft: '2px solid rgba(168,159,145,0.15)', borderRight: '2px solid rgba(168,159,145,0.15)' }}></div>
+                
+                <span style={{ color: '#a89f91', fontSize: '9px', opacity: 0.6, letterSpacing: '0.2em', transition: 'color 0.3s' }}>
+                  [ 角落里的破木凳 ]
+                </span>
+              </div>
+
+              {/* [中下] 窗台 */}
+              <div style={{ border: '1px dashed rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'repeating-linear-gradient(45deg, #f5c842, #f5c842 4px, transparent 4px, transparent 8px)', opacity: 0.4 }}></div>
+                <span style={{ color: '#a89f91', fontSize: '10px', letterSpacing: '0.2em' }}>[ 靠窗空位 ]</span>
+              </div>
+
+              {/* [右下] 书架 */}
+              <div style={{ border: '1px dashed rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'repeating-linear-gradient(45deg, #f5c842, #f5c842 4px, transparent 4px, transparent 8px)', opacity: 0.4 }}></div>
+                <span style={{ color: '#a89f91', fontSize: '10px', letterSpacing: '0.2em' }}>[ 旧书架 ]</span>
+              </div>
+
+            </div>
+
+            {/* 统一遮罩：变薄，让蓝图透出来。背景黑度从 0.65 降到 0.25，去除毛玻璃模糊 */}
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(14,12,10,0.25)', zIndex: 3, pointerEvents: 'none' }}></div>
+
+            {/* 视觉重心：总施工牌 */}
+            <div style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%,-50%) rotate(-4deg)', zIndex: 10, width: 'max-content', pointerEvents: 'none' }}>
+              <div style={{ padding: '12px 20px', background: 'rgba(15,12,9,0.95)', border: '1px solid rgba(245,200,66,0.4)', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.8)' }}>
+                <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(45deg,transparent,transparent 5px,rgba(245,200,66,0.04) 5px,rgba(245,200,66,0.04) 10px)' }}></div>
+                {/* 胶带 */}
+                <div style={{ position: 'absolute', top: '-6px', left: '10%', width: '40px', height: '12px', background: 'rgba(245,200,66,0.4)', transform: 'rotate(6deg)' }}></div>
+                
+                <div style={{ position: 'relative', textAlign: 'center' }}>
+                  <div style={{ color: 'rgba(245,200,66,0.8)', fontSize: '11px', letterSpacing: '.2em', fontFamily: 'monospace', margin: '0 0 4px 0' }}>⚠ 施工中</div>
+                  <div style={{ color: 'rgba(245,200,66,0.5)', fontSize: '9px', letterSpacing: '.1em', fontFamily: 'monospace' }}>内部区域尚未开放</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* 右侧收银区（保留所有原有功能） */}
+          <div
+            className="zone-counter"
+            style={{
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '0 0 20px 0',
+            }}
+          >
+            {/* 倒霉小票展示区 */}
+            {mishap && (
+              <div style={{
+                background: 'rgba(30,20,15,0.95)',
+                border: '1px solid #a5673f',
+                padding: '6px 10px',
+                fontSize: '9px',
+                color: '#cf9f7a',
+                margin: '8px 20px',
+                textAlign: 'center',
+                animation: 'fadeInOut 10s forwards',
+                position: 'relative',
+                zIndex: 15
+              }}>
+                [ 店员倒霉小票 ] {mishap}
+              </div>
+            )}
+
+            <div
+              style={{
+                padding: '0 20px',
+                marginBottom: '16px',
+                zIndex: 10,
+              }}
+            >
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <span
+                  style={{
+                    width: '4px',
+                    height: '4px',
+                    borderRadius: '50%',
+                    background: '#9a8f85',
+                    opacity: 0.4,
+                    animation: 'pulseDot 2s infinite',
+                    display: 'inline-block',
+                  }}
+                ></span>
+
+                <span
+                  style={{
+                    color: '#9a8f85',
+                    fontSize: '10px',
+                    letterSpacing: '.1em',
+                    opacity: 0.5,
+                  }}
+                >
+                  {activeEvent === 'rain'
+                    ? '外面还在下雨...'
+                    : activeEvent === 'broken_bulb'
+                    ? '有颗灯泡在闪...'
+                    : timeStateStr}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ padding: '4px 20px 12px', zIndex: 10 }}>
+              <h2 style={{ color: '#8f857a', fontSize: '13px', letterSpacing: '0.25em', fontFamily: 'serif', opacity: 0.5, margin: 0 }}>
+                收银台 
+              </h2>
+            </div>
+
+            {/* 值班牌 */}
+            <div style={{ padding: '0 20px', flexShrink: 0, zIndex: 10 }}>
+              <div 
+                onClick={() => router.push('/write?emotion=numb')}
+                style={{ 
+                  border: '1px solid rgba(255,255,255,0.05)', borderRadius: '2px', padding: '12px 16px', 
+                  position: 'relative', cursor: 'pointer', background: 'rgba(0,0,0,0.3)',
+                  transform: `rotate(${randOffsets.board}deg)`, 
+                  boxShadow: '2px 4px 10px rgba(0,0,0,0.5)',
+                  transition: 'transform 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'rotate(0)'}
+                onMouseLeave={e => e.currentTarget.style.transform = `rotate(${randOffsets.board}deg)`}
+              >
+                <div style={{ position: 'absolute', top: '-5px', left: '50%', transform: 'translateX(-50%) rotate(2deg)', width: '25px', height: '10px', background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(2px)' }}></div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '6px' }}>
+                  <span style={{ color: '#9a8f85', fontSize: '9px', letterSpacing: '.2em', opacity: .5 }}>[今日排班]</span>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(212,149,106,0.05)', border: '1px dashed rgba(212,149,106,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ color: '#d4956a', fontSize: '10px', fontWeight: 500, opacity: 0.5 }}>A</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ color: '#d4956a', fontSize: '11px', opacity: ashIsMissing ? .4 : .9, textDecoration: ashIsMissing ? 'line-through' : 'none' }}>Ash</span>
+                      <span style={{ color: '#8f857a', fontSize: '8px', opacity: .5 }}>{ashStatus}</span>
+                    </div>
+                    {ashMumble && !ashIsMissing && (
+                      <div style={{ position: 'absolute', left: '90px', background: 'rgba(212,149,106,0.08)', border: '1px solid rgba(212,149,106,0.15)', padding: '4px 8px', borderRadius: '2px', fontSize: '9px', color: '#d4956a', opacity: 0.8, animation: 'fadeInOut 4s forwards' }}>
+                        {ashMumble}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(201,160,180,0.15)', border: '1px solid rgba(201,160,180,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 10px rgba(201,160,180,0.1)' }}>
+                      <span style={{ color: '#c9a0b4', fontSize: '10px', fontWeight: 500 }}>R</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ color: '#c9a0b4', fontSize: '11px', opacity: .9, fontWeight: 'bold' }}>Rin</span>
+                      <span style={{ color: '#c9a0b4', fontSize: '8px', opacity: .6 }}>{rinStatus}</span>
+                    </div>
+                    {rinMumble && (
+                      <div style={{ position: 'absolute', left: '90px', background: 'rgba(201,160,180,0.08)', border: '1px solid rgba(201,160,180,0.15)', padding: '4px 8px', borderRadius: '2px', fontSize: '9px', color: '#c9a0b4', opacity: 0.8, animation: 'fadeInOut 4s forwards' }}>
+                        {rinMumble}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 留言本（情绪倾诉） */}
+            <div style={{ padding: '20px', zIndex: 10 }}>
+              <div
+                onClick={() => !showEmotions && setShowEmotions(true)}
+                style={{
+                  background: '#e8e0d5',
+                  backgroundImage:
+                    'repeating-linear-gradient(0deg, rgba(0,0,0,0.015), rgba(0,0,0,0.015) 1px, transparent 1px, transparent 4px)',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  filter: 'saturate(0.92)',
+                  borderRadius: '2px',
+                  padding: '16px 14px',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transform: showEmotions ? 'rotate(0)' : 'rotate(1deg)',
+                  boxShadow: '2px 6px 15px rgba(0,0,0,0.6)',
+                  color: '#1a1612',
+                }}
+              >
+                {!showEmotions ? (
+                  <div>
+                    <p
+                      style={{
+                        color: '#555',
+                        fontSize: '9px',
+                        letterSpacing: '.2em',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      空白留言本
+                    </p>
+
+                    <p
+                      style={{
+                        color: '#1a1612',
+                        fontSize: '14px',
+                        lineHeight: 1.7,
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      有什么烂事
+                      <br />
+                      在这写下来
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {EMOTIONS.map((e) => (
+                        <button
+                          key={e.id}
+                          onClick={(evt) => {
+                            evt.stopPropagation()
+                            setSelected(e.id)
+                          }}
+                          style={{
+                            fontSize: '11px',
+                            color: selected === e.id ? '#e8e0d5' : '#1a1612',
+                            background: selected === e.id ? '#1a1612' : 'transparent',
+                            border: `1px solid ${selected === e.id ? '#1a1612' : 'rgba(0,0,0,0.3)'}`,
+                            padding: '6px 10px',
+                            borderRadius: '2px',
+                          }}
+                        >
+                          {e.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {selected && (
+                      <button
+                        onClick={handleEnter}
+                        style={{
+                          alignSelf: 'flex-start',
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#1a1612',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        压在吧台上 →
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 生锈铁筐 */}
+            <div style={{ padding: '0 20px', flexShrink: 0, zIndex: 10 }}>
+              <div 
+                onClick={() => router.push('/counter')}
+                style={{ border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '4px', padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: '12px', alignItems: 'center' }}
+              >
+                <div style={{ flexShrink: 0, position: 'relative' }}>
+                  <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                    <path d="M4 12 L6 26 H26 L28 12 Z" stroke="rgba(154,143,133,0.3)" strokeWidth="0.8" fill="rgba(154,143,133,0.03)"/>
+                    {hasBasketItems && (
+                       <g opacity="0.3">
+                         <rect x="8" y="20" width="8" height="6" fill="#f5c842" />
+                         <circle cx="20" cy="22" r="3" fill="#a0c4a0" />
+                       </g>
+                    )}
+                    <path d="M2 12 H30" stroke="rgba(154,143,133,0.3)" strokeWidth="0.8"/>
+                    <path d="M10 12 L12 6 M22 12 L20 6" stroke="rgba(154,143,133,0.2)" strokeWidth="0.8"/>
+                    <line x1="8" y1="17" x2="8" y2="22" stroke="rgba(154,143,133,0.15)" strokeWidth="1.5"/>
+                    <line x1="15" y1="16" x2="15" y2="23" stroke="rgba(154,143,133,0.1)" strokeWidth="1.5"/>
+                  </svg>
+                </div>
+                <div>
+                  <p style={{ color: '#9a8f85', fontSize: '9px', letterSpacing: '.15em', margin: '0 0 4px', opacity: .4 }}>生锈的铁筐</p>
+                  <p style={{ color: '#9a8f85', fontSize: '11px', letterSpacing: '.05em', margin: 0, opacity: .5 }}>
+                    {hasBasketItems ? '里面好像有东西' : '去看看别人留下的'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 空白小票 + 旧抽屉区域 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', padding: '0 20px' }}>
+              <div 
+                onClick={printBlankReceipt}
+                style={{ 
+                  fontSize: '9px', 
+                  color: '#6a5e52', 
+                  textDecoration: 'underline dotted',
+                  cursor: 'pointer',
+                  opacity: 0.5,
+                  transition: '0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}
+              >
+                打印机空转 —— 出一张空白小票
+              </div>
+
+              <div 
+                onClick={() => router.push('/archive')}
+                style={{ 
+                  cursor: 'pointer', 
+                  opacity: 0.4, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px',
+                  transition: 'opacity 0.3s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '0.4'}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="1" y="3" width="12" height="9" rx="1" stroke="#9a8f85" strokeWidth="0.8"/>
+                  <line x1="1" y1="6" x2="13" y2="6" stroke="#9a8f85" strokeWidth="0.6"/>
+                  <rect x="5" y="1" width="4" height="3" rx="0.5" stroke="#9a8f85" strokeWidth="0.7"/>
+                </svg>
+                <span style={{ color: '#9a8f85', fontSize: '9px', fontStyle: 'italic', letterSpacing: '0.15em' }}>
+                  拉开抽屉看看
+                </span>
+              </div>
+            </div>
+
+            {/* 底部环境音提示 */}
+            <div
+              style={{
+                marginTop: '28px',
+                padding: '0 20px',
+                opacity: 0.28,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '18px',
+                zIndex: 10,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: '#f5c842',
+                    opacity: 0.3,
+                    animation: 'pulseDot 4s infinite',
+                  }}
+                ></div>
+
+                <span
+                  style={{
+                    color: '#9a8f85',
+                    fontSize: '10px',
+                    letterSpacing: '.08em',
+                  }}
+                >
+                  收音机里有人在说天气预报...
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#8f857a', fontSize: '9px' }}>
+                  吧台角落那盆植物，好像很久没人浇水了
+                </span>
+              </div>
+              <div style={{ marginTop: 'auto', padding: '30px 20px 0', opacity: .2 }}>
+              <p style={{ color: '#9a8f85', fontSize: '9px', letterSpacing: '.15em', lineHeight: 1.8 }}>
+                [ 不用注册。写完就撕。没人知道你来过。 ]
+              </p>
+            </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </>
   )
 }

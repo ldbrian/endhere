@@ -50,26 +50,31 @@ function CounterContent() {
     setTimeout(() => setVisible(true), 100)
     
     // 获取真实铁筐库存
+    // 获取真实铁筐库存
     const fetchInventory = async () => {
       try {
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        // 废弃带有风险的 .gte('created_at', twentyFourHoursAgo)
         const { data, error } = await supabase
           .from('iron_basket')
-          .select('gift_id')
+          .select('gift_id, created_at')
           .eq('status', 'available')
-          .gte('created_at', twentyFourHoursAgo)
           
-        // 先查物理天气，再算库存
         const { data: weatherData } = await supabase.from('world_state').select('event_type').eq('id', true).single()
         const isRaining = weatherData?.event_type === 'rain'
 
         if (data && !error) {
-          const counts = data.reduce((acc: Record<string, number>, item: any) => {
+          const now = Date.now()
+          // 核心修复：纯前端时间戳校验，绝不留过期物品
+          const validData = data.filter((item: any) => {
+            const itemTime = new Date(item.created_at).getTime()
+            return (now - itemTime) <= 24 * 60 * 60 * 1000
+          })
+
+          const counts = validData.reduce((acc: Record<string, number>, item: any) => {
             acc[item.gift_id] = (acc[item.gift_id] || 0) + 1
             return acc
-          }, { milk: 0, candy: 0, ice_water: 0, umbrella: 0 }) // 加入 umbrella 初始化
+          }, { milk: 0, candy: 0, ice_water: 0, umbrella: 0 }) 
           
-          // 如果系统正在下雨，强行注入一把无限使用的旧雨伞
           if (isRaining) {
             counts.umbrella = 999 
           }

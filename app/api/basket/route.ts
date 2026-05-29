@@ -1,3 +1,4 @@
+// app/api/basket/route.ts
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -5,26 +6,15 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-// =====================================================
-// Supabase 建表 SQL（首次部署前执行一次）:
-// ... (保留你原来的 SQL 注释)
-// =====================================================
-
-// GET /api/basket?visitCount=N&type=xxx
-// 接收者：按先入先出（FIFO）取出一件指定类型的可用物品（排除自己投的）
-// 店长打车券：visitCount > 1 的回头客有额外 3% 概率获得（永远存在，不从 DB 取）
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
     const visitCount = parseInt(searchParams.get('visitCount') || '0', 10)
-    // 新增：允许前端指定需要的物品类型（如 'milk', 'bandaid', 'match'）
     const type = searchParams.get('type') 
     const callerIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
 
-    // === 店长打车券：特殊逻辑，不存 DB，仅判断资格 ===
-    // 条件：回头客（visitCount > 1），3% 概率
+    // 店长打车券逻辑保持不变
     if (visitCount > 1 && Math.random() < 0.03) {
-      // 生成北京时间时间戳（UTC+8）
       const bjTime = new Date().toLocaleString('zh-CN', {
         timeZone: 'Asia/Shanghai',
         year: 'numeric', month: '2-digit', day: '2-digit',
@@ -38,50 +28,53 @@ export async function GET(req: Request) {
           icon: '🎫',
           name: '店长的免费打车券',
           msg: '如果有幸在这个喧闹的城市中打到店长的车，店长会免费送你一程。',
-          timeLabel: null, // 特殊物品不显示"X小时前"
+          timeLabel: null,
           isManagerCoupon: true,
-          issuedAt: bjTime, // 领取时间戳，用于渲染券面
+          issuedAt: bjTime,
         }
       })
     }
 
-    // === 普通铁筐物品：按 FIFO (先入先出) 提取可用物品 ===
+    // 核心修复 1：拉取所有未被领取的物品，准备在内存中做绝对精度过滤
     let query = supabase
       .from('iron_basket')
-      .select('id, gift_id, gift_icon, gift_name, msg, left_at')
+      .select('id, gift_id, gift_icon, gift_name, msg, created_at') // 废弃未填写的 left_at，改用 created_at
       .eq('status', 'available')
-      .neq('donor_ip', callerIp) // 防自领
+      .neq('donor_ip', callerIp)
 
-    // 如果前端指定了类型，则增加过滤条件
-    if (type) {
-      query = query.eq('gift_id', type)
-    }
+    if (type) query = query.eq('gift_id', type)
 
-    // 核心改造：按时间正序排列（最早留下的优先被领走），取第一条
     const { data, error } = await query
-      .order('left_at', { ascending: true })
-      .limit(1)
-      .maybeSingle() // 使用 maybeSingle 避免 0 条数据时报错
-
     if (error) throw error
 
-    // 如果没有找到对应的可用物品
-    if (!data) {
-      return Response.json({ success: true, item: null })
-    }
+    if (!data || data.length === 0) return Response.json({ success: true, item: null })
 
-    const leftAt = new Date(data.left_at)
-    const hoursAgo = Math.max(1, Math.floor((Date.now() - leftAt.getTime()) / (1000 * 60 * 60)))
+    // 核心修复 2：内存级 24 小时过滤，免疫一切数据库时区 Bug
+    const now = Date.now()
+    const validItems = data.filter(item => {
+      const createdAt = new Date(item.created_at).getTime()
+      return (now - createdAt) <= 24 * 60 * 60 * 1000
+    })
+
+    if (validItems.length === 0) return Response.json({ success: true, item: null })
+
+    // 先入先出 (FIFO)：按时间正序排列
+    validItems.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    const targetItem = validItems[0]
+
+    // 修正时间文案计算
+    const itemTime = new Date(targetItem.created_at).getTime()
+    const hoursAgo = Math.max(1, Math.floor((now - itemTime) / (1000 * 60 * 60)))
     const timeLabel = hoursAgo >= 24 ? `${Math.floor(hoursAgo / 24)} 天前` : `${hoursAgo} 小时前`
 
     return Response.json({
       success: true,
       item: {
-        id: data.id,
-        giftId: data.gift_id,
-        icon: data.gift_icon,
-        name: data.gift_name,
-        msg: data.msg,
+        id: targetItem.id,
+        giftId: targetItem.gift_id,
+        icon: targetItem.gift_icon,
+        name: targetItem.gift_name,
+        msg: targetItem.msg,
         timeLabel,
         isManagerCoupon: false,
       }
@@ -91,6 +84,7 @@ export async function GET(req: Request) {
     return Response.json({ success: true, item: null })
   }
 }
+
 
 // POST /api/basket — 赠予者放入物品
 export async function POST(req: Request) {
