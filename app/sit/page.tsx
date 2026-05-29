@@ -71,7 +71,7 @@ export default function SitPage() {
       style={{
         background: '#0a0908', // 比大厅更深的纯黑
         height: '100dvh',
-        width: '40vw',        // 强制全屏宽度
+        width: '100vw',        // 强制全屏宽度
         maxWidth: 'none',      // 突破可能的父级限制
         display: 'flex',
         alignItems: 'center',
