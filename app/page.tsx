@@ -59,6 +59,17 @@ export default function Home() {
 
   const router = useRouter()
 
+  // ================= 核心新增：首页停留时长追踪引擎 =================
+  useEffect(() => {
+    const enterTime = Date.now()
+    
+    return () => {
+      // 当组件卸载（用户跳去收银台、跳去发呆页、或者关闭网页）时，计算时长并上报
+      const stayDuration = Math.round((Date.now() - enterTime) / 1000)
+      track('stay_duration', { page: 'home', duration_seconds: stayDuration })
+    }
+  }, [])
+
   // 5% 概率展示倒霉小票（每次刷新页面或每天第一次）
   useEffect(() => {
     const alreadyShown = sessionStorage.getItem('mishap_shown')

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { track } from '../lib/track' // 引入已有的打点器
 
 export default function SitPage() {
   const [line, setLine] = useState('')
@@ -9,6 +10,9 @@ export default function SitPage() {
   const router = useRouter()
 
   useEffect(() => {
+    // 1. 记录用户坐下的时间
+    const enterTime = Date.now()
+
     // 极低频的事件，拉长现实体感
     const events = [
       '空调滴水声停了。',
@@ -26,24 +30,17 @@ export default function SitPage() {
     const triggerNext = () => {
       if (!isActive) return
 
-      if (index < events.length) {
-        // 1. 先暗场
-        setFade(false)
+      // 先暗场
+      setFade(false)
+      
+      setTimeout(() => {
+        if (!isActive) return
         
-        // 2. 暗场 1.5 秒后，更换文字并亮起
-        setTimeout(() => {
-          if (!isActive) return
-          setLine(events[index])
-          setFade(true)
-          index++
-        }, 1500)
-      } else {
-        // 3. 所有事件播放完毕，留白 4 秒后自动隐入黑暗并退回大厅
-        setFade(false)
-        setTimeout(() => {
-          if (isActive) router.push('/')
-        }, 4000)
-      }
+        // 核心修复：采用取模运算(%)，让数组无限循环，绝不自动踢出用户
+        setLine(events[index % events.length])
+        setFade(true)
+        index++
+      }, 1500)
     }
 
     // 进页面 1秒 后出现第一句
@@ -62,6 +59,10 @@ export default function SitPage() {
       isActive = false
       clearInterval(interval)
       window.removeEventListener('click', handleClick)
+
+      // 2. 核心新增：用户主动离开时，上报发呆时长（转换为秒）
+      const stayDuration = Math.round((Date.now() - enterTime) / 1000)
+      track('stay_duration', { page: 'sit', duration_seconds: stayDuration })
     }
   }, [router])
 
@@ -70,8 +71,8 @@ export default function SitPage() {
       style={{
         background: '#0a0908', // 比大厅更深的纯黑
         height: '100dvh',
-        width: '40vw',        // <--- 核心修改：强制全宽
-        maxWidth: 'none',
+        width: '40vw',        // 强制全屏宽度
+        maxWidth: 'none',      // 突破可能的父级限制
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
