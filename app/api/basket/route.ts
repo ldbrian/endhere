@@ -97,23 +97,56 @@ export async function GET(req: Request) {
 // POST /api/basket 
 // 店长后台投放物品（彻底废弃追踪投放者 IP）
 // =====================================================
+// =====================================================
+// POST /api/basket 
+// 店长后台投放物品（加入绝对容错与字典补全机制）
+// =====================================================
+
+// 后端预设商品字典（数据清洗层）
+const BASKET_DICTIONARY: Record<string, { name: string, icon: string }> = {
+  milk: { name: '温牛奶', icon: '🥛' },
+  ice_water: { name: '冰水', icon: '🧊' },
+  candy: { name: '水果糖', icon: '🍬' },
+}
+
 export async function POST(req: Request) {
   try {
-    const { giftId, giftIcon, giftName, msg } = await req.json()
-    if (!giftId || !msg) {
-      return Response.json({ success: false, message: '筐里放的东西不对。' }, { status: 400 })
+    const body = await req.json()
+    
+    // 兼容多种传参格式，防止脚本写错
+    const giftId = body.giftId || body.gift_id
+    let giftIcon = body.giftIcon || body.gift_icon
+    let giftName = body.giftName || body.gift_name
+    let msg = body.msg
+
+    if (!giftId) {
+      return Response.json({ success: false, message: '必须提供物品 ID (giftId)。' }, { status: 400 })
+    }
+
+    // 核心容错：如果没传图标和名称，后端自动从字典补齐
+    if (!giftIcon || !giftName) {
+      const template = BASKET_DICTIONARY[giftId]
+      if (template) {
+        giftIcon = template.icon
+        giftName = template.name
+      } else {
+        return Response.json({ success: false, message: '未知的物品类型，且未提供图标参数。' }, { status: 400 })
+      }
+    }
+
+    // 如果店长连留言都没传，自动给一句默认兜底
+    if (!msg) {
+      msg = '店长按今日营收，留在这里的物资。'
     }
     
-    // 彻底删除了获取 x-forwarded-for IP 的逻辑
     const { error } = await supabase
       .from('iron_basket')
       .insert({ 
         gift_id: giftId, 
         gift_icon: giftIcon, 
         gift_name: giftName, 
-        msg, 
+        msg: msg, 
         status: 'available' 
-        // 删除了 donor_ip 字段的写入
       })
 
     if (error) throw error
