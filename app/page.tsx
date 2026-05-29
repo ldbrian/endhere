@@ -212,15 +212,20 @@ export default function Home() {
             grid-template-columns: 1fr;
           }
 
-          .zone-corner {
-            min-height: 55dvh !important;
+          /* 核心修复：类名修正，且把蓝图区高度拉升到 60dvh */
+          .zone-construction {
+            min-height: 60dvh !important; 
             border-right: none !important;
+            /* 移动端上下布局时，底部加一条微弱的分割线 */
+            border-bottom: 1px solid rgba(255,255,255,0.03) !important; 
           }
 
           .zone-counter {
-            min-height: 45dvh !important;
+            min-height: 40dvh !important;
             border-left: none !important;
-            border-top: 1px solid rgba(245,200,66,0.1) !important;
+            border-top: none !important;
+            /* 移动端收银台稍微往下沉一点，拉开间距 */
+            padding-top: 30px !important; 
           }
         }
 
