@@ -74,9 +74,34 @@ export default function Home() {
     cold: ''
   })
 
-  // ================= 实体坐标系引擎 V1.4 =================
+  // ================= 实体坐标系引擎 V1.4~V1.5 =================
   const stoolLocation = useEntityStore(state => state.stoolLocation)
   const moveStool = useEntityStore(state => state.moveStool)
+  const onTop = useEntityStore(state => state.onTop) // 获取当前是否有人坐在凳子上
+
+  // ================= V1.6 发呆页缝合与静默追踪 =================
+  const [isSpacedOutReady, setIsSpacedOutReady] = useState(false)
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    if (onTop === 'human') {
+      // 当用户坐下，启动 10 秒静默倒计时
+      timer = setTimeout(() => {
+        setIsSpacedOutReady(true)
+      }, 10000) // 10000ms = 10秒，测试时可以临时改短
+    } else {
+      // 只要站起来，立刻掐断发呆状态
+      setIsSpacedOutReady(false)
+    }
+
+    // 极其重要的清理机制：防止内存泄漏和状态错乱
+    return () => {
+      if (timer) clearTimeout(timer)
+      setIsSpacedOutReady(false)
+    }
+  }, [onTop])
+  // ================================================================
 
   // ================= 生命钩子 =================
   useEffect(() => {
@@ -294,22 +319,16 @@ export default function Home() {
                     <span 
                       onClick={(e) => { 
                         e.stopPropagation(); 
-                        const currentState = useEntityStore.getState().onTop;
                         useEntityStore.getState().toggleSit(); 
-                        
-                        // 【核心修复】：如果原本是空着的，点击即代表坐下，立刻跳转发呆页
-                        if (currentState === null) {
-                          router.push('/sit');
-                        }
+                        // V1.6 已移除此处的立刻跳转逻辑，改为挂机触发
                       }}
                       style={{ color: '#8f857a', fontSize: '8px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
                       onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
                       onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
                     >
-                      {useEntityStore(state => state.onTop) === 'human' ? '> 站起来' : '> 坐下发呆'}
+                      {useEntityStore(state => state.onTop) === 'human' ? '> 站起来' : '> 坐下'}
                     </span>
 
-                    {/* 【核心物理互斥】如果有人坐着，彻底隐藏移动选项 */}
                     {useEntityStore(state => state.onTop) === null && (
                       <span 
                         onClick={(e) => { e.stopPropagation(); useEntityStore.getState().moveStool('bar'); }}
@@ -321,6 +340,30 @@ export default function Home() {
                       </span>
                     )}
                   </div>
+
+                  {/* V1.6 静默响应：渐进式浮现发呆入口 */}
+                  {useEntityStore(state => state.onTop) === 'human' && (
+                    <div 
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginTop: '6px',
+                        opacity: isSpacedOutReady ? 1 : 0, 
+                        pointerEvents: isSpacedOutReady ? 'auto' : 'none', // 未浮现时防止盲点
+                        transition: 'opacity 3s ease-in' // 极其缓慢地像幽灵一样浮现
+                      }}
+                    >
+                      <span style={{ color: '#6a5e52', fontSize: '8px', letterSpacing: '0.1em', textAlign: 'center' }}>
+                        [ 盯着周围看久了，你的思绪开始变轻。 ]
+                      </span>
+                      <span 
+                        onClick={(e) => { e.stopPropagation(); router.push('/sit'); }}
+                        style={{ color: '#8f857a', fontSize: '9px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
+                        onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
+                        onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
+                      >
+                        {'>'} 闭上眼睛，顺着思绪沉没
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* 状态 2：凳子被拖走后的空荡痕迹 */}
@@ -394,7 +437,7 @@ export default function Home() {
               <h2 style={{ color: '#8f857a', fontSize: '13px', letterSpacing: '0.25em', fontFamily: 'serif', opacity: 0.5, margin: 0 }}>收银台</h2>
             </div>
 
-            {/* 吧台物理区追加渲染 (实体坐标系 V1.5 + 互斥拦截) */}
+            {/* 吧台物理区追加渲染 (实体坐标系 V1.5+V1.6) */}
             <div 
               style={{
                 padding: '0 20px',
@@ -403,40 +446,67 @@ export default function Home() {
                 overflow: 'hidden',
                 transition: 'opacity 1s ease, height 0.5s ease',
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
+                flexDirection: 'column', // 改为纵向排列以容纳幽灵文本
+                gap: '8px',
                 marginBottom: stoolLocation === 'bar' ? '12px' : '0'
               }}
             >
-              {/* 动态主文案：根据是否有人坐着切换 */}
-              <span style={{ color: useEntityStore(state => state.onTop) === 'human' ? '#d4cdb3' : '#a89f91', fontSize: '10px', letterSpacing: '0.1em', opacity: 0.8, transition: 'color 1s ease' }}>
-                {useEntityStore(state => state.onTop) === 'human' ? '[ 你正坐在破木凳上 ]' : '[ 一把破木凳停在吧台前 ]'}
-              </span>
-              
-              {/* 操作选项组 */}
-              <div style={{ display: 'flex', gap: '12px' }}>
-                {/* 坐下/站起动作 */}
-                <span 
-                  onClick={() => useEntityStore.getState().toggleSit()}
-                  style={{ color: '#8f857a', fontSize: '9px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
-                  onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
-                  onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
-                >
-                  {useEntityStore(state => state.onTop) === 'human' ? '> 站起来' : '> 坐下'}
+              {/* 原有的：主状态栏 */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <span style={{ color: useEntityStore(state => state.onTop) === 'human' ? '#d4cdb3' : '#a89f91', fontSize: '10px', letterSpacing: '0.1em', opacity: 0.8, transition: 'color 1s ease' }}>
+                  {useEntityStore(state => state.onTop) === 'human' ? '[ 你正坐在破木凳上 ]' : '[ 一把破木凳停在吧台前 ]'}
                 </span>
-
-                {/* 【核心物理互斥】如果有人坐着，彻底隐藏“拖回角落”选项 */}
-                {useEntityStore(state => state.onTop) === null && (
+                
+                <div style={{ display: 'flex', gap: '12px' }}>
                   <span 
-                    onClick={() => useEntityStore.getState().moveStool('corner')}
+                    onClick={() => useEntityStore.getState().toggleSit()}
                     style={{ color: '#8f857a', fontSize: '9px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
                     onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
                     onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
                   >
-                    {'>'} 把它拖回角落
+                    {useEntityStore(state => state.onTop) === 'human' ? '> 站起来' : '> 坐下'}
                   </span>
-                )}
+
+                  {useEntityStore(state => state.onTop) === null && (
+                    <span 
+                      onClick={() => useEntityStore.getState().moveStool('corner')}
+                      style={{ color: '#8f857a', fontSize: '9px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
+                      onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
+                      onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
+                    >
+                      {'>'} 把它拖回角落
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {/* V1.6 静默响应：渐进式浮现发呆入口 (吧台版) */}
+              {useEntityStore(state => state.onTop) === 'human' && (
+                <div 
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    opacity: isSpacedOutReady ? 1 : 0, 
+                    pointerEvents: isSpacedOutReady ? 'auto' : 'none',
+                    transition: 'opacity 3s ease-in',
+                    marginTop: '2px'
+                  }}
+                >
+                  <span style={{ color: '#6a5e52', fontSize: '8px', letterSpacing: '0.1em' }}>
+                    [ 盯着周围看久了，你的思绪开始变轻。 ]
+                  </span>
+                  <span 
+                    onClick={() => router.push('/sit')}
+                    style={{ color: '#8f857a', fontSize: '9px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
+                    onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
+                    onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
+                  >
+                    {'>'} 闭上眼睛，顺着思绪沉没
+                  </span>
+                </div>
+              )}
             </div>
 
             <div style={{ padding: '0 20px', flexShrink: 0, zIndex: 10 }}>
