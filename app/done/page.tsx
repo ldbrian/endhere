@@ -24,7 +24,7 @@ export default function DonePage() {
   const [isManagerMode, setIsManagerMode] = useState(false)
   
   const [queuedGift, setQueuedGift] = useState<any>(null)
-  const [interceptModal, setInterceptModal] = useState<'none' | 'match' | 'bandaid' | 'milk'>('none')
+  const [interceptModal, setInterceptModal] = useState<string>('none')
   
   const router = useRouter()
   const { checkBasket, takeGift, returnGift } = useBasketClaim()
@@ -65,23 +65,19 @@ export default function DonePage() {
 
   const handleSave = async () => {
     track('save_entry', { scoreEnd, item_id: item?.id })
-    
     const currentEntry = entries[0]
     if (currentEntry) {
       updateEntry(currentEntry.id, {
-        emotionEnd: scoreEnd,
-        status: isManagerMode ? '待处理' : '处理中',
-        item: item,
-        receiptId: receiptId
+        emotionEnd: scoreEnd, status: isManagerMode ? '待处理' : '处理中', item: item, receiptId: receiptId
       })
     }
     setSaved(true)
 
     if (!isManagerMode) {
-      const gift = await checkBasket('milk')
+      const gift = await checkBasket() // <--- 删除了 'milk'
       if (gift) {
         setQueuedGift(gift)
-        setInterceptModal('milk')
+        setInterceptModal(gift.giftId) // 动态传入抽到的 ID
       }
     }
   }

@@ -172,7 +172,7 @@ export async function PATCH(req: Request) {
       }
       const { error } = await supabase
         .from('iron_basket')
-        .update({ status: 'taken', taken_at: new Date().toISOString() })
+        .update({ status: 'taken'})
         .eq('id', id)
         .eq('status', 'available') 
       if (error) throw error

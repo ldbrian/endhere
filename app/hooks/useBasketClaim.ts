@@ -24,7 +24,7 @@ export function useBasketClaim() {
       }
 
       // 2. 概率引擎：30% 掉落率
-      const CLAIM_CHANCE = 0.3
+      const CLAIM_CHANCE = 1.0
       if (Math.random() > CLAIM_CHANCE) {
         return null
       }
