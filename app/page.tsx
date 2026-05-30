@@ -51,6 +51,8 @@ export default function Home() {
   const [rinStatus, setRinStatus] = useState('打盹中')
   const [mishap, setMishap] = useState<string | null>(null)
 
+  const [hasWatered, setHasWatered] = useState(false);
+
   const router = useRouter()
 
   // ================= 物理痕迹引擎 =================
@@ -621,9 +623,28 @@ export default function Home() {
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f5c842', opacity: 0.3, animation: 'pulseDot 4s infinite' }}></div>
                 <span style={{ color: '#9a8f85', fontSize: '10px', letterSpacing: '.08em' }}>收音机里有人在说天气预报...</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ color: '#8f857a', fontSize: '9px' }}>吧台角落那盆植物，好像很久没人浇水了</span>
-              </div>
+              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: '#6b7280', fontSize: '10px', letterSpacing: '0.1em' }}>
+                [ 吧台盘那盆植物，好像很久没人浇水了。 ]
+              </span>
+              
+              {!hasWatered && (
+                <span 
+                  onClick={() => setHasWatered(true)}
+                  style={{ 
+                    color: '#9ca3af', 
+                    fontSize: '10px', 
+                    cursor: 'pointer', 
+                    borderBottom: '1px dotted #4b5563',
+                    transition: 'color 0.2s'
+                  }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d1d5db'}
+                  onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#9ca3af'}
+                >
+                  {'>'} 浇点水
+                </span>
+              )}
+            </div>
               <div style={{ marginTop: 'auto', padding: '30px 20px 0', opacity: .2 }}>
                 <p style={{ color: '#9a8f85', fontSize: '9px', letterSpacing: '.15em', lineHeight: 1.8 }}>[ 不用注册。写完就撕。没人知道你来过。 ]</p>
               </div>
