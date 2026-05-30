@@ -89,7 +89,7 @@ function DestroyContent() {
             <span>物理揉碎</span><span style={{ fontSize: '11px', opacity: 0.5 }}>安静地丢弃</span>
           </button>
           <button onClick={handleBurn} style={{ width: '100%', padding: '14px', borderRadius: '10px', border: '1px dashed #e87070', background: 'rgba(232,112,112,0.05)', color: '#e87070', fontSize: '13px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>划根火柴烧掉</span><span style={{ fontSize: '11px', fontWeight: 'bold' }}>消耗 1.00</span>
+            <span>划根火柴烧掉</span>
           </button>
           
           <button onClick={() => router.push('/archive')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', marginTop: '12px', opacity: 0.5, cursor: 'pointer' }}>还是算了吧，放进抽屉</button>
