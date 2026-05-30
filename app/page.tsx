@@ -625,7 +625,7 @@ export default function Home() {
               </div>
               <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ color: '#6b7280', fontSize: '10px', letterSpacing: '0.1em' }}>
-                [ 吧台盘那盆植物，好像很久没人浇水了。 ]
+                [ 吧台旁那盆植物，好像很久没人浇水了。 ]
               </span>
               
               {!hasWatered && (
