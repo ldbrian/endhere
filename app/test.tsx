@@ -127,7 +127,7 @@ const ConstructionZoneSVG = () => (
   </div>
 )
 
-// ActionLink 工具组件（保留原版）
+// ActionLink 工具组件
 const ActionLink = ({ onClick, children, show = true }: { onClick: () => void, children: React.ReactNode, show?: boolean }) => {
   if (!show) return null
   return (
@@ -306,6 +306,7 @@ export default function Home() {
       fontFamily: 'sans-serif', lineHeight: 2, letterSpacing: '0.05em',
       overflowX: 'hidden', alignItems: 'center',
       position: 'relative',
+      width: '100%',
     }}>
       <style>{`
         /* 【极其重要的防跳动修复】：强行开启页面级垂直滚动条，避免内容展开时滚动条时隐时现导致的页面宽度抖动 */
@@ -340,23 +341,24 @@ export default function Home() {
       {/* 扫描线 */}
       <div style={{ pointerEvents: 'none', position: 'fixed', inset: 0, zIndex: 1, background: 'repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.025) 3px,rgba(0,0,0,0.025) 4px)' }} />
 
-      <div style={{ width: '100%', maxWidth: '520px', padding: '0 24px', position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column' }}>
+      {/* 核心主容器：强制包裹，绝不溢出 */}
+      <div style={{ width: '100%', maxWidth: '520px', padding: '0 24px', position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
         {/* ══════════════════════════════════════
-            HEADER (修复塑料袋位置)
+            HEADER 
         ══════════════════════════════════════ */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.04)', padding: '24px 0 16px 0' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <img src="/logo.png" alt="End Here" style={{ width: '18px', height: '18px', filter: 'grayscale(100%) sepia(100%) hue-rotate(15deg) brightness(0.6)' }} />
+              <BulbSVG flicker={!isBulbFixed} />
               <span style={{ color: '#e8e0d5', fontSize: '13px', letterSpacing: '0.22em', fontWeight: 300 }}>END HERE</span>
-              <span style={{ color: '#554f47', fontSize: '9px', letterSpacing: '.1em' }}>便利店</span>
+              <span style={{ color: '#554f47', fontSize: '9px', letterSpacing: '.1em' }}>避难所</span>
             </div>
             <p style={{ color: '#554f47', fontSize: '8px', letterSpacing: '.15em', opacity: .45, paddingLeft: '2px' }}>
               断网巷 404 号 · 全年无休 · 不留名
             </p>
           </div>
-          <div style={{ pointerEvents: 'auto', zIndex: 50, transform: 'rotate(2deg)', opacity: 0.8, marginTop: '-8px' }}>
+          <div style={{ pointerEvents: 'auto', zIndex: 50, transform: 'rotate(2deg)', opacity: 0.8, marginTop: '-6px' }}>
             <PlasticBag />
           </div>
         </header>
@@ -378,7 +380,7 @@ export default function Home() {
               {activeEvent === 'rain' ? '外面还在下雨...' : activeEvent === 'broken_bulb' ? '有颗灯泡在闪...' : timeStateStr}
             </span>
           </div>
-          {/* 数字时钟 (修复字号与圆点排列) */}
+          {/* 数字时钟 */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             background: '#0a0906',
@@ -388,7 +390,6 @@ export default function Home() {
             boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.8), 0 0 6px rgba(245,200,66,0.04)',
             position: 'relative', overflow: 'hidden',
           }}>
-            {/* 红色电源指示灯 */}
             <span style={{
               width: '3px', height: '3px', borderRadius: '50%',
               background: '#c0392b', opacity: 0.7,
@@ -397,7 +398,7 @@ export default function Home() {
             }} />
             <span style={{
               color: '#d4440a',
-              fontSize: '12px', /* 字号压低 */
+              fontSize: '12px',
               fontFamily: '"Courier New", "Lucida Console", monospace',
               fontWeight: 700,
               letterSpacing: '.15em',
@@ -418,7 +419,6 @@ export default function Home() {
         ══════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '16px' }}>
 
-          {/* 暖光收银台顶线 */}
           <div style={{ height: '1px', background: 'linear-gradient(90deg,transparent,rgba(245,200,66,0.2) 30%,rgba(245,200,66,0.08) 70%,transparent)', marginBottom: '-16px' }} />
 
           {/* 留言本（核心入口）
@@ -445,7 +445,7 @@ export default function Home() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <p style={{ color: '#554f47', fontSize: '9px', letterSpacing: '.2em' }}>[ 空白留言本 ]</p>
                   <p style={{ color: '#e5e7eb', fontSize: '15px', fontWeight: 400, letterSpacing: '.15em', lineHeight: '2.2' }}>
-                    想写些什么？
+                    有什么烂事<br />在这写下来
                   </p>
                   <p style={{ color: '#4b5563', fontSize: '9px', letterSpacing: '.1em', marginTop: '4px' }}>点开 →</p>
                 </div>
@@ -481,7 +481,7 @@ export default function Home() {
             )}
           </div>
 
-          {/* 吧台凳子区（凳子移到吧台时） */}
+          {/* 吧台凳子区 */}
           {stoolLocation === 'bar' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 12px', opacity: 0.8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -532,7 +532,6 @@ export default function Home() {
         ══════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingTop: '8px', paddingBottom: '24px', borderBottom: '1px dashed rgba(255,255,255,0.03)' }}>
 
-          {/* 生锈的铁筐 */}
           <div
             onClick={() => router.push('/counter')}
             style={{ border: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px', padding: '14px 16px', cursor: 'pointer', display: 'flex', gap: '14px', alignItems: 'center', opacity: 0.6, transition: 'all 0.3s' }}
@@ -547,10 +546,8 @@ export default function Home() {
             <span style={{ color: '#4b5563', fontSize: '9px', marginLeft: 'auto' }}>去看看 ➔</span>
           </div>
 
-          {/* 今日值班 */}
           <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {/* staff avatars 小版 */}
               <div style={{ display: 'flex', gap: '6px' }}>
                 <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'rgba(212,149,106,0.12)', border: '1px solid rgba(212,149,106,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ color: '#d4956a', fontSize: '8px', fontWeight: 500 }}>A</span>
@@ -569,7 +566,7 @@ export default function Home() {
         </div>
 
         {/* ══════════════════════════════════════
-            底噪生命体：收音机 + 植物（值班表下方）
+            底噪生命体
         ══════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 16px 20px', opacity: 0.35 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -582,7 +579,7 @@ export default function Home() {
         </div>
 
         {/* ══════════════════════════════════════
-            深处探索区（档案室 + 角落凳子）
+            深处探索区
         ══════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '40px', paddingTop: '40px', paddingBottom: '48px' }}>
 
@@ -623,7 +620,7 @@ export default function Home() {
         </div>
 
         {/* ══════════════════════════════════════
-            施工区（角落凳子下方）
+            施工区
         ══════════════════════════════════════ */}
         <div
           onClick={() => { setSignShake(true); setTimeout(() => setSignShake(false), 600) }}

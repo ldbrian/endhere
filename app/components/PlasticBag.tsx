@@ -17,8 +17,8 @@ export default function PlasticBag() {
           <button
             onClick={() => { setIsOpen(true); setIsFlipped(false); }}
             style={{
-              width: '32px', // 维持原宽度
-              height: '48px', // 稍微拉长一点点比例
+              width: '28px', // 维持原宽度
+              height: '44px', // 稍微拉长一点点比例
               backgroundColor: 'rgba(255, 255, 255, 0.06)', // 降低一点亮度，更像薄塑料
               backgroundImage: noiseTexture,
               backdropFilter: 'blur(6px)',
@@ -34,9 +34,9 @@ export default function PlasticBag() {
             }}
             aria-label="扯一个塑料袋"
           />
-          <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px', letterSpacing: '0.1em' }}>
-            扯个袋子
-          </span>
+          {/*<span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px', letterSpacing: '0.1em' }}>
+            扯一个
+          </span>*/}
         </div>
       )}
 
