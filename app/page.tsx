@@ -258,13 +258,13 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* [左下] 角落物理区 (实体坐标系 V1.4) */}
+              {/* [左下] 角落物理区 (实体坐标系 V1.5 + 互斥拦截) */}
               <div 
                 style={{ 
                   border: '1px dashed rgba(255,255,255,0.06)', 
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
-                  padding: '10px', transition: 'all 0.4s ease', pointerEvents: 'auto',
-                  gap: '6px', position: 'relative'
+                  padding: '12px 10px', transition: 'all 0.4s ease', pointerEvents: 'auto',
+                  gap: '8px', position: 'relative', minHeight: '75px'
                 }}
               >
                 {/* 状态 1：凳子在角落 */}
@@ -273,32 +273,54 @@ export default function Home() {
                     opacity: stoolLocation === 'corner' ? 1 : 0,
                     pointerEvents: stoolLocation === 'corner' ? 'auto' : 'none',
                     position: stoolLocation === 'corner' ? 'relative' : 'absolute',
-                    transition: 'opacity 1s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px'
+                    transition: 'opacity 1s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'
                   }}
                 >
-                  <div 
-                    onClick={() => router.push('/sit')}
-                    style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', transition: 'opacity 0.2s' }}
-                    onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => e.currentTarget.style.opacity = '0.8'}
-                    onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => e.currentTarget.style.opacity = '1'}
-                  >
-                    <div style={{ width: '18px', height: '14px', borderTop: '2.5px solid rgba(168,159,145,0.4)', borderLeft: '2px solid rgba(168,159,145,0.15)', borderRight: '2px solid rgba(168,159,145,0.15)' }}></div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                      <span style={{ color: '#a89f91', fontSize: '9px', opacity: 0.6, letterSpacing: '0.2em' }}>[ 破木凳 ]</span>
-                      <span style={{ color: '#d4cdb3', fontSize: '8px', opacity: stoolTrace ? 0.8 : 0, letterSpacing: '0.1em', transition: 'opacity 1.5s ease', textAlign: 'center', minHeight: '12px' }}>
-                        {stoolTrace}
-                      </span>
-                    </div>
+                  <div style={{ width: '18px', height: '14px', borderTop: '2.5px solid rgba(168,159,145,0.4)', borderLeft: '2px solid rgba(168,159,145,0.15)', borderRight: '2px solid rgba(168,159,145,0.15)' }}></div>
+                  
+                  {/* 本体文案：根据 onTop 状态切换 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                    <span style={{ color: useEntityStore(state => state.onTop) === 'human' ? '#d4cdb3' : '#a89f91', fontSize: '9px', opacity: 0.8, letterSpacing: '0.2em', transition: 'color 1s ease' }}>
+                      {useEntityStore(state => state.onTop) === 'human' ? '[ 你正坐在破木凳上 ]' : '[ 破木凳 ]'}
+                    </span>
+                    {/* 无人时才显示残留痕迹 */}
+                    <span style={{ color: '#d4cdb3', fontSize: '8px', opacity: (stoolTrace && useEntityStore(state => state.onTop) === null) ? 0.8 : 0, letterSpacing: '0.1em', transition: 'opacity 1.5s ease', textAlign: 'center', minHeight: '12px' }}>
+                      {stoolTrace}
+                    </span>
                   </div>
-                  {/* 位移交互动作 */}
-                  <span 
-                    onClick={(e) => { e.stopPropagation(); moveStool('bar'); }}
-                    style={{ color: '#8f857a', fontSize: '8px', cursor: 'pointer', textDecoration: 'underline dotted', marginTop: '4px', transition: 'color 0.2s' }}
-                    onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
-                    onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
-                  >
-                    {'>'} 拖到吧台去
-                  </span>
+
+                  {/* 交互选项组 */}
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '2px' }}>
+                    <span 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        const currentState = useEntityStore.getState().onTop;
+                        useEntityStore.getState().toggleSit(); 
+                        
+                        // 【核心修复】：如果原本是空着的，点击即代表坐下，立刻跳转发呆页
+                        if (currentState === null) {
+                          router.push('/sit');
+                        }
+                      }}
+                      style={{ color: '#8f857a', fontSize: '8px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
+                      onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
+                      onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
+                    >
+                      {useEntityStore(state => state.onTop) === 'human' ? '> 站起来' : '> 坐下发呆'}
+                    </span>
+
+                    {/* 【核心物理互斥】如果有人坐着，彻底隐藏移动选项 */}
+                    {useEntityStore(state => state.onTop) === null && (
+                      <span 
+                        onClick={(e) => { e.stopPropagation(); useEntityStore.getState().moveStool('bar'); }}
+                        style={{ color: '#8f857a', fontSize: '8px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
+                        onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
+                        onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
+                      >
+                        {'>'} 拖到吧台去
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* 状态 2：凳子被拖走后的空荡痕迹 */}
@@ -372,7 +394,7 @@ export default function Home() {
               <h2 style={{ color: '#8f857a', fontSize: '13px', letterSpacing: '0.25em', fontFamily: 'serif', opacity: 0.5, margin: 0 }}>收银台</h2>
             </div>
 
-            {/* 吧台物理区追加渲染 (实体坐标系 V1.4) */}
+            {/* 吧台物理区追加渲染 (实体坐标系 V1.5 + 互斥拦截) */}
             <div 
               style={{
                 padding: '0 20px',
@@ -386,17 +408,35 @@ export default function Home() {
                 marginBottom: stoolLocation === 'bar' ? '12px' : '0'
               }}
             >
-              <span style={{ color: '#a89f91', fontSize: '10px', letterSpacing: '0.1em', opacity: 0.8 }}>
-                [ 一把破木凳放在吧台前 ]
+              {/* 动态主文案：根据是否有人坐着切换 */}
+              <span style={{ color: useEntityStore(state => state.onTop) === 'human' ? '#d4cdb3' : '#a89f91', fontSize: '10px', letterSpacing: '0.1em', opacity: 0.8, transition: 'color 1s ease' }}>
+                {useEntityStore(state => state.onTop) === 'human' ? '[ 你正坐在破木凳上 ]' : '[ 一把破木凳停在吧台前 ]'}
               </span>
-              <span 
-                onClick={() => moveStool('corner')}
-                style={{ color: '#8f857a', fontSize: '9px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
-                onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
-                onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
-              >
-                {'>'} 把它拖回角落
-              </span>
+              
+              {/* 操作选项组 */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                {/* 坐下/站起动作 */}
+                <span 
+                  onClick={() => useEntityStore.getState().toggleSit()}
+                  style={{ color: '#8f857a', fontSize: '9px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
+                  onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
+                >
+                  {useEntityStore(state => state.onTop) === 'human' ? '> 站起来' : '> 坐下'}
+                </span>
+
+                {/* 【核心物理互斥】如果有人坐着，彻底隐藏“拖回角落”选项 */}
+                {useEntityStore(state => state.onTop) === null && (
+                  <span 
+                    onClick={() => useEntityStore.getState().moveStool('corner')}
+                    style={{ color: '#8f857a', fontSize: '9px', cursor: 'pointer', textDecoration: 'underline dotted', transition: 'color 0.2s' }}
+                    onMouseEnter={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#d4cdb3'}
+                    onMouseLeave={(e: React.MouseEvent<HTMLSpanElement>) => e.currentTarget.style.color = '#8f857a'}
+                  >
+                    {'>'} 把它拖回角落
+                  </span>
+                )}
+              </div>
             </div>
 
             <div style={{ padding: '0 20px', flexShrink: 0, zIndex: 10 }}>
