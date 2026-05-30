@@ -13,4 +13,4 @@ export const useEntityStore = create<EntityState>((set) => ({
   stoolStatus: 'idle',     // 默认空闲
   moveStool: (loc) => set({ stoolLocation: loc }),
   setStoolStatus: (status) => set({ stoolStatus: status }),
-}))
+})) 
