@@ -387,7 +387,7 @@ export default function Home() {
               }}
             >
               <span style={{ color: '#a89f91', fontSize: '10px', letterSpacing: '0.1em', opacity: 0.8 }}>
-                [ 一把破木凳停在吧台前 ]
+                [ 一把破木凳放在吧台前 ]
               </span>
               <span 
                 onClick={() => moveStool('corner')}
