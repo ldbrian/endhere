@@ -1,52 +1,55 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 export default function PlasticBag() {
   const [isOpen, setIsOpen] = useState(false)
   const [isFlipped, setIsFlipped] = useState(false) // 记录塑料袋是否翻面
+  const [mounted, setMounted] = useState(false)
+
+  // 确保 Portal 仅在客户端渲染，避免 Next.js 的水合报错
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // 核心视觉底噪
   const noiseTexture = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.12'/%3E%3C/svg%3E")`
 
   return (
     <>
-      {/* 状态一：右上角收起。改为微缩背心袋轮廓，纵向排列避开中间 */}
+      {/* ======== 状态一：右上角收起 ======== */}
+      {/* 【修复】：移除导致定位漂移的 fixed，彻底融入父组件的 flex 布局 */}
       {!isOpen && (
-        <div style={{ position: 'fixed', top: '20px', right: '16px', zIndex: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
           <button
             onClick={() => { setIsOpen(true); setIsFlipped(false); }}
             style={{
-              width: '28px', // 维持原宽度
-              height: '44px', // 稍微拉长一点点比例
-              backgroundColor: 'rgba(255, 255, 255, 0.06)', // 降低一点亮度，更像薄塑料
+              width: '28px', 
+              height: '44px',
+              backgroundColor: 'rgba(255, 255, 255, 0.06)', 
               backgroundImage: noiseTexture,
               backdropFilter: 'blur(6px)',
-              // 核心绝杀：用 clip-path 裁出一个微缩版的背心袋轮廓 (U型大挖口)
-              // 这次我们用一个更精简的 polygon 来模拟
               clipPath: 'polygon(0% 0%, 28% 0%, 35% 20%, 65% 20%, 72% 0%, 100% 0%, 100% 100%, 0% 100%)',
               cursor: 'pointer',
-              // 把旋转角度调整为跟正面一致，都是 -1deg，看起来更统一
               transform: 'rotate(-1deg)', 
               transition: 'all 0.3s ease',
               border: 'none',
-              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' // 给小袋子加一点投影，突出物理感
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' 
             }}
             aria-label="扯一个塑料袋"
           />
-          {/*<span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px', letterSpacing: '0.1em' }}>
-            扯一个
-          </span>*/}
         </div>
       )}
 
-      {/* 状态二：展开后的背心袋 */}
-      {isOpen && (
+      {/* ======== 状态二：展开后的背心袋 ======== */}
+      {/* 【修复】：使用 createPortal 把弹窗传送到顶层 body，摆脱父级 transform 旋转的毁灭性影响 */}
+      {mounted && isOpen && createPortal(
         <div 
           onClick={() => setIsOpen(false)} 
           style={{
-            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-            backgroundColor: 'rgba(26, 22, 18, 0.7)', zIndex: 50,
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, // 使用 inset 代替 100vw，防止出现横向滚动条
+            backgroundColor: 'rgba(26, 22, 18, 0.7)', zIndex: 9999, // 置于绝对顶层
             display: 'flex', justifyContent: 'center', alignItems: 'center',
             padding: '20px', cursor: 'pointer'
           }}
@@ -66,7 +69,7 @@ export default function PlasticBag() {
                 padding: '100px 20px 40px 20px',
                 clipPath: 'polygon(0% 0%, 25% 0%, 35% 22%, 65% 22%, 75% 0%, 100% 0%, 100% 100%, 0% 100%)',
                 transform: 'rotate(-1deg)',
-                transition: 'transform 0.4s ease' // 给翻面一点心理预期
+                transition: 'transform 0.4s ease'
               }}
             >
               
@@ -136,7 +139,8 @@ export default function PlasticBag() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
