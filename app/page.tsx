@@ -301,7 +301,7 @@ export default function Home() {
   return (
     <div style={{
       minHeight: '100dvh',
-      backgroundColor: '#141210;',
+      backgroundColor: '#141210',
       display: 'flex', flexDirection: 'column',
       fontFamily: 'sans-serif', lineHeight: 2, letterSpacing: '0.05em',
       overflowX: 'hidden', alignItems: 'center',
