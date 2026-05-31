@@ -491,12 +491,13 @@ export default function Home() {
                 <span style={{ fontSize: '10px', letterSpacing: '.05em', color: onTop === 'human' ? '#d1d5db' : '#554f47' }}>
                   {onTop === 'human' ? '[ 你正坐在破木凳上 ]' : '[ 一把破木凳停在吧台前 ]'}
                 </span>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <ActionLink onClick={() => { const current = useEntityStore.getState().onTop; toggleSit(); if (current === null) router.push('/sit') }}>
-                    {onTop === 'human' ? '> 站起来' : '> 坐下'}
-                  </ActionLink>
-                  <ActionLink show={onTop === null} onClick={() => moveStool('corner')}>{'> 拖回角落'}</ActionLink>
-                </div>
+                <div style={{ display: 'flex', gap: '24px', marginTop: '4px' }}>
+                {/* 【修复】：剥离瞬间跳转，让时间在这个角落真正流逝 */}
+                <ActionLink onClick={toggleSit}>
+                  {onTop === 'human' ? '> 站起来' : '> 坐下'}
+                </ActionLink>
+                <ActionLink show={onTop === null} onClick={() => moveStool('bar')}>{'> 移到吧台'}</ActionLink>
+              </div>
               </div>
               {onTop === 'human' && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'opacity 3s', opacity: isSpacedOutReady ? 1 : 0, pointerEvents: isSpacedOutReady ? 'auto' : 'none' }}>
@@ -607,8 +608,9 @@ export default function Home() {
               </span>
               {onTop === null && stoolTrace && <span style={{ color: '#374151', fontSize: '9px' }}>{stoolTrace}</span>}
               <div style={{ display: 'flex', gap: '24px', marginTop: '4px' }}>
-                <ActionLink onClick={() => { const current = useEntityStore.getState().onTop; toggleSit(); if (current === null) router.push('/sit') }}>
-                  {onTop === 'human' ? '> 站起来' : '> 坐下发呆'}
+                {/* 【修复】：剥离瞬间跳转，让时间在这个角落真正流逝 */}
+                <ActionLink onClick={toggleSit}>
+                  {onTop === 'human' ? '> 站起来' : '> 坐下'}
                 </ActionLink>
                 <ActionLink show={onTop === null} onClick={() => moveStool('bar')}>{'> 移到吧台'}</ActionLink>
               </div>
