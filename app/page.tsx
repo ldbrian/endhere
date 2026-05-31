@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { track } from './lib/track'
+import { trackSpaceEvent, sendBeaconEvent } from './lib/telemetry' // <--- 引入极简埋点
 import PlasticBag from './components/PlasticBag'
 import { recordCustomerAction } from './lib/memory'
 import { createClient } from '@supabase/supabase-js'
@@ -174,7 +175,45 @@ export default function Home() {
   const moveStool = useEntityStore(state => state.moveStool)
   const onTop = useEntityStore(state => state.onTop)
   const toggleSit = useEntityStore(state => state.toggleSit)
+  
   const [isSpacedOutReady, setIsSpacedOutReady] = useState(false)
+  
+  // ================= EVENT_STAY_DURATION 埋点引擎 =================
+  const [sitStartTime, setSitStartTime] = useState<number | null>(null)
+
+  // 处理物理上的坐下/站起动作，并派发事件
+  const handleToggleSit = () => {
+    const currentOnTop = useEntityStore.getState().onTop
+    if (currentOnTop === null) {
+      // 动作：坐下，开始静默计日
+      setSitStartTime(Date.now())
+    } else {
+      // 动作：站起，结算时间
+      if (sitStartTime) {
+        const durationMs = Date.now() - sitStartTime
+        if (durationMs >= 3 * 60 * 1000) { // 坐稳了 3 分钟以上才发
+          trackSpaceEvent('EVENT_STAY_DURATION', { duration_minutes: Math.round(durationMs / 60000) })
+        }
+        setSitStartTime(null)
+      }
+    }
+    toggleSit() // 触发原有的物理视图变更
+  }
+
+  // 处理坐下没站起，直接撕页走人的防抖埋点 (beforeunload)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (sitStartTime) {
+        const durationMs = Date.now() - sitStartTime
+        if (durationMs >= 3 * 60 * 1000) {
+          sendBeaconEvent('EVENT_STAY_DURATION', { duration_minutes: Math.round(durationMs / 60000) })
+        }
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [sitStartTime])
+  // ================================================================
 
   useEffect(() => {
     let timer: NodeJS.Timeout
@@ -309,7 +348,6 @@ export default function Home() {
       width: '100%',
     }}>
       <style>{`
-        /* 【核心防跳动修复】：强行开启页面级垂直滚动条与稳定轨道，杜绝任何因高度变化引发的宽度挤压跳动 */
         html {
           overflow-y: scroll !important;
           scrollbar-gutter: stable;
@@ -344,14 +382,10 @@ export default function Home() {
 
       {/* 全局噪点结界 */}
       <div style={{ pointerEvents: 'none', position: 'fixed', inset: 0, zIndex: 0, background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.015), transparent 70%)' }} />
-      {/* 扫描线 */}
       <div style={{ pointerEvents: 'none', position: 'fixed', inset: 0, zIndex: 1, background: 'repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.025) 3px,rgba(0,0,0,0.025) 4px)' }} />
 
       <div style={{ width: '100%', maxWidth: '520px', padding: '0 24px', position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column' }}>
 
-        {/* ══════════════════════════════════════
-            HEADER (保留塑料袋高度微调)
-        ══════════════════════════════════════ */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid rgba(255,255,255,0.04)', padding: '24px 0 16px 0' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -368,16 +402,12 @@ export default function Home() {
           </div>
         </header>
 
-        {/* 环境音效浮现 */}
         {ambientSound && (
           <div style={{ color: '#554f47', fontSize: '9px', fontStyle: 'italic', letterSpacing: '0.1em', padding: '8px 0 0', animation: 'fadeInOut 4s forwards', textAlign: 'center' }}>
             [ {ambientSound} ]
           </div>
         )}
 
-        {/* ══════════════════════════════════════
-            环境状态播报 + 数字时钟
-        ══════════════════════════════════════ */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0 4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#6b7280', opacity: .3, display: 'inline-block', animation: 'pulseDot 2s infinite' }} />
@@ -385,50 +415,24 @@ export default function Home() {
               {activeEvent === 'rain' ? '外面还在下雨...' : activeEvent === 'broken_bulb' ? '有颗灯泡在闪...' : timeStateStr}
             </span>
           </div>
-          {/* 数字时钟 (保留时分降级) */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#0a0906',
-            border: '1px solid rgba(245,200,66,0.12)',
-            borderRadius: '3px',
-            padding: '4px 10px',
-            boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.8), 0 0 6px rgba(245,200,66,0.04)',
-            position: 'relative', overflow: 'hidden',
-          }}>
-            <span style={{
-              width: '3px', height: '3px', borderRadius: '50%',
-              background: '#c0392b', opacity: 0.7,
-              boxShadow: '0 0 3px #c0392b',
-              display: 'inline-block',
-            }} />
-            <span style={{
-              color: '#d4440a',
-              fontSize: '12px',
-              fontFamily: '"Courier New", "Lucida Console", monospace',
-              fontWeight: 700,
-              letterSpacing: '.15em',
-              fontVariantNumeric: 'tabular-nums',
-              textShadow: '0 0 8px rgba(212,68,10,0.6), 0 0 2px rgba(212,68,10,0.4)',
-              lineHeight: 1,
-            }}>{clockStr || '──:──'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0a0906', border: '1px solid rgba(245,200,66,0.12)', borderRadius: '3px', padding: '4px 10px', boxShadow: 'inset 0 1px 4px rgba(0,0,0,0.8), 0 0 6px rgba(245,200,66,0.04)', position: 'relative', overflow: 'hidden' }}>
+            <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: '#c0392b', opacity: 0.7, boxShadow: '0 0 3px #c0392b', display: 'inline-block' }} />
+            <span style={{ color: '#d4440a', fontSize: '12px', fontFamily: '"Courier New", "Lucida Console", monospace', fontWeight: 700, letterSpacing: '.15em', fontVariantNumeric: 'tabular-nums', textShadow: '0 0 8px rgba(212,68,10,0.6), 0 0 2px rgba(212,68,10,0.4)', lineHeight: 1 }}>
+              {clockStr || '──:──'}
+            </span>
           </div>
         </div>
+        
         {mishap && (
           <div style={{ color: '#8f857a', fontSize: '9px', opacity: .6, animation: 'fadeInOut 10s forwards', padding: '0 0 6px' }}>
             [店员] {mishap}
           </div>
         )}
 
-        {/* ══════════════════════════════════════
-            收银台区（留言本 + 物件）
-        ══════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '16px' }}>
 
           <div style={{ height: '1px', background: 'linear-gradient(90deg,transparent,rgba(245,200,66,0.2) 30%,rgba(245,200,66,0.08) 70%,transparent)', marginBottom: '-16px' }} />
 
-          {/* 留言本（核心入口）
-              【切断溢出】：增加 overflow: hidden 和 boxSizing: border-box，确保子元素绝对无法撑开容器物理宽度
-          */}
           <div
             onClick={() => !showEmotions && setShowEmotions(true)}
             style={{
@@ -492,8 +496,8 @@ export default function Home() {
                   {onTop === 'human' ? '[ 你正坐在破木凳上 ]' : '[ 一把破木凳停在吧台前 ]'}
                 </span>
                 <div style={{ display: 'flex', gap: '16px' }}>
-                  {/* 【修复】：剥离瞬间跳转，只改变状态，把控制权还给 10 秒挂机引擎 */}
-                  <ActionLink onClick={toggleSit}>
+                  {/* 使用替换过的打点代理方法 */}
+                  <ActionLink onClick={handleToggleSit}>
                     {onTop === 'human' ? '> 站起来' : '> 坐下'}
                   </ActionLink>
                   <ActionLink show={onTop === null} onClick={() => moveStool('corner')}>{'> 拖回角落'}</ActionLink>
@@ -508,7 +512,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* 店员喃喃 */}
           {(ashMumble || rinMumble) && (
             <div style={{ display: 'flex', gap: '12px', padding: '0 12px', animation: 'fadeInUp 0.4s ease' }}>
               {ashMumble && (
@@ -531,9 +534,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* ══════════════════════════════════════
-            功能连接区（铁筐 + 值班表）
-        ══════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingTop: '8px', paddingBottom: '24px', borderBottom: '1px dashed rgba(255,255,255,0.03)' }}>
 
           <div
@@ -569,22 +569,19 @@ export default function Home() {
           </div>
         </div>
 
-        {/* ══════════════════════════════════════
-            底噪生命体：收音机 + 植物（值班表下方）
-        ══════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 16px 20px', opacity: 0.35 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#f5c842', opacity: .3, display: 'inline-block', animation: 'pulseDot 4s infinite', flexShrink: 0 }} />
             <span style={{ color: '#4b5563', fontSize: '9px', letterSpacing: '.05em', fontStyle: 'italic' }}>{radioText}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '12px' }}>
-            <span style={{ color: '#374151', fontSize: '9px', fontStyle: 'italic' }}>{plantText}</span>
+            {/* ====== EVENT_WATER_PLANT 无意义停留消耗埋点 ====== */}
+            <span onClick={() => trackSpaceEvent('EVENT_WATER_PLANT')} style={{ color: '#374151', fontSize: '9px', fontStyle: 'italic', cursor: 'pointer' }}>
+              {plantText}
+            </span>
           </div>
         </div>
 
-        {/* ══════════════════════════════════════
-            深处探索区（档案室 + 角落凳子）
-        ══════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '40px', paddingTop: '40px', paddingBottom: '48px' }}>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 12px' }}>
@@ -608,8 +605,8 @@ export default function Home() {
               </span>
               {onTop === null && stoolTrace && <span style={{ color: '#374151', fontSize: '9px' }}>{stoolTrace}</span>}
               <div style={{ display: 'flex', gap: '24px', marginTop: '4px' }}>
-                {/* 【修复】：剥离瞬间跳转，让时间在这个角落真正流逝 */}
-                <ActionLink onClick={toggleSit}>
+                {/* 使用替换过的打点代理方法 */}
+                <ActionLink onClick={handleToggleSit}>
                   {onTop === 'human' ? '> 站起来' : '> 坐下'}
                 </ActionLink>
                 <ActionLink show={onTop === null} onClick={() => moveStool('bar')}>{'> 移到吧台'}</ActionLink>
@@ -624,9 +621,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* ══════════════════════════════════════
-            施工区
-        ══════════════════════════════════════ */}
         <div
           onClick={() => { setSignShake(true); setTimeout(() => setSignShake(false), 600) }}
           style={{ position: 'relative', height: '180px', margin: '24px 0 8px', cursor: 'pointer', overflow: 'hidden' }}
@@ -675,9 +669,6 @@ export default function Home() {
           }} />
         </div>
 
-        {/* ══════════════════════════════════════
-            绝对底噪
-        ══════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', opacity: 0.14, paddingTop: '16px', paddingBottom: '64px' }}>
           <span style={{ color: '#747477', fontSize: '9px' }}>[ 内部区域暂时封闭 ]</span>
           <p style={{ color: '#747477', fontSize: '9px', letterSpacing: '.1em', marginTop: '16px' }}>
