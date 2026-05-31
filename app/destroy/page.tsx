@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { trackSpaceEvent } from '../lib/telemetry'
 import { track } from '../lib/track'
 import { useShelterStore } from '../store/useShelterStore' // 接入全局 Store
 
@@ -36,12 +37,14 @@ function DestroyContent() {
   const handleCrush = () => {
     setDestroyState('crushing')
     track('destroy_crush', { receipt_id: entry?.receiptId })
+    trackSpaceEvent('EVENT_TEAR_RECEIPT')
     setTimeout(() => { executeDeleteFromDB(); setDestroyState('destroyed') }, 1500)
   }
 
   const handleBurn = () => {
     setDestroyState('burning')
     track('destroy_burn', { receipt_id: entry?.receiptId })
+    trackSpaceEvent('EVENT_TEAR_RECEIPT')
     setTimeout(() => { executeDeleteFromDB(); setDestroyState('destroyed') }, 3500)
   }
 

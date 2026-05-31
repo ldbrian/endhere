@@ -88,6 +88,7 @@ export default function DonePage() {
       setQueuedGift(gift)
       setInterceptModal('match')
     } else {
+      
       router.push('/destroy')
     }
   }

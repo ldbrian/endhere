@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { PERSONAS, PERSONA_PLACEHOLDERS, PERSONA_BUTTONS } from '../lib/personas'
 import { track } from '../lib/track'
 import { useShelterStore } from '../store/useShelterStore' // 接入全局 Store
+import { trackSpaceEvent } from '../lib/telemetry'
 
 const EMOTION_LABELS: Record<string, string> = {
   choke: '有点难受', tear: '想哭', numb: '麻木', angry: '愤怒', shattered: '崩溃'
