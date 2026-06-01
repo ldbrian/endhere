@@ -612,7 +612,7 @@ export default function Home() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'opacity 3s', opacity: isSpacedOutReady ? 1 : 0, pointerEvents: isSpacedOutReady ? 'auto' : 'none' }}>
                   <span style={{ color: '#6b7280', fontSize: '10px' }}>[ 盯着周围看久了，思绪开始变轻。 ]</span>
                   <ActionLink onClick={() => {
-                    trackSpaceEvent('EVENT_CLOSE_EYES')
+                    trackSpaceEvent('EVENT_CLOSE_EYES', { action: 'triggered' });
                     router.push('/sit')
                   }}>{'> 闭上眼睛'}</ActionLink>
                 </div>
@@ -646,7 +646,7 @@ export default function Home() {
 
           <div
             onClick={() => {
-              trackSpaceEvent('EVENT_VIEW_BASKET')
+              trackSpaceEvent('EVENT_VIEW_BASKET', { action: 'viewbasket' });
               router.push('/counter')
             }}
             style={{ border: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px', padding: '14px 16px', cursor: 'pointer', display: 'flex', gap: '14px', alignItems: 'center', opacity: 0.7, transition: 'all 0.3s' }}
@@ -688,7 +688,7 @@ export default function Home() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '12px' }}>
             <span 
               onClick={() => {
-                trackSpaceEvent('EVENT_WATER_PLANT')
+                trackSpaceEvent('EVENT_WATER_PLANT', { action: 'water' })
                 mutateWorld('water_plant')
                 setPlantText('[ 泥土微润，水正无声地渗下去 ]')
                 const currentWater = parseInt(sessionStorage.getItem('endhere_water_count') || '0', 10)
@@ -785,12 +785,12 @@ export default function Home() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 12px' }}>
             <ActionLink onClick={() => {
-              trackSpaceEvent('EVENT_PRINT_BLANK')
+              trackSpaceEvent('EVENT_PRINT_BLANK', { action: 'printed' })
               alert('「你什么也没说。店也不知道你在想什么。这样也行。」')
             }}>打印机空转</ActionLink>
             <span
               onClick={() => {
-                trackSpaceEvent('EVENT_OPEN_ARCHIVE')
+                trackSpaceEvent('EVENT_OPEN_ARCHIVE', { action: 'viewed' });
                 const currentArchive = parseInt(sessionStorage.getItem('endhere_archive_count') || '0', 10)
                 sessionStorage.setItem('endhere_archive_count', String(currentArchive + 1))
                 router.push('/archive')
@@ -824,7 +824,7 @@ export default function Home() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', opacity: isSpacedOutReady ? 1 : 0, pointerEvents: isSpacedOutReady ? 'auto' : 'none', transition: 'opacity 3s ease-in', marginTop: '16px' }}>
                   <span style={{ color: '#6a5e52', fontSize: '9px', letterSpacing: '.1em' }}>[ 你的思绪开始变轻。 ]</span>
                   <ActionLink onClick={() => {
-                    trackSpaceEvent('EVENT_CLOSE_EYES')
+                    trackSpaceEvent('EVENT_CLOSE_EYES', { action: 'triggered' });
                     router.push('/sit')
                   }}>{'> 顺着思绪沉没'}</ActionLink>
                 </div>
@@ -835,7 +835,7 @@ export default function Home() {
 
         <div
           onClick={() => { 
-            trackSpaceEvent('EVENT_RATTLE_SIGN')
+            trackSpaceEvent('EVENT_RATTLE_SIGN', { action: 'closeview' })
             setSignShake(true); 
             setTimeout(() => setSignShake(false), 600) 
           }}
@@ -892,7 +892,7 @@ export default function Home() {
 
           <span 
             onClick={() => {
-              trackSpaceEvent('EVENT_INSPECT_WALL')
+              trackSpaceEvent('EVENT_INSPECT_WALL', { action: 'closeview' })
               setInspectWallText('三天前，有人在这个角落坐了一整晚。')
             }}
             style={{ 
