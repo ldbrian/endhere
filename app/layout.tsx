@@ -37,6 +37,7 @@ export default function RootLayout({
         <DataMigrator />
         
         <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <WorldEngine />
           {children}
         </main>
       </body>

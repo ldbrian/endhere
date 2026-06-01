@@ -16,6 +16,7 @@ const supabase = createClient(
 
 const ASH_STATES = ["正靠在吧台抽烟", "在擦玻璃杯", "盯着门外的黑夜"]
 const RIN_STATES = ["在整理书架", "给你倒了杯热水", "安静地坐在角落"]
+const VALID_GIFTS = ['milk', 'ice_water', 'candy'];
 
 export async function POST(req: Request) {
   try {

@@ -38,6 +38,12 @@ function DestroyContent() {
     setDestroyState('crushing')
     track('destroy_crush', { receipt_id: entry?.receiptId })
     trackSpaceEvent('EVENT_TEAR_RECEIPT')
+    
+    // ================= P3: 小票数据探针 (撕毁记录计数) =================
+    const currentTears = parseInt(sessionStorage.getItem('endhere_tear_count') || '0', 10)
+    sessionStorage.setItem('endhere_tear_count', String(currentTears + 1))
+    // =================================================================
+
     setTimeout(() => { executeDeleteFromDB(); setDestroyState('destroyed') }, 1500)
   }
 
@@ -45,6 +51,12 @@ function DestroyContent() {
     setDestroyState('burning')
     track('destroy_burn', { receipt_id: entry?.receiptId })
     trackSpaceEvent('EVENT_TEAR_RECEIPT')
+
+    // ================= P3: 小票数据探针 (撕毁记录计数) =================
+    const currentTears = parseInt(sessionStorage.getItem('endhere_tear_count') || '0', 10)
+    sessionStorage.setItem('endhere_tear_count', String(currentTears + 1))
+    // =================================================================
+
     setTimeout(() => { executeDeleteFromDB(); setDestroyState('destroyed') }, 3500)
   }
 
@@ -104,7 +116,9 @@ function DestroyContent() {
           <div style={{ fontSize: '48px', opacity: 0.4, marginBottom: '20px' }}>💨</div>
           <p style={{ color: 'var(--text-main)', fontSize: '16px', letterSpacing: '0.2em', marginBottom: '8px' }}>风一吹，什么都没了。</p>
           <p style={{ color: 'var(--text-muted)', fontSize: '12px', opacity: 0.6, marginBottom: '40px' }}>你该往前走了。</p>
-          <button onClick={() => router.push('/archive')} style={{ padding: '12px 32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em', cursor: 'pointer' }}>去抽屉看一眼</button>
+          <button onClick={() => router.push('/')} style={{ padding: '12px 32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em', cursor: 'pointer' }}>回到吧台</button>
+          <div style={{ fontSize: '48px', marginBottom: '20px' }}></div>
+          <button onClick={() => router.push('/archive')} style={{ padding: '12px 32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '0.1em', cursor: 'pointer' }}>拉开抽屉</button>
         </div>
       )}
 

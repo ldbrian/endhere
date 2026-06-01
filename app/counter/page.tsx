@@ -5,7 +5,6 @@ import { track } from '../lib/track'
 import { createClient } from '@supabase/supabase-js'
 import { useShelterStore } from '../store/useShelterStore'
 
-// 初始化 Supabase 客户端
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -34,10 +33,8 @@ function CounterContent() {
   const [mailboxMsg, setMailboxMsg] = useState('')
   const [visible, setVisible] = useState(false)
   
-  // 铁筐库存
   const [inventory, setInventory] = useState<Record<string, number>>({ milk: 0, candy: 0, ice_water: 0 })
   
-  // 支付模态框状态
   const [payStep, setPayStep] = useState(false)
   const [paySuccess, setPaySuccess] = useState(false)
   const [selectedTarget, setSelectedTarget] = useState<any>(null)
@@ -45,15 +42,41 @@ function CounterContent() {
 
   const { entries, updateEntry } = useShelterStore()
 
+  // ================= P3: 小票打印机状态 =================
+  const [printerState, setPrinterState] = useState<'idle' | 'printing_1' | 'printing_2' | 'printing_3' | 'done'>('idle')
+  const [receiptData, setReceiptData] = useState({ arrivalText: '', stayMinutes: 0, entriesCount: 0 })
+
   useEffect(() => {
     track('view_counter', { mode, receipt_id: receiptId })
     setTimeout(() => setVisible(true), 100)
     
-    // 获取真实铁筐库存
-    // 获取真实铁筐库存
+    // 初始化或获取本次 Session 的进店时间
+    let arrivalStr = sessionStorage.getItem('endhere_arrival_time')
+    if (!arrivalStr) {
+      arrivalStr = new Date().toISOString()
+      sessionStorage.setItem('endhere_arrival_time', arrivalStr)
+    }
+    
+    // 计算时间差，准备打印机数据
+    const arrivalDate = new Date(arrivalStr)
+    const hour = arrivalDate.getHours()
+    let timePrefix = '白天'
+    if (hour < 5) timePrefix = '凌晨'
+    else if (hour < 12) timePrefix = '早上'
+    else if (hour < 19) timePrefix = '下午'
+    else timePrefix = '晚上'
+    
+    const arrivalText = `${timePrefix}${hour > 12 ? hour - 12 : hour}点`
+    const stayMinutes = Math.max(1, Math.floor((Date.now() - arrivalDate.getTime()) / 60000))
+    
+    setReceiptData({
+      arrivalText,
+      stayMinutes,
+      entriesCount: entries.length
+    })
+
     const fetchInventory = async () => {
       try {
-        // 废弃带有风险的 .gte('created_at', twentyFourHoursAgo)
         const { data, error } = await supabase
           .from('iron_basket')
           .select('gift_id, created_at')
@@ -64,10 +87,9 @@ function CounterContent() {
 
         if (data && !error) {
           const now = Date.now()
-          // 核心修复：纯前端时间戳校验，绝不留过期物品
           const validData = data.filter((item: any) => {
             const itemTime = new Date(item.created_at).getTime()
-            return (now - itemTime) <= 24 * 60 * 60 * 1000
+            return (now - itemTime) <= 72 * 60 * 60 * 1000 
           })
 
           const counts = validData.reduce((acc: Record<string, number>, item: any) => {
@@ -89,7 +111,37 @@ function CounterContent() {
     if (!isManagerMode) {
       fetchInventory()
     }
-  }, [mode, receiptId, isManagerMode])
+  }, [mode, receiptId, isManagerMode, entries.length])
+
+  // P3: 三段式物理打印逻辑
+  const handlePrintReceipt = () => {
+    setPrinterState('printing_1')
+    setTimeout(() => setPrinterState('printing_2'), 1000)
+    setTimeout(() => setPrinterState('printing_3'), 2200)
+    setTimeout(() => setPrinterState('done'), 2500)
+  }
+
+  // P3: 纯前端 HTML 转图片下线 (通过动态加载规避服务端渲染报错)
+  const handleSaveReceipt = async () => {
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const node = document.getElementById('receipt-node')
+      if (!node) return
+      
+      const canvas = await html2canvas(node, {
+        backgroundColor: '#050505',
+        scale: 3, // 三倍采样保证导出图片高清
+      })
+      
+      const url = canvas.toDataURL('image/png')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `EndHere_流水单_${Date.now()}.png`
+      a.click()
+    } catch (e) {
+      alert('打印机卡纸了，没有保存成功。')
+    }
+  }
 
   const handleLeaveForManager = async () => {
     if (mailboxStatus === 'loading' || mailboxStatus === 'success') return
@@ -160,14 +212,13 @@ function CounterContent() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', animation: 'fadeIn 0.4s ease-out' }}>
           
-          {/* ================= 上半部：铁筐区 ================= */}
           <div style={{ width: '100%', padding: '24px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '18px' }}>🧺</span>
               <span style={{ color: 'var(--text-main)', fontSize: '15px', letterSpacing: '0.1em', fontWeight: '500' }}>生锈的铁筐</span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.7', opacity: 0.7 }}>
-              存放着别人留下的善意。24小时没人拿就会过期清理。
+              存放着别人留下的善意。物资会在冰冷的铁筐里静置 24 小时后，才能被下一个人带走。
             </p>
             
             {isBasketEmpty ? (
@@ -215,7 +266,6 @@ function CounterContent() {
             )}
           </div>
 
-          {/* ================= 下半部：店铺赞助区 ================= */}
           {!payStep && !paySuccess && (
             <div style={{ width: '100%', padding: '24px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -236,7 +286,66 @@ function CounterContent() {
             </div>
           )}
 
-          {/* ================= 支付君子协议区（通用） ================= */}
+          {/* ================= P3: 底部结算打印机 ================= */}
+          {!payStep && !paySuccess && (
+            <div style={{ width: '100%', padding: '32px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
+              
+              {printerState === 'idle' && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ color: '#747477', fontSize: '11px', letterSpacing: '0.1em' }}>[ 吧台边缘有一台老旧的小票打印机。 ]</span>
+                  <span
+                    onClick={handlePrintReceipt}
+                    style={{ color: '#8a8277', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: '4px', transition: 'color 0.2s', marginTop: '8px' }}
+                  >
+                    {'> 扯一张今天的流水单'}
+                  </span>
+                </div>
+              )}
+
+              {(printerState === 'printing_1' || printerState === 'printing_2' || printerState === 'printing_3') && (
+                <div style={{ color: '#8a8277', fontSize: '11px', letterSpacing: '0.15em', fontFamily: 'monospace', textAlign: 'center', height: '20px' }}>
+                  {printerState === 'printing_1' && '[ 机器通电... ]'}
+                  {printerState === 'printing_2' && '滋——————'}
+                  {printerState === 'printing_3' && '咔哒。'}
+                </div>
+              )}
+
+              {printerState === 'done' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', alignItems: 'center', animation: 'fadeIn 0.5s ease' }}>
+                  
+                  {/* 小票本体：用于截图的绝对干净节点 */}
+                  <div id="receipt-node" style={{ width: '100%', maxWidth: '280px', background: '#050505', padding: '32px 24px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ paddingBottom: '16px', borderBottom: '1px dashed rgba(255,255,255,0.2)', marginBottom: '20px', textAlign: 'center' }}>
+                      <div style={{ color: '#e5e7eb', fontSize: '16px', letterSpacing: '0.15em', fontWeight: 'bold' }}>END HERE</div>
+                      <div style={{ color: '#6b7280', fontSize: '10px', marginTop: '6px', letterSpacing: '0.1em' }}>断网巷 404 号</div>
+                    </div>
+                    
+                    <div style={{ color: '#d1d5db', fontSize: '12px', lineHeight: '2.6', letterSpacing: '0.1em', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div>{receiptData.arrivalText}进店。</div>
+                      <div>发呆 {receiptData.stayMinutes} 分钟。</div>
+                      {receiptData.entriesCount > 0 ? (
+                        <div>留下了 {receiptData.entriesCount} 句话。</div>
+                      ) : (
+                        <div>什么也没写。</div>
+                      )}
+                    </div>
+
+                    <div style={{ paddingTop: '20px', borderTop: '1px dashed rgba(255,255,255,0.2)', marginTop: '20px', textAlign: 'center' }}>
+                      <div style={{ color: '#6b7280', fontSize: '10px', letterSpacing: '0.15em' }}>* 离店概不负责 *</div>
+                    </div>
+                  </div>
+
+                  <span
+                    onClick={handleSaveReceipt}
+                    style={{ color: '#8a8277', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: '4px', transition: 'color 0.2s' }}
+                  >
+                    {'> 把小票揣进口袋'}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           {payStep && !paySuccess && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', animation: 'fadeIn 0.3s ease', padding: '24px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.1)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingBottom: '12px', borderBottom: '1px dashed rgba(255,255,255,0.1)', width: '100%', justifyContent: 'center' }}>

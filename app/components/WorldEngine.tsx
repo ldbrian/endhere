@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { useWorldEngine } from '../store/useWorldEngine' // <-- 引入状态机
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,6 +11,7 @@ const supabase = createClient(
 export default function WorldEngine() {
   const [activeEvent, setActiveEvent] = useState<'clear' | 'rain' | 'broken_bulb'>('clear')
 
+  // 1. 原有的天气/环境查询引擎 (30秒轮询)
   useEffect(() => {
     const fetchState = async () => {
       try {
@@ -22,6 +24,29 @@ export default function WorldEngine() {
     return () => clearInterval(interval)
   }, [])
 
+  // 2. [P1 新增] 物理动作快照合并引擎 (5分钟心跳)
+  useEffect(() => {
+    const PULSE_RATE = 5 * 60 * 1000 // 5分钟
+    
+    const timer = setInterval(() => {
+      useWorldEngine.getState().flushToWorld()
+    }, PULSE_RATE)
+
+    // 用户关掉网页前，强制把最后几分钟的动作送出去
+    const handleBeforeUnload = () => {
+      useWorldEngine.getState().flushToWorld()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
+
+  // ==========================================
+  // 下方的渲染逻辑完全保留你原来的版本，绝不破坏天气特效
+  // ==========================================
   if (activeEvent === 'clear') return null
 
   return (

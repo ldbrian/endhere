@@ -46,6 +46,11 @@ function WriteContent() {
     setLoading(true)
     track('submit_entry', { persona, emotion, content_length: content.length })
     
+    // ================= P3: 小票数据探针 (遗留片语计数) =================
+    const currentEntries = parseInt(sessionStorage.getItem('endhere_entry_count') || '0', 10)
+    sessionStorage.setItem('endhere_entry_count', String(currentEntries + 1))
+    // =================================================================
+
     // 跨页面传参暂存（不涉及核心列表数据，保留 sessionStorage 无妨）
     sessionStorage.setItem('entry_content', content)
     sessionStorage.setItem('entry_emotion', emotion)
