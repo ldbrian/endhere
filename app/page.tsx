@@ -768,8 +768,8 @@ export default function Home() {
                     <div style={{ borderBottom: '2px dashed #78716c', margin: '12px 0' }} />
 
                     <div style={{ color: '#1a1612', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', fontWeight: 600 }}>
-                      <ReceiptRow label="入店时间" value={receiptData.arrivalText} />
-                      <ReceiptRow label="避难时长" value={`${receiptData.stayMinutes} 分钟`} />
+                      <ReceiptRow label="进店时间" value={receiptData.arrivalText} />
+                      <ReceiptRow label="进店时长" value={`${receiptData.stayMinutes} 分钟`} />
                       <ReceiptRow label="木凳落座" value={`${receiptData.sitMinutes} 分钟`} />
                       <ReceiptRow label="浇灌植物" value={`${receiptData.waterCount} 次`} />
                       <ReceiptRow label="抽屉翻阅" value={`${receiptData.archiveCount} 次`} />
