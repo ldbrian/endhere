@@ -9,11 +9,17 @@ const supabase = createClient(
 )
 
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
-    const { event, ...payload } = body
+  const body = await request.json();
+  console.log("【API 收到请求】:", body); // 必须在浏览器 F12 控制台看这个
 
-    if (!event) {
+  // 如果报错，检查这里是不是 event_name 丢失了
+  if (!body.event_name) {
+    return new Response("Missing event_name", { status: 400 });
+  }
+  try {
+    const { event_name, ...payload } = body
+
+    if (!event_name) {
       return NextResponse.json({ error: 'Missing event name' }, { status: 400 })
     }
 
@@ -22,7 +28,7 @@ export async function POST(request: Request) {
       .from('space_telemetry')
       .insert([
         { 
-          event_name: event, 
+          event_name: event_name, 
           payload: payload 
         }
       ])

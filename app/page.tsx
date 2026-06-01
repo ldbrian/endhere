@@ -208,6 +208,7 @@ export default function Home() {
   const moveStool = useEntityStore(state => state.moveStool)
   const onTop = useEntityStore(state => state.onTop)
   const toggleSit = useEntityStore(state => state.toggleSit)
+  const [wallContent, setWallContent] = useState<string>('墙角有一块陈旧的水渍')
   
   const [isSpacedOutReady, setIsSpacedOutReady] = useState(false)
   const mutateWorld = useWorldEngine(state => state.mutateWorld)
@@ -307,6 +308,17 @@ export default function Home() {
     }
     toggleSit() 
   }
+
+  useEffect(() => {
+  const fetchWallStain = async () => {
+    // 这里调用一个 API 接口，从 world_state 读取每日选定的那条数据
+    const { data } = await supabase.from('world_state').select('wall_water_stain_text').eq('id', true).single()
+    if (data?.wall_water_stain_text) {
+      setWallContent(data.wall_water_stain_text)
+    }
+  }
+  fetchWallStain()
+}, [])
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -893,7 +905,7 @@ export default function Home() {
           <span 
             onClick={() => {
               trackSpaceEvent('EVENT_INSPECT_WALL', { action: 'closeview' })
-              setInspectWallText('三天前，有人在这个角落坐了一整晚。')
+              setInspectWallText(wallContent);
             }}
             style={{ 
               color: '#27272a', 
