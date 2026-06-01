@@ -1,6 +1,7 @@
 // lib/telemetry.ts
 
 export const trackSpaceEvent = (eventName: string, payload: any = {}) => {
+  console.log('[DEBUG] 正在记录埋点:', eventName, payload); // 确认这里打印的有内容！
   try {
     // 异步静默发送，绝不 await，绝不阻塞主线程
     fetch('/api/telemetry', {
