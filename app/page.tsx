@@ -272,7 +272,6 @@ export default function Home() {
 
     // 使用 as any 绕过类型检查，并同时设置两个属性兼容新旧版本
     const canvas = await html2canvas(node, {
-      backgroundColor: '#050505',   // 兼容 1.x 旧版
       background: '#050505',        // 兼容 2.x 新版
       scale: Math.min(window.devicePixelRatio || 1, 2)
     } as any)  // 关键：绕过 TypeScript 类型定义的限制
