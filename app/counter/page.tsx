@@ -129,9 +129,9 @@ function CounterContent() {
       if (!node) return
       
       const canvas = await html2canvas(node, {
-        backgroundColor: '#050505',
+        background: '#050505',
         scale: 3, // 三倍采样保证导出图片高清
-      })
+      }as any)
       
       const url = canvas.toDataURL('image/png')
       const a = document.createElement('a')
