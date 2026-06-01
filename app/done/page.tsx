@@ -219,7 +219,7 @@ export default function DonePage() {
             
             <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
               <button onClick={handleUseGift} style={{ flex: 2, padding: '14px', borderRadius: '10px', border: '1px solid rgba(245,200,66,0.5)', background: 'rgba(245,200,66,0.1)', color: 'var(--warm-yellow)', fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.1em', cursor: 'pointer' }}>
-                {interceptModal === 'match' ? '借火烧掉' : interceptModal === 'bandaid' ? '贴上创可贴' : '拿走这瓶奶'}
+                {interceptModal === 'icewater' ? ' 喝下冰水' : interceptModal === 'candy' ? ' 吃掉糖果' : '拿走这瓶奶'}
               </button>
               
               {!queuedGift.isManagerCoupon && (
