@@ -265,25 +265,27 @@ export default function Home() {
 
   // [V2.1] 内存防御与性能锁
   const handleSaveReceipt = async () => {
-    try {
-      const html2canvas = (await import('html2canvas')).default
-      const node = document.getElementById('receipt-node')
-      if (!node) return
-      
-      const canvas = await html2canvas(node, {
-        backgroundColor: '#050505',
-        scale: Math.min(window.devicePixelRatio || 1, 2)
-      })
-      
-      const url = canvas.toDataURL('image/png')
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `EndHere_流水单_${Date.now()}.png`
-      a.click()
-    } catch (e) {
-      alert('打印机卡纸了，没有保存成功。')
-    }
+  try {
+    const html2canvas = (await import('html2canvas')).default
+    const node = document.getElementById('receipt-node')
+    if (!node) return
+
+    // 使用 as any 绕过类型检查，并同时设置两个属性兼容新旧版本
+    const canvas = await html2canvas(node, {
+      backgroundColor: '#050505',   // 兼容 1.x 旧版
+      background: '#050505',        // 兼容 2.x 新版
+      scale: Math.min(window.devicePixelRatio || 1, 2)
+    } as any)  // 关键：绕过 TypeScript 类型定义的限制
+
+    const url = canvas.toDataURL('image/png')
+    const a = document.createElement('a')
+    a.download = `EndHere_流水单_${Date.now()}.png`
+    a.href = url
+    a.click()
+  } catch (e) {
+    alert('打印机卡纸了，没有保存成功。')
   }
+}
 
   // ================= EVENT_STAY_DURATION 埋点引擎与计时器 =================
   const [sitStartTime, setSitStartTime] = useState<number | null>(null)
