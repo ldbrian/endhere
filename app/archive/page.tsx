@@ -98,6 +98,26 @@ export default function ArchivePage() {
                     {entry.content}
                   </p>
 
+                  {/* ──────────────────────────────────────────────────────── */}
+                  {/* 【Phase 6 核心注入】：店长留痕渲染补丁 (无值完全隐形，有值暗琥珀色显示) */}
+                  {entry.manager_message && entry.manager_message.trim() !== '' && (
+                    <div style={{ 
+                      fontSize: '11px', 
+                      color: '#b45309', // 精准暗琥珀色 (模拟复古手写/印章痕迹)
+                      opacity: 0.75, 
+                      fontFamily: 'monospace', 
+                      lineHeight: '1.6', 
+                      margin: '16px 0',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap'
+                    }}>
+                      ------------------------
+                      <br />
+                      [ 店长随手落下的字条："{entry.manager_message}" ]
+                    </div>
+                  )}
+                  {/* ──────────────────────────────────────────────────────── */}
+
                   <div style={{ width: '100%', height: '1px', borderTop: '1px dashed #8c8273', opacity: 0.3, marginBottom: '16px' }} />
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
