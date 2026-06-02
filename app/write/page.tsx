@@ -41,7 +41,7 @@ function WriteContent() {
 
   const selectedPersona = PERSONAS.find(p => p.id === persona)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!content.trim() || !persona || loading) return
     setLoading(true)
     track('submit_entry', { persona, emotion, content_length: content.length })
@@ -51,7 +51,7 @@ function WriteContent() {
     sessionStorage.setItem('endhere_entry_count', String(currentEntries + 1))
     // =================================================================
 
-    // 跨页面传参暂存（不涉及核心列表数据，保留 sessionStorage 无妨）
+    // 跨页面传参暂存
     sessionStorage.setItem('entry_content', content)
     sessionStorage.setItem('entry_emotion', emotion)
     localStorage.setItem('preferred_persona', persona)
@@ -59,26 +59,28 @@ function WriteContent() {
     // === 店长模式直通车 & CLI 控制台 ===
     if (persona === 'Manager') {
       const isCommand = content.trim().startsWith('/')
+      const generatedReceiptId = `MGR-${Date.now()}` // 规范化生成唯一的业务票号
       
-      // 如果是系统指令，直接拦截发送，不生成小票
+      // 分支 A：系统指令拦截器
       if (isCommand) {
-        fetch('/api/mailbox', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ receiptId: `CLI-${Date.now()}`, userMessage: content, aiResponse: 'CLI_EXEC' })
-        }).then(async (res) => {
+        try {
+          const res = await fetch('/api/mailbox', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ receiptId: `CLI-${Date.now()}`, userMessage: content, aiResponse: 'CLI_EXEC' })
+          })
           const data = await res.json()
-          alert(data.message) // 极简反馈，告诉你指令是否成功
-          setContent('') // 清空输入框
-          setLoading(false)
-        }).catch(() => {
+          alert(data.message)
+          setContent('')
+        } catch (e) {
           alert('指令发送失败，检查网络')
+        } finally {
           setLoading(false)
-        })
+        }
         return 
       }
 
-      // 如果不是指令，走原本的店长普通留言逻辑
+      // 分支 B：【全面修复】普通留言硬核落库
       const initialScore = parseInt(sessionStorage.getItem('emotion_score') || '7', 10)
       const mockEntry = {
         id: Date.now(),
@@ -91,11 +93,32 @@ function WriteContent() {
         persona: 'Manager',
         content: content,
         rawResponse: '意见已投递，等待店长查看',
-        released: false
+        released: false,
+        receiptId: generatedReceiptId
       }
       
-      addEntry(mockEntry)
-      router.push('/done')
+      try {
+        // 强行阻断，必须等到后端 API 真正响应 200 OK 确保入库
+        const res = await fetch('/api/mailbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            receiptId: generatedReceiptId, 
+            userMessage: content, 
+            aiResponse: '意见已投递，等待店长查看' 
+          })
+        })
+
+        if (!res.ok) throw new Error('Database write reject')
+
+        // 数据库确认落盘后，再更新本地状态机并流转页面
+        addEntry(mockEntry)
+        router.push('/done')
+      } catch (e) {
+        console.error('[CTO Audit] 店长留言持久化失败:', e)
+        alert('避难所的信箱被风吹跑了（网络写入失败），请稍后再试。')
+        setLoading(false)
+      }
       return
     }
 
