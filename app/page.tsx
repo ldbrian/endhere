@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { track } from './lib/track'
 import { trackSpaceEvent, sendBeaconEvent } from './lib/telemetry'
 import PlasticBag from './components/PlasticBag'
+import { AmbientNoise } from './components/AmbientNoise' 
 import { recordCustomerAction } from './lib/memory'
 import { createClient } from '@supabase/supabase-js'
 import { useTraces } from './hooks/useTraces'
@@ -144,9 +144,6 @@ const ActionLink = ({ onClick, children, show = true }: { onClick: () => void, c
   )
 }
 
-// ─────────────────────────────────────────────────
-// [P3 修复] V2.1 做旧热敏纸与完美 Flex 布局
-// ─────────────────────────────────────────────────
 const TopJaggedSVG = () => (
   <svg width="100%" height="8" viewBox="0 0 288 8" preserveAspectRatio="none" style={{ display: 'block' }}>
     <polygon points="0,8 6,0 12,8 18,0 24,8 30,0 36,8 42,0 48,8 54,0 60,8 66,0 72,8 78,0 84,8 90,0 96,8 102,0 108,8 114,0 120,8 126,0 132,8 138,0 144,8 150,0 156,8 162,0 168,8 174,0 180,8 186,0 192,8 198,0 204,8 210,0 216,8 222,0 228,8 234,0 240,8 246,0 252,8 258,0 264,8 270,0 276,8 282,0 288,8" fill="#b5b0a1" />
@@ -159,7 +156,6 @@ const BottomJaggedSVG = () => (
   </svg>
 )
 
-// [V2.1] 彻底修复移动端排版崩塌的鲁棒 Flex 布局
 const ReceiptRow = ({ label, value }: { label: string, value: string | number }) => (
   <div style={{ display: 'flex', alignItems: 'baseline', width: '100%', marginBottom: '4px' }}>
     <span style={{ flexShrink: 0, fontWeight: 600 }}>{label}</span>
@@ -175,7 +171,6 @@ const ReceiptRow = ({ label, value }: { label: string, value: string | number })
   </div>
 )
 
-
 export default function Home() {
   const router = useRouter()
 
@@ -190,16 +185,14 @@ export default function Home() {
   const [activeEvent, setActiveEvent] = useState<'clear' | 'rain' | 'broken_bulb'>('clear')
   const [timeStateStr, setTimeStateStr] = useState<string>('...')
 
-  const [ashStatus, setAshStatus] = useState('理货中')
-  const [rinStatus, setRinStatus] = useState('打盹中')
-  const [ashMumble, setAshMumble] = useState<string | null>(null)
-  const [rinMumble, setRinMumble] = useState<string | null>(null)
+  // [清洗] 保持客观值班状态，移除所有无序的虚假低级噪音 Mumble 状态
+  const [ashStatus] = useState('理货中')
+  const [rinStatus] = useState('打盹中')
   const ashIsMissing = ashStatus === '后巷抽烟' || ashStatus === '不知道去哪了'
 
   const [hasBasketItems, setHasBasketItems] = useState(false)
   const [radioText, setRadioText] = useState('收音机里有人在说天气预报...')
   const [plantText, setPlantText] = useState('吧台角落那盆植物，好像很久没人浇水了')
-  const [ambientSound, setAmbientSound] = useState<string | null>(null)
 
   const { getTraceStatus } = useTraces()
   const stoolTrace = getTraceStatus('broken_stool', { hot: '凳面还有一点余温...', warm: '旁边有半杯没喝完的凉水...', cold: '' })
@@ -264,28 +257,26 @@ export default function Home() {
     setTimeout(() => setPrinterState('done'), 2500)
   }
 
-  // [V2.1] 内存防御与性能锁
   const handleSaveReceipt = async () => {
-  try {
-    const html2canvas = (await import('html2canvas')).default
-    const node = document.getElementById('receipt-node')
-    if (!node) return
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const node = document.getElementById('receipt-node')
+      if (!node) return
 
-    // 使用 as any 绕过类型检查，并同时设置两个属性兼容新旧版本
-    const canvas = await html2canvas(node, {
-      background: '#050505',        // 兼容 2.x 新版
-      scale: Math.min(window.devicePixelRatio || 1, 2)
-    } as any)  // 关键：绕过 TypeScript 类型定义的限制
+      const canvas = await html2canvas(node, {
+        background: '#050505', 
+        scale: Math.min(window.devicePixelRatio || 1, 2)
+      } as any) 
 
-    const url = canvas.toDataURL('image/png')
-    const a = document.createElement('a')
-    a.download = `EndHere_流水单_${Date.now()}.png`
-    a.href = url
-    a.click()
-  } catch (e) {
-    alert('打印机卡纸了，没有保存成功。')
+      const url = canvas.toDataURL('image/png')
+      const a = document.createElement('a')
+      a.download = `EndHere_流水单_${Date.now()}.png`
+      a.href = url
+      a.click()
+    } catch (e) {
+      alert('打印机卡纸了，没有保存成功。')
+    }
   }
-}
 
   // ================= EVENT_STAY_DURATION 埋点引擎与计时器 =================
   const [sitStartTime, setSitStartTime] = useState<number | null>(null)
@@ -310,15 +301,14 @@ export default function Home() {
   }
 
   useEffect(() => {
-  const fetchWallStain = async () => {
-    // 这里调用一个 API 接口，从 world_state 读取每日选定的那条数据
-    const { data } = await supabase.from('world_state').select('wall_water_stain_text').eq('id', true).single()
-    if (data?.wall_water_stain_text) {
-      setWallContent(data.wall_water_stain_text)
+    const fetchWallStain = async () => {
+      const { data } = await supabase.from('world_state').select('wall_water_stain_text').eq('id', true).single()
+      if (data?.wall_water_stain_text) {
+        setWallContent(data.wall_water_stain_text)
+      }
     }
-  }
-  fetchWallStain()
-}, [])
+    fetchWallStain()
+  }, [])
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -368,26 +358,8 @@ export default function Home() {
     const plantTimer = setTimeout(() => {
       setPlantText('吧台角落那盆植物静悄悄的，刚刚掉了一片叶子。')
     }, 25000)
-    const ghostSounds = [
-      '角落传来塑料袋轻轻摩擦的声音...',
-      '窗外好像有一辆深夜公交车隆隆驶过...',
-      '门外的风把铁皮招牌吹得嘎吱响了一声...',
-      '头顶的灯管微微发出几声嗞嗞的电流声...'
-    ]
-    const soundInterval = setInterval(() => {
-      if (Math.random() > 0.3) {
-        setAmbientSound(ghostSounds[Math.floor(Math.random() * ghostSounds.length)])
-        setTimeout(() => setAmbientSound(null), 4000)
-      }
-    }, 15000)
-    return () => { clearTimeout(radioTimer); clearTimeout(plantTimer); clearInterval(soundInterval) }
-  }, [])
-
-  useEffect(() => {
-    const enterTime = Date.now()
-    return () => {
-      track('stay_duration', { page: 'home', duration_seconds: Math.round((Date.now() - enterTime) / 1000) })
-    }
+    
+    return () => { clearTimeout(radioTimer); clearTimeout(plantTimer); }
   }, [])
 
   useEffect(() => {
@@ -407,20 +379,6 @@ export default function Home() {
     else if (hour >= 8 && hour < 18) setTimeStateStr('白天，外面有点吵...')
     else if (hour >= 18 && hour < 20) setTimeStateStr('太阳下山了...')
     else setTimeStateStr('今晚夜色很沉...')
-
-    const ashQuotes = ['啧...', '这破账本...', '（点烟声）', '怎么又停电了...', '门别关', '随便坐']
-    const rinQuotes = ['（翻书声）', '有点困...', '雨还不停...', '（擦杯子）', '...嗯？', '今晚外面挺吵吧', '不写东西也没关系']
-    const triggerMumble = (setMumble: any, quotes: string[]) => {
-      if (Math.random() > 0.45) {
-        setMumble(quotes[Math.floor(Math.random() * quotes.length)])
-        setTimeout(() => setMumble(null), 4000)
-      }
-    }
-    const mumbleInterval = setInterval(() => {
-      if (Math.random() > 0.5) triggerMumble(setAshMumble, ashQuotes)
-      else triggerMumble(setRinMumble, rinQuotes)
-    }, 9000)
-    return () => clearInterval(mumbleInterval)
   }, [])
 
   useEffect(() => {
@@ -448,7 +406,7 @@ export default function Home() {
   const handleEnter = (e: React.MouseEvent) => {
     e.stopPropagation()
     const finalEmotion = selected || 'numb'
-    track('enter_write', { emotion: finalEmotion, score })
+    trackSpaceEvent('EVENT_ENTER_WRITE', { emotion: finalEmotion, score })
     sessionStorage.setItem('emotion_score', String(score))
     router.push(`/write?emotion=${finalEmotion}`)
   }
@@ -481,7 +439,6 @@ export default function Home() {
         }
 
         @keyframes pulseDot { 0%,100%{opacity:.15} 50%{opacity:.6} }
-        @keyframes fadeInOut { 0%{opacity:0;transform:translateX(-5px)} 10%{opacity:1;transform:translateX(0)} 90%{opacity:1;transform:translateX(0)} 100%{opacity:0;transform:translateX(5px)} }
         @keyframes shake {
           0%,100%{transform:translate(-50%,-50%) rotate(-3deg)}
           20%{transform:translate(-53%,-50%) rotate(-10deg)}
@@ -494,6 +451,11 @@ export default function Home() {
         
         .btn-action { transition: all 0.25s ease; }
         .btn-action:hover { opacity: 1 !important; }
+        
+        @keyframes eyeFocus {
+          0% { filter: blur(12px); opacity: 0; transform: scale(0.96); }
+          100% { filter: blur(0px); opacity: 1; transform: scale(1); }
+        }
       `}</style>
 
       <div style={{ pointerEvents: 'none', position: 'fixed', inset: 0, zIndex: 0, background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.015), transparent 70%)' }} />
@@ -517,11 +479,7 @@ export default function Home() {
           </div>
         </header>
 
-        {ambientSound && (
-          <div style={{ color: '#554f47', fontSize: '9px', fontStyle: 'italic', letterSpacing: '0.1em', padding: '8px 0 0', animation: 'fadeInOut 4s forwards', textAlign: 'center' }}>
-            [ {ambientSound} ]
-          </div>
-        )}
+        <AmbientNoise />
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0 4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -539,7 +497,7 @@ export default function Home() {
         </div>
         
         {mishap && (
-          <div style={{ color: '#9ca3af', fontSize: '10px', opacity: .7, animation: 'fadeInOut 10s forwards', padding: '0 0 6px' }}>
+          <div style={{ color: '#9ca3af', fontSize: '10px', opacity: .7, padding: '0 0 6px' }}>
             [店员] {mishap}
           </div>
         )}
@@ -632,26 +590,7 @@ export default function Home() {
             </div>
           )}
 
-          {(ashMumble || rinMumble) && (
-            <div style={{ display: 'flex', gap: '12px', padding: '0 12px', animation: 'fadeInUp 0.4s ease' }}>
-              {ashMumble && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(212,149,106,0.12)', border: '1px solid rgba(212,149,106,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span style={{ color: '#d4956a', fontSize: '10px', fontWeight: 500 }}>A</span>
-                  </div>
-                  <span style={{ color: '#8a8277', fontSize: '11px', fontStyle: 'italic' }}>{ashMumble}</span>
-                </div>
-              )}
-              {rinMumble && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(201,160,180,0.12)', border: '1px solid rgba(201,160,180,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span style={{ color: '#c9a0b4', fontSize: '10px', fontWeight: 500 }}>R</span>
-                  </div>
-                  <span style={{ color: '#8a8277', fontSize: '11px', fontStyle: 'italic' }}>{rinMumble}</span>
-                </div>
-              )}
-            </div>
-          )}
+          {/* [切除] 彻底移除引发 DOM 抖动的虚假对话框渲染块 */}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingTop: '8px', paddingBottom: '24px', borderBottom: '1px dashed rgba(255,255,255,0.03)' }}>
@@ -715,7 +654,6 @@ export default function Home() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '40px', paddingTop: '40px', paddingBottom: '48px' }}>
 
-          {/* ================= P3: 底部结算打印机 2.1 (昏暗做旧版) ================= */}
           <div style={{ width: '100%', padding: '32px 20px', borderRadius: '12px', background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
             
             {printerState === 'idle' && (
@@ -935,10 +873,12 @@ export default function Home() {
           onClick={() => setInspectWallText(null)}
           style={{
             position: 'fixed', inset: 0, zIndex: 9999,
-            backgroundColor: 'rgba(5, 5, 5, 0.96)', 
+            backgroundColor: 'rgba(5, 5, 5, 0.65)', 
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer', padding: '0 32px',
-            animation: 'fadeIn 0.6s ease-out'
+            transition: 'background-color 0.5s ease'
           }}
         >
           <div style={{ 
@@ -948,7 +888,8 @@ export default function Home() {
             letterSpacing: '0.15em', 
             lineHeight: '2.4', 
             textAlign: 'center', 
-            textShadow: '0 0 10px rgba(255,255,255,0.15)' 
+            textShadow: '0 0 10px rgba(255,255,255,0.15)',
+            animation: 'eyeFocus 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
           }}>
             {inspectWallText}
           </div>

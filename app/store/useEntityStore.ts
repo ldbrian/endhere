@@ -12,9 +12,14 @@ export const ENTITY_DICT = {
 }
 // =====================================================
 
-interface EntityState {
+export interface EntityState {
   stoolLocation: 'corner' | 'bar'
   onTop: null | 'human'
+  
+  // 【V2 架构补齐】：适配 settlement 引擎的实体感知与 TS 类型检查
+  entities: any[]
+  bar_counter: any | null
+  
   moveStool: (location: 'corner' | 'bar') => void
   toggleSit: () => void
 }
@@ -22,6 +27,10 @@ interface EntityState {
 export const useEntityStore = create<EntityState>((set, get) => ({
   stoolLocation: 'corner', // 默认在角落
   onTop: null,             // 默认上面没人
+  
+  // 【V2 架构补齐】：初始化世界实体与吧台状态
+  entities: [],
+  bar_counter: null,
 
   // 动作：移动凳子
   moveStool: (loc) => {
@@ -39,5 +48,5 @@ export const useEntityStore = create<EntityState>((set, get) => ({
     set((state) => ({ 
       onTop: state.onTop === null ? 'human' : null 
     }))
-  },
+  }
 }))
