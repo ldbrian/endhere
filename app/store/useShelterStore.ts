@@ -12,11 +12,9 @@ export interface ShelterEntry {
   persona?: string
   content: string
   rawResponse?: string
-  // 👇 补充缺失的 AI 解析与交互字段
   analysis?: string
   punchline?: string
-  sessions?: any[] // 用于 ruminate 回味页面的追加数据
-  // 👆 ----------------------------
+  sessions?: any[]
   released?: boolean
   receiptId: string // V2 核心契约：必须存在的唯一真源 ID
   manager_message?: string
@@ -31,20 +29,43 @@ interface ShelterState {
   addEntry: (entry: ShelterEntry) => void
   updateEntry: (id: number, updates: Partial<ShelterEntry>) => void
   deleteEntry: (id: number) => void
+  
+  // 👇 补充缺失的“铁筐领取记录”契约
+  lastClaimedAt: number | null
+  canClaimToday: () => boolean
+  markClaimed: () => void
 }
 
 export const useShelterStore = create<ShelterState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       entries: [],
       
-      // 数据层下沉：写入动作内部自带 Schema 防御，拒绝 UI 层传错参数污染持久层
+      // ==========================================
+      // 铁筐领取冷却引擎
+      // ==========================================
+      lastClaimedAt: null,
+      
+      canClaimToday: () => {
+        const last = get().lastClaimedAt
+        if (!last) return true
+        
+        // 物理防御：按自然日计算冷却时间
+        const lastDate = new Date(last).toLocaleDateString()
+        const today = new Date().toLocaleDateString()
+        return lastDate !== today
+      },
+      
+      markClaimed: () => set({ lastClaimedAt: Date.now() }),
+
+      // ==========================================
+      // 小票数据流转引擎
+      // ==========================================
       addEntry: (entry) => set((state) => {
-        if (!entry || typeof entry.id !== 'number') return state // 阻断无效结构
+        if (!entry || typeof entry.id !== 'number') return state 
         
         const safeEntry = {
           ...entry,
-          // 防御性补齐：即使 UI 层漏传，也强制生成符合规范的 fallback
           receiptId: entry.receiptId || `EH-OLD-${entry.id.toString().slice(-4)}`
         }
         
@@ -55,7 +76,6 @@ export const useShelterStore = create<ShelterState>()(
         entries: state.entries.map((e) => {
           if (e.id === id) {
             const merged = { ...e, ...updates }
-            // 核心锁：严禁在更新过程中抹除已固化的 receiptId
             if (!merged.receiptId) merged.receiptId = e.receiptId
             return merged
           }
@@ -70,17 +90,14 @@ export const useShelterStore = create<ShelterState>()(
       }))
     }),
     {
-      name: 'endhere-shelter-storage', // 持久化缓存键名
-      version: 2, // 锁死 Version 2 迁移机制
+      name: 'endhere-shelter-storage', 
+      version: 2, 
       
-      // 必须严格执行的硬编码迁移逻辑
       migrate: (persistedState: any, version: number) => {
-        // 捕获 version 1 或无版本号的远古数据
         if (version === 1 || version === 0 || !version) {
           const state = persistedState as ShelterState;
           state.entries = (state.entries || []).map((entry: any) => ({
             ...entry,
-            // 核心防御线：老数据若无 receiptId，在内存中强行补齐旧版字符串契约
             receiptId: entry.receiptId || `EH-OLD-${entry.id.toString().slice(-4)}`
           }));
           return state;
