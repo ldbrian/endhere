@@ -380,21 +380,23 @@ DESC: [一句15字以内的文案]
     }
 
     const startScore = parseInt(emotionScore, 10)
+    const generatedReceiptId = 'EH-' + Math.random().toString(36).substring(2, 8).toUpperCase()
 
     addEntry({
       id: Date.now(),
-      timestamp: Date.now(), // 关键字段：为旧抽屉(archive)的时间滤镜提供标尺
+      timestamp: Date.now(), // 归档用
       emotion,
       content,
       persona,
-      rawResponse, // 统一使用 rawResponse
+      rawResponse,
       analysis,
       punchline,
       destinedItem, 
       createdAt: new Date().toISOString(),
       emotionStart: startScore,
-      emotionEnd: startScore, // 预置缺省值，done页面会更新
-      status: '处理中',
+      emotionEnd: startScore, 
+      status: '待处理',
+      receiptId: generatedReceiptId // 👈 补全底层要求必填的核心字段
     })
 
     sessionStorage.removeItem('entry_content')

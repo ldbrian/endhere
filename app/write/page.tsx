@@ -1,5 +1,5 @@
 'use client'
-import { useState, Suspense, useEffect } from 'react'
+import { useState, Suspense, useEffect,useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PERSONAS, PERSONA_PLACEHOLDERS, PERSONA_BUTTONS } from '../lib/personas'
 import { track } from '../lib/track'
@@ -16,6 +16,7 @@ function WriteContent() {
   const [loading, setLoading] = useState(false)
   const [focused, setFocused] = useState(false)
   const [childName, setChildName] = useState('8岁')
+  const isSubmitting = useRef(false)
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -42,14 +43,20 @@ function WriteContent() {
   const selectedPersona = PERSONAS.find(p => p.id === persona)
 
   const handleSubmit = async () => {
-    if (!content.trim() || !persona || loading) return
+    // 🔒【强行闭锁】：同时检查 loading 和物理锁。一旦进入，瞬间闭锁，不给高频连击留哪怕 1 微秒的真空期
+    if (!content.trim() || !persona || loading || isSubmitting.current) return
+    isSubmitting.current = true
     setLoading(true)
-    track('submit_entry', { persona, emotion, content_length: content.length })
+    
+    // 【唯一真源】：在函数最顶端直接锁定唯一的业务票号，严禁二次拼接
+    // 恢复旧版 6 位 Base36 大写随机串算法，保持历史数据视觉一致性
+    const finalReceiptId = 'EH-' + Math.random().toString(36).substring(2, 8).toUpperCase()
+
+    trackSpaceEvent('EVENT_SUBMIT_ENTRY', { persona, emotion, content_length: content.length })
     
     // ================= P3: 小票数据探针 (遗留片语计数) =================
     const currentEntries = parseInt(sessionStorage.getItem('endhere_entry_count') || '0', 10)
     sessionStorage.setItem('endhere_entry_count', String(currentEntries + 1))
-    // =================================================================
 
     // 跨页面传参暂存
     sessionStorage.setItem('entry_content', content)
@@ -59,7 +66,6 @@ function WriteContent() {
     // === 店长模式直通车 & CLI 控制台 ===
     if (persona === 'Manager') {
       const isCommand = content.trim().startsWith('/')
-      const generatedReceiptId = `MGR-${Date.now()}` // 规范化生成唯一的业务票号
       
       // 分支 A：系统指令拦截器
       if (isCommand) {
@@ -67,7 +73,7 @@ function WriteContent() {
           const res = await fetch('/api/mailbox', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ receiptId: `CLI-${Date.now()}`, userMessage: content, aiResponse: 'CLI_EXEC' })
+            body: JSON.stringify({ receiptId: finalReceiptId, userMessage: content, aiResponse: 'CLI_EXEC' })
           })
           const data = await res.json()
           alert(data.message)
@@ -80,7 +86,7 @@ function WriteContent() {
         return 
       }
 
-      // 分支 B：【全面修复】普通留言硬核落库
+      // 分支 B：普通留言硬核落库
       const initialScore = parseInt(sessionStorage.getItem('emotion_score') || '7', 10)
       const mockEntry = {
         id: Date.now(),
@@ -94,16 +100,15 @@ function WriteContent() {
         content: content,
         rawResponse: '意见已投递，等待店长查看',
         released: false,
-        receiptId: generatedReceiptId
+        receiptId: finalReceiptId // 双向同源绑定 A
       }
       
       try {
-        // 强行阻断，必须等到后端 API 真正响应 200 OK 确保入库
         const res = await fetch('/api/mailbox', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            receiptId: generatedReceiptId, 
+            receiptId: finalReceiptId, // 双向同源绑定 B (网络 Payload)
             userMessage: content, 
             aiResponse: '意见已投递，等待店长查看' 
           })
@@ -111,11 +116,9 @@ function WriteContent() {
 
         if (!res.ok) throw new Error('Database write reject')
 
-        // 数据库确认落盘后，再更新本地状态机并流转页面
         addEntry(mockEntry)
         router.push('/done')
       } catch (e) {
-        console.error('[CTO Audit] 店长留言持久化失败:', e)
         alert('避难所的信箱被风吹跑了（网络写入失败），请稍后再试。')
         setLoading(false)
       }

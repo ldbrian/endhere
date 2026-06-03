@@ -2,10 +2,17 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useShelterStore } from '../store/useShelterStore'
+import { createClient } from '@supabase/supabase-js'
+
+// 初始化 Supabase 客户端，用于主动拉取店长回复
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export default function ArchivePage() {
   const router = useRouter()
-  const { entries, deleteEntry } = useShelterStore()
+  const { entries, updateEntry, deleteEntry } = useShelterStore()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -17,12 +24,53 @@ export default function ArchivePage() {
     } catch (e) {}
   }, [])
 
+  // 🚨 【核心修复：自愈型拉取引擎 & 字段翻译层】
+  useEffect(() => {
+    const syncManagerReplies = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('manager_mailbox') 
+          .select('receipt_id, user_message, manager_reply')
+          .not('manager_reply', 'is', null)
+
+        if (error) throw error
+
+        if (data && data.length > 0) {
+          data.forEach((dbRecord) => {
+            const localEntry = entries.find(e =>
+              e.receiptId === dbRecord.receipt_id ||
+              (e.content && e.content.trim() === dbRecord.user_message?.trim())
+            )
+
+            if (localEntry) {
+              // 💡 CTO 修正：比对前端的 manager_message 和后端的 manager_reply
+              const needsUpdate = 
+                localEntry.manager_message !== dbRecord.manager_reply || 
+                localEntry.receiptId !== dbRecord.receipt_id
+
+              if (needsUpdate) {
+                updateEntry(localEntry.id, {
+                  manager_message: dbRecord.manager_reply, // 👈 翻译层：把后端的 reply 塞给前端的 message
+                  receiptId: dbRecord.receipt_id // 拨正 ID
+                })
+              }
+            }
+          })
+        }
+      } catch (err) {
+        console.error('拉取店长回复时发生网络阻塞:', err)
+      }
+    }
+
+    if (entries.length > 0) {
+      syncManagerReplies()
+    }
+  }, [entries.length])
+
   if (!mounted) return <div style={{ width: '100vw', height: '100vh', background: '#1a1612' }} />
 
-  // 过滤出有效小票
   const archiveEntries = entries.filter(e => e.status !== '已销毁' && e.status !== '彻底消失')
 
-  // 时间引擎计算
   const getDaysOld = (timestamp: number) => {
     if (!timestamp) return 0
     return Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24))
@@ -48,11 +96,8 @@ export default function ArchivePage() {
             const daysOld = getDaysOld(entry.timestamp)
             const isSealed = entry.isSealed && entry.sealedUntil && Date.now() < entry.sealedUntil
             
-            // 物理衰败引擎 (随时间递进)
             const isMildDecay = daysOld >= 3 && daysOld <= 7
             const isSevereDecay = daysOld > 7
-            
-            // 随机倾斜度，模拟乱丢在抽屉里
             const randomRotation = isSevereDecay ? (index % 2 === 0 ? '-1.5deg' : '1.5deg') : '0deg'
 
             return (
@@ -65,7 +110,6 @@ export default function ArchivePage() {
                   color: isSealed ? '#555' : '#2a2a2a', 
                   boxShadow: isSevereDecay ? '0 10px 20px rgba(0,0,0,0.6)' : '0 10px 30px rgba(0,0,0,0.2)',
                   position: 'relative',
-                  // 终极时间滤镜
                   filter: !isSealed && isSevereDecay ? 'sepia(0.6) contrast(0.75) brightness(0.85) grayscale(0.2)' : 
                           !isSealed && isMildDecay ? 'sepia(0.3) contrast(0.9) brightness(0.95)' : 'none',
                   transform: !isSealed ? `rotate(${randomRotation})` : 'none',
@@ -98,12 +142,11 @@ export default function ArchivePage() {
                     {entry.content}
                   </p>
 
-                  {/* ──────────────────────────────────────────────────────── */}
-                  {/* 【Phase 6 核心注入】：店长留痕渲染补丁 (无值完全隐形，有值暗琥珀色显示) */}
+                  {/* UI 渲染依然认 manager_message，且一定会从刚刚的翻译层接收到数据 */}
                   {entry.manager_message && entry.manager_message.trim() !== '' && (
                     <div style={{ 
                       fontSize: '11px', 
-                      color: '#b45309', // 精准暗琥珀色 (模拟复古手写/印章痕迹)
+                      color: '#b45309', 
                       opacity: 0.75, 
                       fontFamily: 'monospace', 
                       lineHeight: '1.6', 
@@ -116,14 +159,13 @@ export default function ArchivePage() {
                       [ 店长随手落下的字条："{entry.manager_message}" ]
                     </div>
                   )}
-                  {/* ──────────────────────────────────────────────────────── */}
 
                   <div style={{ width: '100%', height: '1px', borderTop: '1px dashed #8c8273', opacity: 0.3, marginBottom: '16px' }} />
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ opacity: 0.5 }}>离店情绪:</span>
-                      <span style={{ color: entry.emotionEnd > 7 ? '#d9534f' : entry.emotionEnd < 4 ? '#5cb85c' : '#f0ad4e' }}>
+                      <span style={{ color: (entry.emotionEnd ?? 5) > 7 ? '#d9534f' : (entry.emotionEnd ?? 5) < 4 ? '#5cb85c' : '#f0ad4e' }}>
                         {entry.emotionEnd || '?'} / 10
                       </span>
                     </div>

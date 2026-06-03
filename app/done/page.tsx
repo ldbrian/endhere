@@ -35,17 +35,25 @@ export default function DonePage() {
   useEffect(() => {
     setMounted(true)
     
-    // 只有在未生成过 receiptId 的情况下才执行，彻底掐断死循环
+    // 确保有数据才处理
     if (!receiptId && entries.length > 0) {
       const currentEntry = entries[0]
-      const randStr = Math.random().toString(36).substring(2, 4).toUpperCase()
-      const timestampStr = Date.now().toString().slice(-4)
-      const newReceiptId = `EH-${randStr}${timestampStr}`
-      setReceiptId(newReceiptId)
+      
+      // 🚨 CTO 防线：优先继承上一环（write/response）已经生成并落库的唯一真源 ID！
+      // 坚决杜绝二次覆写
+      if (currentEntry.receiptId) {
+        setReceiptId(currentEntry.receiptId)
+      } else {
+        // 只有历史遗留数据或普通 AI 留言（未在上一环生成 ID）时，才触发兜底生成
+        const randStr = Math.random().toString(36).substring(2, 4).toUpperCase()
+        const timestampStr = Date.now().toString().slice(-4)
+        const newReceiptId = `EH-${randStr}${timestampStr}`
+        setReceiptId(newReceiptId)
+      }
 
       if (currentEntry.persona === 'Manager') {
         setIsManagerMode(true)
-        setItem({ id: 'manager_letter', icon: '✉️', name: '店长留言', desc: '压在吧台下的便签' })
+        setItem({ id: 'manager_letter', icon: '📝', name: '店长回执', desc: '留给店长的字条' })
       } else {
         if (currentEntry.destinedItem) {
           const dItem = currentEntry.destinedItem
@@ -61,14 +69,17 @@ export default function DonePage() {
       }
       setTimeout(() => setVisible(true), 100)
     }
-  }, [entries, receiptId]) 
+  }, [entries, receiptId])
 
   const handleSave = async () => {
     track('save_entry', { scoreEnd, item_id: item?.id })
     const currentEntry = entries[0]
     if (currentEntry) {
       updateEntry(currentEntry.id, {
-        emotionEnd: scoreEnd, status: isManagerMode ? '待处理' : '处理中', item: item, receiptId: receiptId
+        emotionEnd: scoreEnd, 
+        status: isManagerMode ? '店长信箱' : '待处理', 
+        destinedItem: item, // 👈 字段名严格对齐接口规范
+        receiptId: receiptId
       })
     }
     setSaved(true)
