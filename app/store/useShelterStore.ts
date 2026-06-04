@@ -30,10 +30,14 @@ interface ShelterState {
   updateEntry: (id: number, updates: Partial<ShelterEntry>) => void
   deleteEntry: (id: number) => void
   
-  // 👇 补充缺失的“铁筐领取记录”契约
+  // 👇 铁筐领取记录契约
   lastClaimedAt: number | null
   canClaimToday: () => boolean
   markClaimed: () => void
+  
+  // 👇 惰性物品状态契约
+  hasMint: boolean
+  consumeMint: () => void
 }
 
 export const useShelterStore = create<ShelterState>()(
@@ -57,6 +61,12 @@ export const useShelterStore = create<ShelterState>()(
       },
       
       markClaimed: () => set({ lastClaimedAt: Date.now() }),
+
+      // ==========================================
+      // 惰性物品交互引擎 (CTO 修复位置)
+      // ==========================================
+      hasMint: true,
+      consumeMint: () => set({ hasMint: false }),
 
       // ==========================================
       // 小票数据流转引擎
