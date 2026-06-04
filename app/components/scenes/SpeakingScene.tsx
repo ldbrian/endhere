@@ -57,7 +57,6 @@ export default function SpeakingScene() {
     
     finalReceiptIdRef.current = 'EH-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    // 提交动作立刻切入阅读沉静期
     setStep('reading');
     setStreamState('loading');
 
@@ -76,9 +75,20 @@ export default function SpeakingScene() {
       };
       
       addEntry(mockEntry);
+      
+      // 统一写往唯一的实体表 manager_mailbox
       try {
-        await supabase.from('mailbox').insert([{ receipt_id: mockEntry.receiptId, user_message: text, persona: 'Manager' }]);
-      } catch (e) {}
+        const { error } = await supabase
+          .from('manager_mailbox')
+          .insert([{ 
+            receipt_id: mockEntry.receiptId, 
+            user_message: text,
+            created_date: new Date().toISOString().split('T')[0] 
+          }]);
+        if (error) throw error;
+      } catch (e) {
+        console.error('[店长模式] 投递至 manager_mailbox 失败:', JSON.stringify(e));
+      }
       
       setGeneratedReceipt(mockEntry);
       setStreamState('done');
@@ -113,21 +123,19 @@ export default function SpeakingScene() {
         
         buffer += decoder.decode(value, { stream: true });
         
-        // 实时清洗数据并写入状态
         const parsed = parseAiResponse(buffer);
         setCleanAiText(parsed.cleanText);
         if (parsed.item) setAiItem(parsed.item);
       }
 
-      // 接收完毕，固化清洗后的数据到生成区
       const finalParsed = parseAiResponse(buffer);
       const localEntry = {
         id: Date.now(),
         receiptId: finalReceiptIdRef.current,
         content: text,
         persona: persona,
-        cleanText: finalParsed.cleanText, // 核心：保存纯净文本
-        item: finalParsed.item,           // 核心：保存命运物品
+        cleanText: finalParsed.cleanText, 
+        item: finalParsed.item,           
         rawResponse: buffer,
         timestamp: Date.now(),
         status: '待处理',
@@ -135,11 +143,23 @@ export default function SpeakingScene() {
       };
       
       addEntry(localEntry);
-      supabase.from('mailbox').insert([{ 
-        receipt_id: finalReceiptIdRef.current, 
-        user_message: text,
-        persona: persona 
-      }]).then();
+      
+      // 修复 AI 数据的静默失败，统一写入 manager_mailbox
+      try {
+        const { error } = await supabase
+          .from('manager_mailbox')
+          .insert([{ 
+            receipt_id: finalReceiptIdRef.current, 
+            user_message: text,
+            // 将纯净的 AI 文本存入数据库，供店长后台查阅
+            ai_response: finalParsed.cleanText,
+            // 核心修复：填补非空约束
+            created_date: new Date().toISOString().split('T')[0]
+          }]);
+        if (error) throw error;
+      } catch (e) {
+        console.error('[AI模式] 投递至 manager_mailbox 失败:', JSON.stringify(e));
+      }
 
       setGeneratedReceipt(localEntry);
       setStreamState('done');

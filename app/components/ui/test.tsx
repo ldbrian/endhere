@@ -1,127 +1,130 @@
-import React, { useEffect, useState } from 'react';
+'use client';
 
-export interface ReceiptData {
-  receiptId: string;
-  timestamp: number;
-  user_message?: string;
-  ai_name?: string;
-  ai_reply?: string;
-  manager_reply?: string | null;
-  behavior_stats?: {
-    watering_count: number;
-    stool_moved_count: number;
-    stay_duration: number;
-  };
-}
+import { useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { useSpaceStore } from '../../store/useSpaceStore';
+import { useShelterStore } from '../../store/useShelterStore';
+import { Receipt } from '../ui/Receipt'; 
+import { supabase } from '../../lib/supabase';
 
-export interface ReceiptProps {
-  data: ReceiptData;
-  type: 'behavior' | 'memo'; 
-  status: 'normal' | 'destroyed'; 
-}
-
-const ReceiptRow = ({ label, value }: { label: string, value: string | number }) => (
-  <div className="flex items-baseline w-full mb-2">
-    <span className="shrink-0 font-medium text-zinc-600">{label}</span>
-    <div className="grow border-b-[1.5px] border-dotted border-zinc-800/50 mx-2 relative -top-1" />
-    <span className="shrink-0 font-medium text-zinc-400">{value}</span>
-  </div>
-);
-
-export function Receipt({ data, type, status }: ReceiptProps) {
-  const [isFocused, setIsFocused] = useState(false);
+export default function NostalgiaScene() {
+  const setScene = useSpaceStore((state) => state.setScene);
+  const entries = useShelterStore((state) => state.entries);
+  const updateEntry = useShelterStore((state) => state.updateEntry); // 引入更新方法
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    const focusTimer = setTimeout(() => setIsFocused(true), 50);
-    return () => clearTimeout(focusTimer);
+    try {
+      audioRef.current = new Audio('/drawer-open.mp3');
+      audioRef.current.volume = 0.15;
+      audioRef.current.play().catch(() => {});
+    } catch (e) {
+      console.warn('Audio layer skipped.');
+    }
   }, []);
 
-  const calculateWeathering = () => {
-    if (type !== 'memo') return 'opacity-100'; 
-    const daysOld = Math.max(0, (Date.now() - data.timestamp) / (1000 * 60 * 60 * 24));
-    
-    if (daysOld <= 1) return 'opacity-100 text-zinc-300';
-    if (daysOld > 1 && daysOld <= 5) return 'opacity-80 text-zinc-400 font-light';
-    return 'opacity-50 text-zinc-500 font-thin'; 
-  };
+  useEffect(() => {
+      const syncManagerReplies = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('manager_mailbox')
+            .select('receipt_id, manager_reply')
+            .not('manager_reply', 'is', null);
+  
+          if (error) throw error;
+  
+          if (data && data.length > 0) {
+            data.forEach((dbRecord) => {
+              // 通过 receipt_id 精准锁定本地抽屉里的单子
+              const localEntry = entries.find(e => e.receiptId === dbRecord.receipt_id);
+  
+              if (localEntry) {
+                // 状态比对：如果本地没有批注，或者批注被修改了，则静默更新本地状态
+                if (localEntry.manager_message !== dbRecord.manager_reply) {
+                  updateEntry(localEntry.id, {
+                    manager_message: dbRecord.manager_reply
+                  });
+                }
+              }
+            });
+          }
+        } catch (err) {
+          console.error('同步店长批注失败:', err);
+        }
+      };
+  
+      // 只要抽屉里有单子，拉开抽屉时就自动去后台望一眼
+      if (entries.length > 0) {
+        syncManagerReplies();
+      }
+    }, [entries.length, updateEntry]);
 
-  const weatherClass = calculateWeathering();
-  const visualFocusClass = isFocused ? 'blur-none opacity-100' : 'blur-sm opacity-0';
-  const destructionClass = status === 'destroyed' ? 'line-through opacity-30 grayscale' : '';
+  const sortedEntries = [...entries].sort((a, b) => b.timestamp - a.timestamp);
 
   return (
-    <div 
-      id={`receipt-${data.receiptId}`}
-      // 核心修复：强制类名规范，铲除所有锯齿逻辑
-      className={`relative w-full max-w-sm mx-auto p-8 border-y border-dashed border-zinc-800 bg-zinc-950/40 text-zinc-500 font-mono transition-all duration-1000 ease-out box-border ${visualFocusClass} ${destructionClass}`}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 1, ease: 'easeInOut' }}
+      className="relative w-full h-screen bg-black overflow-hidden select-none text-zinc-500"
     >
+      {/* 顶部纯黑渐变遮罩 */}
+      <div className="absolute top-0 left-0 w-full h-40 bg-gradient-to-b from-black via-black/90 to-transparent z-20 pointer-events-none" />
       
-      {/* ==================== 小票头部 ==================== */}
-      <div className="text-center tracking-wider mb-5 w-full">
-        <div className="text-[13px] tracking-[0.1em] font-bold text-zinc-600 mb-3">
-          [ END HERE 终端 ]
+      {/* 固定返回按钮 */}
+      <button
+        onClick={() => setScene('entrance')}
+        className="absolute top-12 left-6 md:left-12 tracking-[0.2em] text-[13px] text-zinc-600 opacity-60 hover:opacity-100 hover:text-zinc-400 transition-all duration-700 outline-none z-30 cursor-pointer block"
+      >
+        [ 退回门厅 ]
+      </button>
+
+      {sortedEntries.length === 0 ? (
+        <div className="w-full h-full flex items-center justify-center relative z-10">
+          <p className="text-zinc-600 text-sm tracking-[0.2em] font-mono font-light">
+            [ 抽屉是空的。角落里有一只知了的空壳。 ]
+          </p>
         </div>
-        <div className="border-b border-dashed border-zinc-800/50 my-3" />
-        <div className="text-left text-[11px] text-zinc-500 flex flex-col gap-1 font-medium w-full uppercase tracking-widest">
-          <div>TICKET: {data.receiptId}</div>
-          <div>DATE: {new Date(data.timestamp).toLocaleDateString()} {new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-        </div>
-      </div>
-
-      <div className="border-b border-dashed border-zinc-800/50 mb-5" />
-
-      {/* ==================== 动态分发主体 ==================== */}
-      <div className="flex-grow flex flex-col justify-start mt-1 w-full">
-        {type === 'behavior' && data.behavior_stats ? (
-          <div className="text-[13px] flex flex-col gap-2 font-semibold text-zinc-400 w-full mb-4">
-            <ReceiptRow label="进店时长" value={`${data.behavior_stats.stay_duration} 分钟`} />
-            <ReceiptRow label="木凳落座" value={`${data.behavior_stats.stool_moved_count} 次`} />
-            <ReceiptRow label="浇灌植物" value={`${data.behavior_stats.watering_count} 次`} />
-          </div>
-        ) : (
-          <div 
-            className={`w-full text-[14px] leading-relaxed whitespace-pre-wrap transition-colors break-words ${weatherClass}`}
-          >
-            {data.user_message || '...'}
-          </div>
-        )}
-
-        {/* ==================== 底部回复解耦区 ==================== */}
-        {type === 'memo' && (
-          <div className="mt-8 pt-6 border-t border-dashed border-zinc-800/50 space-y-4">
+      ) : (
+        <div className="absolute inset-0 overflow-y-auto z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col items-center">
+          <div className="w-full max-w-[400px] flex flex-col items-center gap-6 pt-0 pb-40 px-5">
             
-            {/* 场景 1：AI 的即时回复 */}
-            {data.ai_reply && (
-              <div className="text-zinc-400 text-sm leading-relaxed">
-                <span className="text-zinc-600 mr-2">[ {data.ai_name || 'ASH'} ]:</span>
-                {data.ai_reply}
-              </div>
-            )}
+            {/* 顶部真实占位，确保第一张小票完全在渐变遮罩以下 */}
+            <div style={{ height: "180px", flexShrink: 0 }} />
 
-            {/* 场景 2 & 3：店长的异步回复 */}
-            {data.manager_reply ? (
-              // 已回复：使用暗琥珀色
-              <div className="text-amber-700/80 text-sm leading-relaxed">
-                <span className="text-amber-900/60 mr-2">[ 店长批注 ]:</span>
-                {data.manager_reply}
-              </div>
-            ) : (
-              // 未回复：极暗的占位符
-              <div className="text-zinc-700/50 text-xs italic">
-                [ 留白。等待店长批注... ]
-              </div>
-            )}
-
+            {sortedEntries.map((entry, index) => (
+              <motion.div 
+                key={entry.id} 
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.3 + index * 0.1, ease: 'easeOut' }}
+                className="w-full flex justify-center"
+              >
+                <Receipt 
+                    type="memo" 
+                    status="normal" 
+                    data={{
+                        receiptId: entry.receiptId,
+                        timestamp: entry.timestamp,
+                        user_message: entry.content,
+                        // 解耦分流：如果是店长模式，没有 AI 回复；反之则填入 AI 数据
+                        ai_name: entry.persona !== 'Manager' ? entry.persona : undefined,
+                        ai_reply: entry.persona !== 'Manager' ? (entry.punchline || entry.rawResponse) : undefined,
+                        // 店长的真实回复直接映射到新的 manager_reply 字段
+                        manager_reply: entry.manager_message
+                    }} 
+                    />
+              </motion.div>
+            ))}
+            
+            <div className="mt-8 text-zinc-800 text-xs tracking-widest font-mono text-center select-none w-full">
+              - 到底了 -
+            </div>
+            
           </div>
-        )}
-      </div>
-
-      {/* ==================== 底部免责声明 ==================== */}
-      <div className="border-t border-dashed border-zinc-800/50 pt-4 text-center mt-8 w-full">
-        <div className="text-[10px] tracking-[0.2em] text-zinc-700 font-bold opacity-70">
-          * 离店概不负责 *
         </div>
-      </div>
-    </div>
+      )}
+    </motion.div>
   );
 }

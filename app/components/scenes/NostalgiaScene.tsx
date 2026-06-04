@@ -5,10 +5,12 @@ import { motion } from 'framer-motion';
 import { useSpaceStore } from '../../store/useSpaceStore';
 import { useShelterStore } from '../../store/useShelterStore';
 import { Receipt } from '../ui/Receipt'; 
+import { supabase } from '../../lib/supabase';
 
 export default function NostalgiaScene() {
   const setScene = useSpaceStore((state) => state.setScene);
   const entries = useShelterStore((state) => state.entries);
+  const updateEntry = useShelterStore((state) => state.updateEntry); // 引入更新方法
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -20,6 +22,42 @@ export default function NostalgiaScene() {
       console.warn('Audio layer skipped.');
     }
   }, []);
+
+  useEffect(() => {
+      const syncManagerReplies = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('manager_mailbox')
+            .select('receipt_id, manager_reply')
+            .not('manager_reply', 'is', null);
+  
+          if (error) throw error;
+  
+          if (data && data.length > 0) {
+            data.forEach((dbRecord) => {
+              // 通过 receipt_id 精准锁定本地抽屉里的单子
+              const localEntry = entries.find(e => e.receiptId === dbRecord.receipt_id);
+  
+              if (localEntry) {
+                // 状态比对：如果本地没有批注，或者批注被修改了，则静默更新本地状态
+                if (localEntry.manager_message !== dbRecord.manager_reply) {
+                  updateEntry(localEntry.id, {
+                    manager_message: dbRecord.manager_reply
+                  });
+                }
+              }
+            });
+          }
+        } catch (err) {
+          console.error('同步店长批注失败:', err);
+        }
+      };
+  
+      // 只要抽屉里有单子，拉开抽屉时就自动去后台望一眼
+      if (entries.length > 0) {
+        syncManagerReplies();
+      }
+    }, [entries.length, updateEntry]);
 
   const sortedEntries = [...entries].sort((a, b) => b.timestamp - a.timestamp);
 
