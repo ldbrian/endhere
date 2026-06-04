@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --bg-main: #1a1612;
+  /* 废弃 #1a1612，强制全面切换为 V3 暗黑基调 */
+  --bg-main: #0C0C0C;
   --warm-yellow: #f5c842;
   --text-main: #e8e0d5;
   --text-muted: #9a8f85;
@@ -19,7 +20,8 @@
 }
 
 body {
-  background-color: var(--bg-main);
+  /* 强制兜底，绝不留任何渲染缝隙 */
+  background-color: #0C0C0C !important;
   color: var(--text-main);
   font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   min-height: 100vh;
