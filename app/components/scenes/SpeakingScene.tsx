@@ -6,6 +6,7 @@ import { useSpaceStore } from '../../store/useSpaceStore';
 import { useShelterStore } from '../../store/useShelterStore';
 import { supabase } from '../../lib/supabase';
 import { Receipt } from '../ui/Receipt';
+import { track } from '../../lib/track';
 
 const PERSONAS = [
   { id: 'Ash', label: 'Ash (调酒师)' },
@@ -308,7 +309,13 @@ export default function SpeakingScene() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 1.5, duration: 1 }}
-                  onClick={() => setStep('receipt')}
+                  onClick={() => {
+                    // 4. 织入：在此处结算小票时进行漏斗上报
+                    track('v3_receipt_generated', { 
+                      persona: generatedReceipt?.persona 
+                    });
+                    setStep('receipt');
+                  }}
                   className="mt-16 tracking-[0.3em] text-sm text-zinc-500 hover:text-zinc-300 transition-colors duration-700 outline-none block border border-zinc-800/50 px-6 py-3 rounded-sm bg-zinc-950/30"
                 >
                   [ 打印小票 ]

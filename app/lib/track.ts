@@ -17,6 +17,8 @@ export async function track(event_name: string, properties: Record<string, any> 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event_name, properties: enrichedProperties }),
+      // CTO 核心补丁：确保组件卸载、页面关闭时，fetch 请求不会被浏览器强行终止
+      keepalive: true, 
     })
   } catch {
     // 埋点失败不影响主流程

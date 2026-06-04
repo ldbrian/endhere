@@ -1,14 +1,24 @@
-'use client';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSpaceStore } from '../../store/useSpaceStore';
 import { useTimeAccumulator } from '../../hooks/useTimeAccumulator';
+import { track } from '../../lib/track'; // <-- 引入原生探针
 
 export default function RestingScene() {
   const setScene = useSpaceStore((state) => state.setScene);
   const accumulatedTime = useTimeAccumulator();
-
+  
+  // 3. 织入：静默记录时长 (不干扰现有的环境文本逻辑)
+  const enterTimeRef = useRef<number>(0);
+  useEffect(() => {
+    enterTimeRef.current = Date.now();
+    return () => {
+      if (enterTimeRef.current > 0) {
+        const timeSpent = Math.floor((Date.now() - enterTimeRef.current) / 1000);
+        track('v3_resting_duration', { duration_seconds: timeSpent });
+      }
+    };
+  }, []);
   // ==========================================
   // 状态机：序章 -> 环境白描 -> 通感反馈
   // ==========================================
