@@ -19,10 +19,10 @@ export default function EntranceMenu() {
   }, []);
 
   const secondaryOptions: { id: Scene; label: string }[] = [
-    { id: 'trashing', label: '我很烦' },
+    { id: 'trashing', label: '我很烦（施工中）' },
     { id: 'resting', label: '我只是有点累' },
     { id: 'nostalgia', label: '我想起了一些以前的事' },
-    { id: 'browsing', label: '没什么，只是进来看看' },
+    { id: 'browsing', label: '没什么，只是进来看看（施工中）' },
   ];
 
   return (
