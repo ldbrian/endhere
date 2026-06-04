@@ -4,8 +4,8 @@
   "description": "写下来。到此为止。",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1612",
-  "theme_color": "#1a1612",
+  "background_color": "#050505",
+  "theme_color": "#050505",
   "icons": [
     {
       "src": "/favicon.png",
