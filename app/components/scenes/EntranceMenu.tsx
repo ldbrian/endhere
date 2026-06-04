@@ -18,11 +18,12 @@ export default function EntranceMenu() {
     setEnvText(texts[Math.floor(Math.random() * texts.length)]);
   }, []);
 
+  // 核心修改：精准注释掉未完工的选项，保留已完工的两个次级入口
   const secondaryOptions: { id: Scene; label: string }[] = [
-    { id: 'trashing', label: '我很烦（施工中）' },
+    // { id: 'trashing', label: '我很烦（施工中）' },
     { id: 'resting', label: '我只是有点累' },
     { id: 'nostalgia', label: '我想起了一些以前的事' },
-    { id: 'browsing', label: '没什么，只是进来看看（施工中）' },
+    // { id: 'browsing', label: '没什么，只是进来看看（施工中）' },
   ];
 
   return (
@@ -33,8 +34,7 @@ export default function EntranceMenu() {
         [ {envText} ]
       </div>
 
-      {/* 
-        核心容器：使用 gap-20 (80px的绝对间距) 
+      {/* 核心容器：使用 gap-20 (80px的绝对间距) 
         强行将“标题区”和“选项区”撕开 
       */}
       <div className="flex flex-col items-center justify-center w-full max-w-lg gap-20">
