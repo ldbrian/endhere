@@ -6,11 +6,21 @@ import { track } from '../../lib/track';
 import { useWorldSummary } from '../../hooks/useWorldSummary';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTraces } from '../../hooks/useTraces';
+import { useLanguage } from '../../hooks/useLanguage';
 
 export default function EntranceMenu() {
   const setScene = useSpaceStore((state) => state.setScene);
   const envText = useWorldSummary();
   const traces = useTraces();
+
+  // 添加这行 Debug 代码
+  useEffect(() => {
+    console.log("[DEBUG] Traces Data:", traces);
+    console.log("[DEBUG] EnvText:", envText);
+  }, [traces, envText]);
+
+  // 2. 注入语言配置
+  const lang = useLanguage();
 
   // 新增：移动端触碰显影状态机
   const [activeTraceIdx, setActiveTraceIdx] = useState<number | null>(null);
@@ -101,10 +111,10 @@ export default function EntranceMenu() {
         
         <div className="flex flex-col items-center gap-5">
           <h2 className="text-sm md:text-base text-zinc-600 tracking-[0.3em] font-light">
-            欢迎光临。
+            {lang.HOME.welcome} {/* 原来的“欢迎光临” */}
           </h2>
           <h1 className="text-2xl md:text-3xl text-zinc-300 tracking-[0.1em] font-medium">
-            今天过得怎么样？
+            {lang.HOME.prompt}   {/* 原来的“今天过得怎么样？” */}
           </h1>
         </div>
 
@@ -118,7 +128,7 @@ export default function EntranceMenu() {
               [
             </span>
             <span className="tracking-[0.15em] text-lg font-medium">
-              我有很多话想说
+              {lang.HOME.saySomething} {/* 原来的“我有很多话想说” */}
             </span>
             <span className="opacity-40 group-hover:opacity-100 transition-opacity duration-700 font-light text-xl">
               ]

@@ -21,6 +21,10 @@ const VALID_GIFTS = ['milk', 'ice_water', 'candy'];
 export async function POST(req: Request) {
   try {
     const { content, emotion, persona, systemPrompt, clientHour, memoryContext } = await req.json()
+    const langInjection = isEnglish 
+    ? "\n\n[System Rule]: ALWAYS respond in English. Keep the desolate and cozy tone. Do not explain you are an AI."
+    : "";
+    const finalPrompt = (systemPrompt || "") + langInjection;
 
     // ==========================================
     // 读取全局世界状态
