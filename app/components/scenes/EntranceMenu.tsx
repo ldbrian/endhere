@@ -83,8 +83,8 @@ export default function EntranceMenu() {
   };
 
   const secondaryOptions: { id: Scene; label: string }[] = [
-    { id: 'resting', label: '我只是有点累' },
-    { id: 'nostalgia', label: '我想起了一些以前的事' },
+    { id: 'resting', label: lang.HOME.tired },
+    { id: 'nostalgia', label: lang.HOME.nostalgia },
   ];
 
   return (

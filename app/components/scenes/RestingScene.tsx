@@ -95,7 +95,7 @@ export default function RestingScene() {
         onClick={() => setScene('entrance')}
         className="absolute top-12 left-6 md:left-12 tracking-[0.2em] text-[13px] text-zinc-500 opacity-30 hover:opacity-100 hover:text-zinc-300 transition-all duration-1000 outline-none z-20"
       >
-        [ {lang.HOME.back} ]
+         {lang.HOME.back} 
       </button>
 
       <div className="relative flex flex-col items-center justify-center px-6 w-full max-w-xl h-32 z-10">
@@ -120,12 +120,12 @@ export default function RestingScene() {
         <AnimatePresence>
           {showMint && (
             <motion.button key="mint-candy" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 3 }} onClick={() => handleConsume('mint')} className="text-zinc-500 opacity-40 hover:opacity-100 hover:text-cyan-200 text-xs md:text-sm tracking-[0.2em] font-light transition-all duration-1000 outline-none cursor-pointer">
-              [ {lang.RESTING.mint} ]
+               {lang.RESTING.mint} 
             </motion.button>
           )}
           {showOrange && (
             <motion.button key="half-orange" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 3 }} onClick={() => handleConsume('orange')} className="text-zinc-500 opacity-40 hover:opacity-100 hover:text-orange-200 text-xs md:text-sm tracking-[0.2em] font-light transition-all duration-1000 outline-none cursor-pointer">
-              [ {lang.RESTING.orange} ]
+               {lang.RESTING.orange} 
             </motion.button>
           )}
         </AnimatePresence>

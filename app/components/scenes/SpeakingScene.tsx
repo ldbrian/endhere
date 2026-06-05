@@ -200,7 +200,7 @@ export default function SpeakingScene() {
           onClick={() => setScene('entrance')}
           className="absolute top-12 left-6 md:left-12 tracking-[0.2em] text-[13px] text-zinc-600 hover:text-zinc-300 transition-colors duration-700 outline-none block z-30"
         >
-          [ 退回门厅 ]
+           {lang.HOME.back} 
         </button>
       )}
 
@@ -254,7 +254,7 @@ export default function SpeakingScene() {
                     onClick={handleSubmit}
                     className="tracking-[0.2em] text-sm text-zinc-500 hover:text-zinc-300 transition-colors duration-500 outline-none whitespace-nowrap"
                   >
-                    [ {lang.SPEAKING.submit} ]  
+                     {lang.SPEAKING.submit}   
                   </button>
                 </motion.div>
               )}
@@ -331,7 +331,7 @@ export default function SpeakingScene() {
                   }}
                   className="mt-16 tracking-[0.3em] text-sm text-zinc-500 hover:text-zinc-300 transition-colors duration-700 outline-none block border border-zinc-800/50 px-6 py-3 rounded-sm bg-zinc-950/30"
                 >
-                  [ {lang.SPEAKING.print} ] {/* 原来的“打印小票” */}
+                  {lang.SPEAKING.print}  {/* 原来的“打印小票” */}
                 </motion.button>
               )}
             </motion.div>
@@ -369,7 +369,7 @@ export default function SpeakingScene() {
                 onClick={() => setScene('entrance')}
                 className="mt-16 text-zinc-600 hover:text-zinc-400 text-xs tracking-[0.3em] uppercase transition-colors duration-700 outline-none block"
               >
-                [ {lang.SPEAKING.leave} ]  {/* 原来的“留在抽屉并离开” */}
+                 {lang.SPEAKING.leave}   {/* 原来的“留在抽屉并离开” */}
               </button>
             </motion.div>
           )}
