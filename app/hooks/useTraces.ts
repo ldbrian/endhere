@@ -1,48 +1,44 @@
 // hooks/useTraces.ts
-import useSWR from 'swr'
-import { useCallback } from 'react'
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
-const fetcher = (url: string) => fetch(url).then(res => res.json())
-
-// CDO 规范定义的痕迹文本配置类型
-type TraceConfig = {
-  hot: string;  // < 10分钟
-  warm: string; // 10 - 60分钟
-  cold: string; // > 60分钟 (默认冷清)
+export interface TraceItem {
+  name: string;
+  desc: string;
 }
 
 export function useTraces() {
-  // 严格遵守 300,000ms 轮询，关闭焦点重新请求防止频繁打后端
-  const { data } = useSWR('/api/traces', fetcher, {
-    refreshInterval: 300000, 
-    revalidateOnFocus: false,
-    revalidateIfStale: false
-  })
+  const [traces, setTraces] = useState<TraceItem[]>([]);
 
-  const traces = data?.traces || []
+  useEffect(() => {
+    const fetchTraces = async () => {
+      try {
+        // 直接抓取世界上所有的 inventory (物品栏/痕迹) 组件
+        const { data, error } = await supabase
+          .from('entity_components')
+          .select('data')
+          .eq('component_type', 'inventory');
 
-  // 核心逻辑：时间错位运算
-  const getTraceStatus = useCallback((itemId: string, config: TraceConfig) => {
-    const trace = traces.find((t: any) => t.item_id === itemId)
-    if (!trace) return config.cold
+        if (error) throw error;
 
-    const lastActiveMs = new Date(trace.last_active_at).getTime()
-    const minutesAgo = (Date.now() - lastActiveMs) / (1000 * 60)
+        if (data) {
+          // 提取所有 items 并扁平化为一个一维数组
+          const allItems: TraceItem[] = data.reduce((acc: TraceItem[], curr) => {
+            if (curr.data && Array.isArray(curr.data.items)) {
+              return [...acc, ...curr.data.items];
+            }
+            return acc;
+          }, []);
+          
+          setTraces(allItems);
+        }
+      } catch (err) {
+        console.error('Failed to fetch traces:', err);
+      }
+    };
 
-    if (minutesAgo < 10) return config.hot
-    if (minutesAgo >= 10 && minutesAgo < 60) return config.warm
-    return config.cold
-  }, [traces])
+    fetchTraces();
+  }, []);
 
-  // 静默上报机制 (不阻塞UI，不等待响应)
-  const leaveTrace = useCallback((itemId: string) => {
-    fetch('/api/traces', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ item_id: itemId }),
-      keepalive: true // 极其关键：允许在关闭网页/路由切换的瞬间完成请求发送
-    }).catch(() => { /* 失败了也无所谓，符合避难所随缘的基调 */ })
-  }, [])
-
-  return { getTraceStatus, leaveTrace }
+  return traces;
 }

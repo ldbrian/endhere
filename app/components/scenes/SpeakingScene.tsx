@@ -7,6 +7,8 @@ import { useShelterStore } from '../../store/useShelterStore';
 import { supabase } from '../../lib/supabase';
 import { Receipt } from '../ui/Receipt';
 import { track } from '../../lib/track';
+import { useWorldSummary } from '../../hooks/useWorldSummary';
+import { useTraces } from '../../hooks/useTraces';
 
 const PERSONAS = [
   { id: 'Ash', label: 'Ash (调酒师)' },
@@ -37,6 +39,9 @@ const parseAiResponse = (rawText: string) => {
 export default function SpeakingScene() {
   const setScene = useSpaceStore((state) => state.setScene);
   const addEntry = useShelterStore((state) => state.addEntry);
+
+  const envText = useWorldSummary();
+  const traces = useTraces();
   
   const [text, setText] = useState('');
   const [persona, setPersona] = useState('Ash');
@@ -101,11 +106,19 @@ export default function SpeakingScene() {
     // ==========================================
     try {
       setStreamState('streaming');
+
+      // ---> [新增核心逻辑：环境上下文走私] <---
+      const tracesContext = traces.length > 0 
+        ? traces.map(t => `${t.name}(${t.desc})`).join('；') 
+        : '无特别痕迹';
+        
+      const smuggledContent = `[系统环境感知：当前世界动态是"${envText || '安静'}大模型。你周围的物理痕迹有：${tracesContext}。规则：请在回复中自然且不经意地反映出这些环境细节，切忌生硬播报。]\n\n用户说：${text}`;
+
       const res = await fetch('/api/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          content: text, 
+          content: smuggledContent, // <-- 将走私后的文本发给大模型
           emotion: 'complex',
           persona, 
           clientHour: new Date().getHours() 
@@ -133,7 +146,7 @@ export default function SpeakingScene() {
       const localEntry = {
         id: Date.now(),
         receiptId: finalReceiptIdRef.current,
-        content: text,
+        content: text, // <-- 存入数据库的依然是用户的纯净原文，毫不受污染
         persona: persona,
         cleanText: finalParsed.cleanText, 
         item: finalParsed.item,           
@@ -151,10 +164,8 @@ export default function SpeakingScene() {
           .from('manager_mailbox')
           .insert([{ 
             receipt_id: finalReceiptIdRef.current, 
-            user_message: text,
-            // 将纯净的 AI 文本存入数据库，供店长后台查阅
+            user_message: text, // 同上，落盘数据纯净
             ai_response: finalParsed.cleanText,
-            // 核心修复：填补非空约束
             created_date: new Date().toISOString().split('T')[0]
           }]);
         if (error) throw error;
@@ -191,7 +202,7 @@ export default function SpeakingScene() {
         </button>
       )}
 
-      <div className="relative w-full max-w-2xl px-6 flex flex-col items-center py-20 min-h-screen justify-center">
+      <div className="relative w-full max-w-2xl mx-auto flex flex-col items-center py-20 min-h-screen justify-center" style={{ padding: "80px 32px" }}>
         
         <AnimatePresence mode="wait">
           
