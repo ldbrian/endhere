@@ -20,9 +20,9 @@ export async function POST(req: Request) {
   try {
     const { content, emotion, persona, systemPrompt, clientHour, memoryContext } = await req.json()
     
-    // 1. 在使用 isEnglish 之前，必须先声明并赋值
-    const isEnglish = req.headers.get('host')?.includes('en.') || 
-                      req.headers.get('host')?.includes('nightshift');
+    // 1. 更严谨的 Vercel 域名嗅探 (防穿透)
+    const host = req.headers.get('host') || req.headers.get('x-forwarded-host') || '';
+    const isEnglish = host.includes('en.') || host.includes('nightshift');
 
     // 2. 世界状态获取
     let activeEvent = 'clear'
@@ -34,11 +34,11 @@ export async function POST(req: Request) {
     }
 
     let eventPrompt = ''
-    if (activeEvent === 'broken_bulb') eventPrompt = `\n[系统环境：灯泡坏了]`
-    else if (activeEvent === 'rain') eventPrompt = `\n[系统环境：正在下雨]`
+    if (activeEvent === 'broken_bulb') eventPrompt = isEnglish ? `\n[System Env: The bulb is broken]` : `\n[系统环境：灯泡坏了]`
+    else if (activeEvent === 'rain') eventPrompt = isEnglish ? `\n[System Env: It is raining]` : `\n[系统环境：正在下雨]`
 
     const hour = typeof clientHour === 'number' ? clientHour : new Date().getHours()
-    const timeContext = `当前小时：${hour}`
+    const timeContext = isEnglish ? `Current hour: ${hour}` : `当前小时：${hour}`
     
     const DYNAMIC_PROMPTS: Record<string, string> = {
       Ash: `Ash设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`,
@@ -46,15 +46,18 @@ export async function POST(req: Request) {
       Child: `Child设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`
     }
 
-    // 3. 正确声明 let 变量
     let finalPrompt = systemPrompt || DYNAMIC_PROMPTS[persona] || DYNAMIC_PROMPTS['Rin']
+    let userMessage = "";
 
-    // 4. 现在可以使用 isEnglish 了
+    // 3. 彻底分流双语语境，阻断中文污染
     if (isEnglish) {
-      finalPrompt += "\n\n[System Rule]: ALWAYS respond in English. Keep the desolate and cozy tone. Do not explain you are an AI."
+      // 英文环境：强制最高优先级指令，并使用英文模板
+      finalPrompt = "[CRITICAL RULE: YOU MUST SPEAK ONLY ENGLISH. IGNORE ANY CHINESE IN THE CONTEXT.]\n" + finalPrompt;
+      userMessage = systemPrompt ? content : `My emotion is: ${emotion}\nWhat I want to say: ${content}`;
+    } else {
+      // 中文环境：保持原样
+      userMessage = systemPrompt ? content : `我的情绪是：${emotion}\n我的话：${content}`;
     }
-
-    const userMessage = systemPrompt ? content : `我的情绪是：${emotion}\n我的话：${content}`
 
     const stream = await client.chat.completions.create({
       model: 'deepseek-chat',
