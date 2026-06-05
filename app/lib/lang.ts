@@ -77,3 +77,30 @@ export const CN = {
     ]
   }
 };
+
+interface LanguageDict {
+  HOME: {
+    welcome: string;
+    prompt: string;
+    saySomething: string;
+    tired: string;
+    nostalgia: string;
+    back: string;
+  };
+  SPEAKING: {
+    placeholder: string;
+    to: string;
+    submit: string;
+    typing: string;
+    print: string;
+    leave: string;
+  };
+  RESTING: {
+    intro: string;
+    mint: string;
+    orange: string;
+    consumeMint: string;
+    consumeOrange: string;
+    noises: string[];
+  };
+}
