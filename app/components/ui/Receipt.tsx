@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { LangDict } from '../../lib/lang';
 
 export interface ReceiptData {
   receiptId: string;
@@ -16,8 +17,9 @@ export interface ReceiptData {
 
 export interface ReceiptProps {
   data: ReceiptData;
-  type: 'behavior' | 'memo'; 
-  status: 'normal' | 'destroyed'; 
+  type: 'behavior' | 'memo';
+  status: 'normal' | 'destroyed';
+  lang?: LangDict;
 }
 
 // 物理锯齿，颜色严格绑定背景 #18181b (zinc-900)
@@ -49,7 +51,14 @@ const ReceiptRow = ({ label, value }: { label: string, value: string | number })
   </div>
 );
 
-export function Receipt({ data, type, status }: ReceiptProps) {
+export function Receipt({ data, type, status, lang }: ReceiptProps) {
+  const t = lang?.RECEIPT ?? {
+    terminal: '[ END HERE 终端 ]',
+    stayDuration: '进店时长', stoolSat: '木凳落座', plantWatered: '浇灌植物',
+    minutes: '分钟', times: '次',
+    managerNote: '店长批注', awaitingNote: '[ 留白。等待店长批注... ]',
+    disclaimer: '* 离店概不负责 *', aiReplyFallback: 'ASH'
+  };
   const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
@@ -84,7 +93,7 @@ export function Receipt({ data, type, status }: ReceiptProps) {
         {/* ==================== 小票头部 ==================== */}
         <div className="text-center tracking-wider mb-5 w-full">
           <div className="text-[13px] tracking-[0.1em] font-bold text-zinc-500 mb-3">
-            [ END HERE 终端 ]
+            {t.terminal}
           </div>
           <div className="border-b border-dashed border-zinc-700/50 my-3" />
           <div className="text-left text-[11px] text-zinc-500 flex flex-col gap-1 font-medium w-full uppercase tracking-widest">
@@ -99,9 +108,9 @@ export function Receipt({ data, type, status }: ReceiptProps) {
         <div className="flex-grow flex flex-col justify-start mt-1 w-full">
           {type === 'behavior' && data.behavior_stats ? (
             <div className="text-[13px] flex flex-col gap-2 font-semibold text-zinc-300 w-full mb-4 min-h-[80px] justify-center">
-              <ReceiptRow label="进店时长" value={`${data.behavior_stats.stay_duration} 分钟`} />
-              <ReceiptRow label="木凳落座" value={`${data.behavior_stats.stool_moved_count} 次`} />
-              <ReceiptRow label="浇灌植物" value={`${data.behavior_stats.watering_count} 次`} />
+              <ReceiptRow label={t.stayDuration} value={`${data.behavior_stats.stay_duration} ${t.minutes}`} />
+              <ReceiptRow label={t.stoolSat} value={`${data.behavior_stats.stool_moved_count} ${t.times}`} />
+              <ReceiptRow label={t.plantWatered} value={`${data.behavior_stats.watering_count} ${t.times}`} />
             </div>
           ) : (
             <div 
@@ -118,7 +127,7 @@ export function Receipt({ data, type, status }: ReceiptProps) {
             {/* 场景 1：AI 的即时回复 */}
             {data.ai_reply && (
               <div className="text-zinc-400 text-sm leading-relaxed">
-                <span className="text-zinc-600 mr-2">[ {data.ai_name || 'ASH'} ]:</span>
+                <span className="text-zinc-600 mr-2">[ {data.ai_name || t.aiReplyFallback} ]:</span>
                 {data.ai_reply}
               </div>
             )}
@@ -127,13 +136,13 @@ export function Receipt({ data, type, status }: ReceiptProps) {
             {data.manager_reply ? (
               // 已回复：使用暗琥珀色
               <div className="text-amber-700/80 text-sm leading-relaxed">
-                <span className="text-amber-900/60 mr-2">[ 店长批注 ]:</span>
+                <span className="text-amber-900/60 mr-2">[ {t.managerNote} ]:</span>
                 {data.manager_reply}
               </div>
             ) : (
               // 未回复：极暗的占位符
               <div className="text-zinc-700/50 text-xs italic">
-                [ 留白。等待店长批注... ]
+                {t.awaitingNote}
               </div>
             )}
 
@@ -144,7 +153,7 @@ export function Receipt({ data, type, status }: ReceiptProps) {
         {/* ==================== 底部免责声明 ==================== */}
         <div className="border-t border-dashed border-zinc-700/50 pt-4 text-center mt-2 w-full">
           <div className="text-[10px] tracking-[0.2em] text-zinc-600 font-bold opacity-70">
-            * 离店概不负责 *
+            {t.disclaimer}
           </div>
         </div>
       </div>

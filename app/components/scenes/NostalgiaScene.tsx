@@ -6,12 +6,14 @@ import { useSpaceStore } from '../../store/useSpaceStore';
 import { useShelterStore } from '../../store/useShelterStore';
 import { Receipt } from '../ui/Receipt'; 
 import { supabase } from '../../lib/supabase';
+import { useLanguage } from '../../hooks/useLanguage';
 
 export default function NostalgiaScene() {
   const setScene = useSpaceStore((state) => state.setScene);
   const entries = useShelterStore((state) => state.entries);
   const updateEntry = useShelterStore((state) => state.updateEntry); // 引入更新方法
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lang = useLanguage();
 
   useEffect(() => {
     try {
@@ -77,13 +79,13 @@ export default function NostalgiaScene() {
         onClick={() => setScene('entrance')}
         className="absolute top-12 left-6 md:left-12 tracking-[0.2em] text-[13px] text-zinc-600 opacity-60 hover:opacity-100 hover:text-zinc-400 transition-all duration-700 outline-none z-30 cursor-pointer block"
       >
-        [ 退回门厅 ]
+        {lang.NOSTALGIA.back}
       </button>
 
       {sortedEntries.length === 0 ? (
         <div className="w-full h-full flex items-center justify-center relative z-10">
           <p className="text-zinc-600 text-sm tracking-[0.2em] font-mono font-light">
-            [ 抽屉是空的。角落里有一只知了的空壳。 ]
+            {lang.NOSTALGIA.empty}
           </p>
         </div>
       ) : (
@@ -103,7 +105,8 @@ export default function NostalgiaScene() {
               >
                 <Receipt 
                     type="memo" 
-                    status="normal" 
+                    status="normal"
+                    lang={lang}
                     data={{
                         receiptId: entry.receiptId,
                         timestamp: entry.timestamp,
@@ -119,7 +122,7 @@ export default function NostalgiaScene() {
             ))}
             
             <div className="mt-8 text-zinc-800 text-xs tracking-widest font-mono text-center select-none w-full">
-              - 到底了 -
+              {lang.NOSTALGIA.end}
             </div>
             
           </div>
