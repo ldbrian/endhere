@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
-import { createClient } from '@supabase/supabase-js'
 
+// [CTO 核心注入] 强制开启边缘计算运行时，彻底解除 Vercel 15秒超时斩杀机制
 export const runtime = 'edge'
 
 const client = new OpenAI({
@@ -8,57 +8,38 @@ const client = new OpenAI({
   baseURL: process.env.DEEPSEEK_BASE_URL,
 })
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-const ASH_STATES = ["Ash状态1", "Ash状态2", "Ash状态3"]
-const RIN_STATES = ["Rin状态1", "Rin状态2", "Rin状态3"]
-
 export async function POST(req: Request) {
   try {
-    const { content, emotion, persona, systemPrompt, clientHour, memoryContext } = await req.json()
+    // 1. 纯粹的数据透传：前端的 ECS 系统已经组装好了完美的 systemPrompt
+    const { content, emotion, systemPrompt } = await req.json()
     
-    // 1. 更严谨的 Vercel 域名嗅探 (防穿透)
+    // 2. 更严谨的 Vercel 域名嗅探 (防穿透)
     const host = req.headers.get('host') || req.headers.get('x-forwarded-host') || '';
     const isEnglish = host.includes('en.') || host.includes('nightshift');
 
-    // 2. 世界状态获取
-    let activeEvent = 'clear'
-    try {
-      const { data } = await supabase.from('world_state').select('event_type').eq('id', true).single()
-      if (data) activeEvent = data.event_type
-    } catch (e) {
-      console.error('Failed to fetch world state', e)
-    }
-
-    let eventPrompt = ''
-    if (activeEvent === 'broken_bulb') eventPrompt = isEnglish ? `\n[System Env: The bulb is broken]` : `\n[系统环境：灯泡坏了]`
-    else if (activeEvent === 'rain') eventPrompt = isEnglish ? `\n[System Env: It is raining]` : `\n[系统环境：正在下雨]`
-
-    const hour = typeof clientHour === 'number' ? clientHour : new Date().getHours()
-    const timeContext = isEnglish ? `Current hour: ${hour}` : `当前小时：${hour}`
-    
-    const DYNAMIC_PROMPTS: Record<string, string> = {
-      Ash: `Ash设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`,
-      Rin: `Rin设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`,
-      Child: `Child设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`
-    }
-
-    let finalPrompt = systemPrompt || DYNAMIC_PROMPTS[persona] || DYNAMIC_PROMPTS['Rin']
+    // 兜底校验：如果前端意外没有传 systemPrompt，给一个极简兜底防止大模型崩溃
+    let finalPrompt = systemPrompt || "你是一个安静的便利店店员。"; 
     let userMessage = "";
 
-    // 3. 彻底分流双语语境，阻断中文污染
+    // 3. 彻底分流双语语境，使用“封装器”模式阻断中文污染
     if (isEnglish) {
-      // 英文环境：强制最高优先级指令，并使用英文模板
-      finalPrompt = "[CRITICAL RULE: YOU MUST SPEAK ONLY ENGLISH. IGNORE ANY CHINESE IN THE CONTEXT.]\n" + finalPrompt;
-      userMessage = systemPrompt ? content : `My emotion is: ${emotion}\nWhat I want to say: ${content}`;
+      finalPrompt = `
+[CRITICAL SYSTEM OVERRIDE]
+You are an AI actor. The following persona instructions and world context are provided in Chinese. 
+You must UNDERSTAND the Chinese context, but your ENTIRE OUTPUT MUST BE STRICTLY IN ENGLISH. 
+This includes all character actions (e.g., *sighs*, (looks away)), internal monologues, and spoken dialogue.
+NEVER output any Chinese characters.
+
+--- PERSONA INSTRUCTIONS (Understand this, do not copy its language) ---
+${finalPrompt}
+------------------------------------------------------------------------
+`;
+      userMessage = `My emotion is: ${emotion}\nWhat I want to say: ${content}`;
     } else {
-      // 中文环境：保持原样
-      userMessage = systemPrompt ? content : `我的情绪是：${emotion}\n我的话：${content}`;
+      userMessage = `我的情绪是：${emotion}\n我的话：${content}`;
     }
 
+    // 4. 发起大模型流式请求
     const stream = await client.chat.completions.create({
       model: 'deepseek-chat',
       messages: [
@@ -79,7 +60,12 @@ export async function POST(req: Request) {
             if (text) controller.enqueue(encoder.encode(text))
           }
         } catch (streamErr) {
-          console.error('[Stream Error]', streamErr)
+          console.error('[CTO 拦截] 数据流异常断开', streamErr)
+          // 哪怕流断了，也要吐出一个正常的结尾给前端，并适配双语
+          const fallbackMsg = isEnglish 
+            ? '\n(The connection seems poor. They stopped talking.)' 
+            : '\n（信号有些不好，他没有继续说下去）';
+          controller.enqueue(encoder.encode(fallbackMsg))
         } finally {
           controller.close()
         }
