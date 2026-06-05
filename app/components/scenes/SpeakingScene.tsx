@@ -9,6 +9,7 @@ import { Receipt } from '../ui/Receipt';
 import { track } from '../../lib/track';
 import { useWorldSummary } from '../../hooks/useWorldSummary';
 import { useTraces } from '../../hooks/useTraces';
+import { useLanguage } from '../../hooks/useLanguage';
 
 const PERSONAS = [
   { id: 'Ash', label: 'Ash (调酒师)' },
@@ -222,7 +223,7 @@ export default function SpeakingScene() {
                 autoFocus
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="在这里写下吧..."
+                placeholder={lang.SPEAKING.placeholder} //原来的“说点什么吧...
                 className="w-full h-64 bg-transparent outline-none resize-none font-mono text-zinc-400 caret-zinc-500 text-base md:text-lg tracking-wider leading-relaxed placeholder:text-zinc-700"
               />
 
@@ -234,7 +235,7 @@ export default function SpeakingScene() {
                   className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pt-4 border-t border-zinc-800/50"
                 >
                   <div className="flex flex-wrap items-center gap-4 text-xs font-mono tracking-[0.1em]">
-                    <span className="text-zinc-700">想留给:</span>
+                    <span className="text-zinc-700">{lang.SPEAKING.to}</span> 
                     {PERSONAS.map((p) => (
                       <button
                         key={p.id}
@@ -252,7 +253,7 @@ export default function SpeakingScene() {
                     onClick={handleSubmit}
                     className="tracking-[0.2em] text-sm text-zinc-500 hover:text-zinc-300 transition-colors duration-500 outline-none whitespace-nowrap"
                   >
-                    [ 压入收银台 ]
+                    [ {lang.SPEAKING.submit} ]  
                   </button>
                 </motion.div>
               )}
@@ -329,7 +330,7 @@ export default function SpeakingScene() {
                   }}
                   className="mt-16 tracking-[0.3em] text-sm text-zinc-500 hover:text-zinc-300 transition-colors duration-700 outline-none block border border-zinc-800/50 px-6 py-3 rounded-sm bg-zinc-950/30"
                 >
-                  [ 打印小票 ]
+                  [ {lang.SPEAKING.print} ] {/* 原来的“打印小票” */}
                 </motion.button>
               )}
             </motion.div>
@@ -367,7 +368,7 @@ export default function SpeakingScene() {
                 onClick={() => setScene('entrance')}
                 className="mt-16 text-zinc-600 hover:text-zinc-400 text-xs tracking-[0.3em] uppercase transition-colors duration-700 outline-none block"
               >
-                [ 留在抽屉并离开 ]
+                [ {lang.SPEAKING.leave} ]  {/* 原来的“留在抽屉并离开” */}
               </button>
             </motion.div>
           )}

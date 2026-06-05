@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSpaceStore } from '../../store/useSpaceStore';
 import { useTimeAccumulator } from '../../hooks/useTimeAccumulator';
 import { track } from '../../lib/track'; // <-- 引入原生探针
+import { useLanguage } from '../../hooks/useLanguage';
 
 export default function RestingScene() {
+  const lang = useLanguage();
   const setScene = useSpaceStore((state) => state.setScene);
   const accumulatedTime = useTimeAccumulator();
   
@@ -104,11 +106,11 @@ export default function RestingScene() {
   const handleConsume = (type: 'mint' | 'orange') => {
     if (type === 'mint') {
       setIsMintConsumed(true);
-      setSynesthesiaText('[ 你剥开吃掉了它。喉咙里泛起一丝微弱的凉意。 ]');
+      setSynesthesiaText(`[ {${lang.RESTING.consumeMint}} ]`);
       setFilterColor('bg-cyan-900/10');
     } else {
       setIsOrangeConsumed(true);
-      setSynesthesiaText('[ 橘子有点干瘪，但汁水带着一丝微酸的暖意。 ]');
+      setSynesthesiaText(`[ ${lang.RESTING.consumeOrange} ]`);
       setFilterColor('bg-orange-800/10');
     }
 
@@ -164,7 +166,7 @@ export default function RestingScene() {
               transition={{ duration: 3, ease: 'easeInOut' }}
               className="text-zinc-400 text-sm md:text-base tracking-[0.2em] font-light leading-relaxed text-center"
             >
-              [ 你在角落的木凳上坐了下来。 ]
+              [ {lang.RESTING.intro} ]
             </motion.p>
           ) : (
             <motion.p
@@ -196,7 +198,7 @@ export default function RestingScene() {
               onClick={() => handleConsume('mint')}
               className="text-zinc-500 opacity-40 hover:opacity-100 hover:text-cyan-200 text-xs md:text-sm tracking-[0.2em] font-light transition-all duration-1000 outline-none cursor-pointer"
             >
-              [ 吧台边缘有一颗薄荷糖。 ]
+              [ {lang.RESTING.mint} ]
             </motion.button>
           )}
 
@@ -210,7 +212,7 @@ export default function RestingScene() {
               onClick={() => handleConsume('orange')}
               className="text-zinc-500 opacity-40 hover:opacity-100 hover:text-orange-200 text-xs md:text-sm tracking-[0.2em] font-light transition-all duration-1000 outline-none cursor-pointer"
             >
-              [ 角落里放着半只干瘪的橘子。 ]
+              [ {lang.RESTING.orange} ]
             </motion.button>
           )}
         </AnimatePresence>
