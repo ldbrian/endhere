@@ -40,6 +40,7 @@ const parseAiResponse = (rawText: string) => {
 export default function SpeakingScene() {
   const setScene = useSpaceStore((state) => state.setScene);
   const addEntry = useShelterStore((state) => state.addEntry);
+  const lang = useLanguage();
 
   const envText = useWorldSummary();
   const traces = useTraces();
