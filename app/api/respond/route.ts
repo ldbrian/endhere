@@ -40,14 +40,22 @@ DESC: [15字以内的物品描述]`;
 
     // 5. 【语言封装器】 针对英文版的绝对格式覆写
     if (isEnglish) {
-      finalPrompt = `[CRITICAL SYSTEM OVERRIDE]
-You are an AI actor. Understand the persona instructions below (which are in Chinese), but YOUR ENTIRE OUTPUT MUST BE STRICTLY IN ENGLISH. 
-This includes dialogue, all action tags (e.g. *sighs*, *looks away*), and the NAME & DESC fields of the item. 
-DO NOT OUTPUT ANY CHINESE CHARACTERS.
+      // 战术1：使用 XML 标签强化大模型的规则服从度（DeepSeek 对此极为敏感）
+      finalPrompt = `<CRITICAL_INSTRUCTION>
+You are serving an English-speaking user. You will receive persona and environment data in Chinese, but your ENTIRE output MUST BE IN ENGLISH.
+<RULES>
+1. Actions (inside * or ()): ENGLISH ONLY (e.g. *scratches the cup*, *sighs*).
+2. Dialogue: ENGLISH ONLY.
+3. Item NAME & DESC: ENGLISH ONLY.
+FATAL SYSTEM ERROR IF ANY CHINESE CHARACTER IS OUTPUTTED.
+</RULES>
+</CRITICAL_INSTRUCTION>
 
---- PERSONA INSTRUCTIONS ---
-${finalPrompt}
----------------------------`;
+--- PERSONA & RULES ---
+${finalPrompt}`;
+      
+      // 战术2：把前端走私过来的中文环境也包上一层翻译防毒面具
+      userMessage = `[Read the following context internally, but RESPOND STRICTLY IN ENGLISH]:\n${content}`;
     }
 
     // 6. 推流给大模型
