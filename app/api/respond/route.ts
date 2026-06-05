@@ -1,5 +1,4 @@
 import OpenAI from 'openai'
-import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'edge'
 
@@ -8,57 +7,50 @@ const client = new OpenAI({
   baseURL: process.env.DEEPSEEK_BASE_URL,
 })
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-const ASH_STATES = ["Ash状态1", "Ash状态2", "Ash状态3"]
-const RIN_STATES = ["Rin状态1", "Rin状态2", "Rin状态3"]
-
 export async function POST(req: Request) {
   try {
-    const { content, emotion, persona, systemPrompt, clientHour, memoryContext } = await req.json()
+    // 1. 接收前端传来的数据 (注意：前端传来的 content 里面已经包含了你走私的环境和痕迹)
+    const { content, emotion, persona, clientHour, memoryContext } = await req.json()
     
-    // 1. 更严谨的 Vercel 域名嗅探 (防穿透)
+    // 2. 域名嗅探，判断是否为英文实验版
     const host = req.headers.get('host') || req.headers.get('x-forwarded-host') || '';
     const isEnglish = host.includes('en.') || host.includes('nightshift');
 
-    // 2. 世界状态获取
-    let activeEvent = 'clear'
-    try {
-      const { data } = await supabase.from('world_state').select('event_type').eq('id', true).single()
-      if (data) activeEvent = data.event_type
-    } catch (e) {
-      console.error('Failed to fetch world state', e)
-    }
-
-    let eventPrompt = ''
-    if (activeEvent === 'broken_bulb') eventPrompt = isEnglish ? `\n[System Env: The bulb is broken]` : `\n[系统环境：灯泡坏了]`
-    else if (activeEvent === 'rain') eventPrompt = isEnglish ? `\n[System Env: It is raining]` : `\n[系统环境：正在下雨]`
-
+    // 3. 在后端恢复“灵魂” (因为你还没有把它们移到数据库里)
     const hour = typeof clientHour === 'number' ? clientHour : new Date().getHours()
-    const timeContext = isEnglish ? `Current hour: ${hour}` : `当前小时：${hour}`
-    
-    const DYNAMIC_PROMPTS: Record<string, string> = {
-      Ash: `Ash设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`,
-      Rin: `Rin设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`,
-      Child: `Child设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`
+    const timeContext = `当前小时：${hour}`
+
+    const BASE_PERSONAS: Record<string, string> = {
+      Ash: `你是Ash，避难所的调酒师。${timeContext}。你的性格：极度厌世、疲惫、冷漠，习惯性嘲讽这个糟糕的世界。绝对不能对客人进行人身攻击。`,
+      Rin: `你是Rin。${timeContext}。温柔、安静、护短的倾听者。`,
+      Child: `你是8岁时的自己。${timeContext}。清澈、天真。`
     }
 
-    let finalPrompt = systemPrompt || DYNAMIC_PROMPTS[persona] || DYNAMIC_PROMPTS['Rin']
-    let userMessage = "";
+    let basePrompt = BASE_PERSONAS[persona] || BASE_PERSONAS['Rin'];
 
-    // 3. 彻底分流双语语境，阻断中文污染
+    // 4. 注入【工程师铁律】 (前端UI存活的唯一依赖)
+    const FORMAT_RULE = `\n\n【强制输出格式】(必须严格遵守，否则系统崩溃)：
+先输出对客人的对话正文（必须带动作描写）。然后在最后另起三行严格输出以下内容：
+ID: [broken_scale, cracked_bowl, rusty_anchor 选1]
+NAME: [物品名称，符合角色性格]
+DESC: [15字以内的物品描述]`;
+
+    let finalPrompt = basePrompt + FORMAT_RULE + (memoryContext ? `\n\n${memoryContext}` : "");
+    let userMessage = content;
+
+    // 5. 【语言封装器】 针对英文版的绝对格式覆写
     if (isEnglish) {
-      // 英文环境：强制最高优先级指令，并使用英文模板
-      finalPrompt = "[CRITICAL RULE: YOU MUST SPEAK ONLY ENGLISH. IGNORE ANY CHINESE IN THE CONTEXT.]\n" + finalPrompt;
-      userMessage = systemPrompt ? content : `My emotion is: ${emotion}\nWhat I want to say: ${content}`;
-    } else {
-      // 中文环境：保持原样
-      userMessage = systemPrompt ? content : `我的情绪是：${emotion}\n我的话：${content}`;
+      finalPrompt = `[CRITICAL SYSTEM OVERRIDE]
+You are an AI actor. Understand the persona instructions below (which are in Chinese), but YOUR ENTIRE OUTPUT MUST BE STRICTLY IN ENGLISH. 
+This includes dialogue, all action tags (e.g. *sighs*, *looks away*), and the NAME & DESC fields of the item. 
+DO NOT OUTPUT ANY CHINESE CHARACTERS.
+
+--- PERSONA INSTRUCTIONS ---
+${finalPrompt}
+---------------------------`;
     }
 
+    // 6. 推流给大模型
     const stream = await client.chat.completions.create({
       model: 'deepseek-chat',
       messages: [
@@ -80,6 +72,10 @@ export async function POST(req: Request) {
           }
         } catch (streamErr) {
           console.error('[Stream Error]', streamErr)
+          const fallback = isEnglish 
+            ? '\n(Connection lost.)\nID: rusty_anchor\nNAME: Silence\nDESC: Bad signal.' 
+            : '\n（信号有些不好）\nID: rusty_anchor\nNAME: 沉默的空气\nDESC: 信号中断了。';
+          controller.enqueue(encoder.encode(fallback))
         } finally {
           controller.close()
         }
@@ -94,6 +90,6 @@ export async function POST(req: Request) {
     })
   } catch (fatalError) {
     console.error('[Fatal Error]:', fatalError)
-    return new Response('系统信号中断，请稍后再试。', { status: 500 })
+    return new Response('System Error', { status: 500 })
   }
 }
