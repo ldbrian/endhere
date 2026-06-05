@@ -1,8 +1,7 @@
 import OpenAI from 'openai'
 import { createClient } from '@supabase/supabase-js'
 
-// [CTO 核心注入] 强制开启边缘计算运行时，彻底解除 Vercel 15秒超时斩杀机制
-export const runtime = 'edge' 
+export const runtime = 'edge'
 
 const client = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY,
@@ -14,21 +13,18 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-const ASH_STATES = ["正靠在吧台抽烟", "在擦玻璃杯", "盯着门外的黑夜"]
-const RIN_STATES = ["在整理书架", "给你倒了杯热水", "安静地坐在角落"]
-const VALID_GIFTS = ['milk', 'ice_water', 'candy'];
+const ASH_STATES = ["Ash状态1", "Ash状态2", "Ash状态3"]
+const RIN_STATES = ["Rin状态1", "Rin状态2", "Rin状态3"]
 
 export async function POST(req: Request) {
   try {
     const { content, emotion, persona, systemPrompt, clientHour, memoryContext } = await req.json()
-    const langInjection = isEnglish 
-    ? "\n\n[System Rule]: ALWAYS respond in English. Keep the desolate and cozy tone. Do not explain you are an AI."
-    : "";
-    const finalPrompt = (systemPrompt || "") + langInjection;
+    
+    // 1. 在使用 isEnglish 之前，必须先声明并赋值
+    const isEnglish = req.headers.get('host')?.includes('en.') || 
+                      req.headers.get('host')?.includes('nightshift');
 
-    // ==========================================
-    // 读取全局世界状态
-    // ==========================================
+    // 2. 世界状态获取
     let activeEvent = 'clear'
     try {
       const { data } = await supabase.from('world_state').select('event_type').eq('id', true).single()
@@ -38,40 +34,28 @@ export async function POST(req: Request) {
     }
 
     let eventPrompt = ''
-    if (activeEvent === 'broken_bulb') {
-      eventPrompt = `\n【系统物理环境强制设定：店里的照明灯泡刚刚烧坏了，目前环境极其昏暗。请在你的解析或主旨中，用一两句话自然地抱怨或提及这件事，贴合你的人设，不要讲大道理。】`
-    } else if (activeEvent === 'rain') {
-      eventPrompt = `\n【系统物理环境强制设定：外面突然下起了大雨，雨声很大。请在你的解析或主旨中，用一两句话自然地提醒或感慨这件事，贴合你的人设，体现一点冷暖。】`
-    }
-    // ==========================================
+    if (activeEvent === 'broken_bulb') eventPrompt = `\n[系统环境：灯泡坏了]`
+    else if (activeEvent === 'rain') eventPrompt = `\n[系统环境：正在下雨]`
 
     const hour = typeof clientHour === 'number' ? clientHour : new Date().getHours()
-    const timeContext = (hour >= 0 && hour <= 5) ? `凌晨 ${hour} 点的避难所` : `夜晚 ${hour} 点的避难所`
-
-    const randomAshState = ASH_STATES[Math.floor(Math.random() * ASH_STATES.length)]
-    const randomRinState = RIN_STATES[Math.floor(Math.random() * RIN_STATES.length)]
-
-    const safeMemoryContext = (memoryContext || '') + `\n\n`
-
+    const timeContext = `当前小时：${hour}`
+    
     const DYNAMIC_PROMPTS: Record<string, string> = {
-      Ash: `你是Ash，避难所的调酒师。${timeContext}，你${randomAshState}。${safeMemoryContext}${eventPrompt} 
-你的性格：极度厌世、疲惫、冷漠，习惯性嘲讽这个糟糕的世界。
-【绝对红线】：你的“毒舌”只能针对现实和店长，绝对不能对客人（用户）进行人身攻击或谩骂。
-【特殊处理】：如果用户问“你是AI吗”或类似问题，用符合人设的冷笑话打发（例如：“怎么，你见过在吧台抽烟的代码吗？喝你的水，少废话”）。
-
-【强制输出格式】（必须严格遵守，否则系统会崩溃）：
-第一行：[你对客人的回复正文，直接说话，不要加前缀]
-第二行：ID: [从 broken_scale, cracked_bowl, rusty_anchor 中选1个]
-第三行：NAME: [物品名称]
-第四行：DESC: [15字以内的描述]`,
-      Rin: `你是Rin。${timeContext}，你${randomRinState}。${safeMemoryContext}${eventPrompt} 严格按格式返回 ID: [从 broken_scale, cracked_bowl, rusty_anchor 选] NAME: [物品名] DESC: [15字以内描述]`,
-      Child: `你是Child。${timeContext}，${safeMemoryContext}${eventPrompt} 严格按格式返回 ID: [从 broken_scale, cracked_bowl, rusty_anchor 选] NAME: [物品名] DESC: [15字以内描述]`
+      Ash: `Ash设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`,
+      Rin: `Rin设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`,
+      Child: `Child设定 ${timeContext} ${memoryContext || ''} ${eventPrompt}`
     }
 
-    const finalPrompt = systemPrompt || DYNAMIC_PROMPTS[persona] || DYNAMIC_PROMPTS['Rin']
+    // 3. 正确声明 let 变量
+    let finalPrompt = systemPrompt || DYNAMIC_PROMPTS[persona] || DYNAMIC_PROMPTS['Rin']
+
+    // 4. 现在可以使用 isEnglish 了
+    if (isEnglish) {
+      finalPrompt += "\n\n[System Rule]: ALWAYS respond in English. Keep the desolate and cozy tone. Do not explain you are an AI."
+    }
+
     const userMessage = systemPrompt ? content : `我的情绪是：${emotion}\n我的话：${content}`
 
-    // [CTO 防御网] 如果大模型宕机，这里会被外层 catch 捕获
     const stream = await client.chat.completions.create({
       model: 'deepseek-chat',
       messages: [
@@ -92,9 +76,7 @@ export async function POST(req: Request) {
             if (text) controller.enqueue(encoder.encode(text))
           }
         } catch (streamErr) {
-          console.error('[CTO 拦截] 数据流异常断开', streamErr)
-          // 哪怕流断了，也要吐出一个正常的结尾给前端，绝不卡死
-          controller.enqueue(encoder.encode('\n（他没有继续说下去）\nID: rusty_anchor\nNAME: 沉默的空气\nDESC: 信号有些不好。'))
+          console.error('[Stream Error]', streamErr)
         } finally {
           controller.close()
         }
@@ -107,19 +89,8 @@ export async function POST(req: Request) {
         'Transfer-Encoding': 'chunked',
       },
     })
-
   } catch (fatalError) {
-    console.error('[CTO 终极拦截] 后端发生毁灭性异常:', fatalError)
-    
-    // [终极兜底] 强行伪造一个正常的大模型返回格式，骗过前端，继续走流程
-    const fallbackResponse = `（世界信号断连，避难所暂时陷入寂静。店长正在爬电线杆维修中。）
-ID: rusty_anchor
-NAME: 烧断的保险丝
-DESC: 暂时无法接通。`
-    
-    return new Response(fallbackResponse, {
-      status: 200, // 骗过前端 Fetch，假装请求成功
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-    })
+    console.error('[Fatal Error]:', fatalError)
+    return new Response('系统信号中断，请稍后再试。', { status: 500 })
   }
 }
