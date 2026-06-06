@@ -7,6 +7,7 @@ import SpeakingScene from './components/scenes/SpeakingScene';
 import { AnimatePresence, motion, Variants } from 'framer-motion';
 import RestingScene from './components/scenes/RestingScene';
 import NostalgiaScene from './components/scenes/NostalgiaScene';
+import RoamingArea from './components/scenes/RoamingArea';
 // 待引入的其他组件...
 // import GuestbookArea from '@/components/scenes/GuestbookArea';
 // import TrashBinArea from '@/components/scenes/TrashBinArea';
@@ -49,7 +50,7 @@ export default function EndHereSpace() {
           {/* {currentScene === 'trashing' && <motion.div key="trashing" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><TrashBinArea /></motion.div>} */}
           {currentScene === 'resting' && <motion.div key="resting" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><RestingScene /></motion.div>} 
           {currentScene === 'nostalgia' && <motion.div key="nostalgia" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><NostalgiaScene /></motion.div>} 
-          {/* {currentScene === 'browsing' && <motion.div key="browsing" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><BasketArea /></motion.div>} */}
+          {currentScene === 'roaming' && <motion.div key="roaming" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><RoamingArea /></motion.div>}
         </AnimatePresence>
       </div>
     </main>

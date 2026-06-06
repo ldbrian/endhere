@@ -7,25 +7,22 @@ import { useWorldSummary } from '../../hooks/useWorldSummary';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTraces } from '../../hooks/useTraces';
 import { useLanguage } from '../../hooks/useLanguage';
+import PlasticBag from '../PlasticBag';
 
 export default function EntranceMenu() {
   const setScene = useSpaceStore((state) => state.setScene);
   const envText = useWorldSummary();
   const traces = useTraces();
 
-  // 添加这行 Debug 代码
   useEffect(() => {
     console.log("[DEBUG] Traces Data:", traces);
     console.log("[DEBUG] EnvText:", envText);
   }, [traces, envText]);
 
-  // 2. 注入语言配置
   const lang = useLanguage();
 
-  // 新增：移动端触碰显影状态机
   const [activeTraceIdx, setActiveTraceIdx] = useState<number | null>(null);
 
-  // 新增：4秒后自动消散的定时器
   useEffect(() => {
     if (activeTraceIdx === null) return;
     const timer = setTimeout(() => {
@@ -34,20 +31,16 @@ export default function EntranceMenu() {
     return () => clearTimeout(timer);
   }, [activeTraceIdx]);
 
-  // 轮播状态机
   const [sentences, setSentences] = useState<string[]>(['...']);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // 1. 基础视图埋点
   useEffect(() => {
     track('v3_entrance_view');
   }, []);
 
-  // 2. 切割引擎：将大模型返回的长句切分为短句
   useEffect(() => {
     if (!envText || envText === '...') return;
     
-    // 2. 切割引擎：仅按句号、问号、叹号切割，绝不破坏逗号连接的从句
     const parts = envText
       .split(/[。！？.!?]/)
       .map(s => s.trim())
@@ -59,7 +52,6 @@ export default function EntranceMenu() {
     }
   }, [envText]);
 
-  // 3. 节拍器：5秒轮播机制
   useEffect(() => {
     if (sentences.length <= 1) return;
     
@@ -70,28 +62,37 @@ export default function EntranceMenu() {
     return () => clearInterval(timer);
   }, [sentences.length]);
 
-  // 4. 路由拦截与交互埋点
   const handleSceneEnter = (targetScene: Scene) => {
     track('v3_scene_enter', { scene_name: targetScene });
     setScene(targetScene);
   };
 
-  const handleEnvInteract = (text: string) => {
-    track('v3_env_interact', { target_text: text });
-    // TODO: 等待 CPO 交互决策，目前仅做打印
-    console.log('观测实体:', text);
-  };
-
   const secondaryOptions: { id: Scene; label: string }[] = [
     { id: 'resting', label: lang.HOME.tired },
     { id: 'nostalgia', label: lang.HOME.nostalgia },
+    { id: 'roaming', label: lang.HOME.roaming },
   ];
 
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-center bg-transparent select-none">
       
-      {/* 动态呼吸底噪 */}
-      <div className="absolute top-12 w-full h-8 flex items-center justify-center text-[12px] text-zinc-700/60 tracking-[0.2em] font-mono z-20">
+      {/* 🟢 新增：左上角 Logo 与名称 */}
+      <div className="absolute top-8 left-6 md:left-12 z-40 flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity duration-500">
+        <img 
+          src="/logo.png" 
+          alt="End Here Logo" 
+          className="w-5 h-5 object-contain"
+        />
+        <span className="text-[11px] font-mono tracking-widest text-zinc-500">
+          END HERE
+        </span>
+      </div>
+
+      {/* 右上角：视觉降维后的终端风塑料袋 */}
+      <PlasticBag />
+
+      {/* 🟢 修改：动态呼吸底噪从 top-12 下移到 top-24，避开 Logo 和塑料袋的顶部区域 */}
+      <div className="absolute top-24 w-full h-8 flex items-center justify-center text-[12px] text-zinc-700/60 tracking-[0.2em] font-mono z-20">
         <AnimatePresence mode="wait">
           <motion.button
             key={currentIndex}
@@ -99,7 +100,9 @@ export default function EntranceMenu() {
             animate={{ opacity: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, filter: 'blur(2px)' }}
             transition={{ duration: 1.5, ease: "easeInOut" }}
-            onClick={() => handleEnvInteract(sentences[currentIndex])}
+            onClick={() => {
+              track('v3_env_interact', { target_text: sentences[currentIndex] });
+            }}
             className="hover:text-zinc-300 transition-colors duration-500 outline-none cursor-pointer"
           >
             [ {sentences[currentIndex]} ]
@@ -108,18 +111,16 @@ export default function EntranceMenu() {
       </div>
 
       <div className="flex flex-col items-center justify-center w-full max-w-lg gap-20">
-        
         <div className="flex flex-col items-center gap-5">
           <h2 className="text-sm md:text-base text-zinc-600 tracking-[0.3em] font-light">
-            {lang.HOME.welcome} {/* 原来的“欢迎光临” */}
+            {lang.HOME.welcome}
           </h2>
           <h1 className="text-2xl md:text-3xl text-zinc-300 tracking-[0.1em] font-medium">
-            {lang.HOME.prompt}   {/* 原来的“今天过得怎么样？” */}
+            {lang.HOME.prompt}
           </h1>
         </div>
 
         <div className="flex flex-col items-center w-full gap-12">
-          
           <button
             onClick={() => handleSceneEnter('speaking')}
             className="group flex items-center justify-center gap-4 py-2 text-zinc-300 hover:text-zinc-50 transition-all duration-700 ease-out outline-none"
@@ -128,7 +129,7 @@ export default function EntranceMenu() {
               [
             </span>
             <span className="tracking-[0.15em] text-lg font-medium">
-              {lang.HOME.saySomething} {/* 原来的“我有很多话想说” */}
+              {lang.HOME.saySomething}
             </span>
             <span className="opacity-40 group-hover:opacity-100 transition-opacity duration-700 font-light text-xl">
               ]
@@ -148,10 +149,10 @@ export default function EntranceMenu() {
               </button>
             ))}
           </div>
-
         </div>
       </div>
-      {/* 极简痕迹陈列区：完全适配移动端触碰交互 */}
+
+      {/* 极简痕迹陈列区 */}
       {traces.length > 0 && (
         <div className="absolute bottom-10 w-full flex flex-wrap justify-center gap-6 px-6 z-20">
           {traces.map((item, idx) => {
@@ -159,8 +160,6 @@ export default function EntranceMenu() {
             
             return (
               <div key={idx} className="relative flex flex-col items-center justify-center">
-                
-                {/* 细节描述：触碰后淡入，上方浮现 */}
                 <AnimatePresence>
                   {isActive && (
                     <motion.div
@@ -177,13 +176,10 @@ export default function EntranceMenu() {
                   )}
                 </AnimatePresence>
 
-                {/* 物品本体：改为可点击的 button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    // 点击切换，如果点自己则关闭
                     setActiveTraceIdx(isActive ? null : idx);
-                    // 埋点：记录用户触摸了哪个痕迹
                     track('v3_trace_tap', { item_name: item.name });
                   }}
                   className={`text-[11px] tracking-[0.2em] font-mono transition-colors duration-700 outline-none ${
@@ -192,7 +188,6 @@ export default function EntranceMenu() {
                 >
                   {item.name}
                 </button>
-                
               </div>
             );
           })}

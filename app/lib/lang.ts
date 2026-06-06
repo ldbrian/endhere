@@ -6,6 +6,7 @@ export const EN = {
     saySomething: "I have something to say",
     tired: "I'm just a bit tired",
     nostalgia: "I'm thinking about the past",
+    roaming: "I want to look around",
     back: "[ Return to Lobby ]"
   },
   SPEAKING: {
@@ -100,6 +101,7 @@ export const CN = {
     saySomething: "我有很多话想说",
     tired: "我只是有点累",
     nostalgia: "我想起了一些以前的事",
+    roaming: "我想到处看看",
     back: "[ 退回门厅 ]"
   },
   SPEAKING: {

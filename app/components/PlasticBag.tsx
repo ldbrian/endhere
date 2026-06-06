@@ -1,147 +1,132 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function PlasticBag() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [isFlipped, setIsFlipped] = useState(false) // 记录塑料袋是否翻面
-  const [mounted, setMounted] = useState(false)
+  const [isOpen, setIsOpen] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // 确保 Portal 仅在客户端渲染，避免 Next.js 的水合报错
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
-  // 核心视觉底噪
-  const noiseTexture = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.12'/%3E%3C/svg%3E")`
+  const handleClose = () => {
+    setIsOpen(false);
+    setTimeout(() => setIsFlipped(false), 300); 
+  };
 
-  return (
-    <>
-      {/* ======== 状态一：右上角收起 ======== */}
-      {/* 【修复】：移除导致定位漂移的 fixed，彻底融入父组件的 flex 布局 */}
-      {!isOpen && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-          <button
-            onClick={() => { setIsOpen(true); setIsFlipped(false); }}
-            style={{
-              width: '28px', 
-              height: '44px',
-              backgroundColor: 'rgba(255, 255, 255, 0.06)', 
-              backgroundImage: noiseTexture,
-              backdropFilter: 'blur(6px)',
-              clipPath: 'polygon(0% 0%, 28% 0%, 35% 20%, 65% 20%, 72% 0%, 100% 0%, 100% 100%, 0% 100%)',
-              cursor: 'pointer',
-              transform: 'rotate(-1deg)', 
-              transition: 'all 0.3s ease',
-              border: 'none',
-              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' 
-            }}
-            aria-label="扯一个塑料袋"
-          />
-        </div>
-      )}
+  const ClosedState = () => (
+    <button
+      onClick={() => setIsOpen(true)}
+      className="fixed top-8 right-6 md:right-12 z-40 text-zinc-600 hover:text-zinc-300 transition-colors duration-500 outline-none"
+      aria-label="打开塑料袋"
+    >
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4 L8 4 L8 10 C8 12 16 12 16 10 L16 4 L20 4 L21 20 C21 21 20 22 19 22 L5 22 C4 22 3 21 3 20 Z" />
+        <path d="M8 4 L8 2 M16 4 L16 2" opacity="0.3" />
+      </svg>
+    </button>
+  );
 
-      {/* ======== 状态二：展开后的背心袋 ======== */}
-      {/* 【修复】：使用 createPortal 把弹窗传送到顶层 body，摆脱父级 transform 旋转的毁灭性影响 */}
-      {mounted && isOpen && createPortal(
+  const ExpandedState = () => {
+    if (!mounted) return null;
+
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90">
+        
+        <div className="absolute inset-0 cursor-pointer" onClick={handleClose} />
+
         <div 
-          onClick={() => setIsOpen(false)} 
-          style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, // 使用 inset 代替 100vw，防止出现横向滚动条
-            backgroundColor: 'rgba(26, 22, 18, 0.7)', zIndex: 9999, // 置于绝对顶层
-            display: 'flex', justifyContent: 'center', alignItems: 'center',
-            padding: '20px', cursor: 'pointer'
-          }}
+          className="relative z-10 w-[280px] h-[380px] flex flex-col items-center justify-center transition-transform duration-700 ease-in-out"
+          style={{ transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)', transformStyle: 'preserve-3d' }}
+          onClick={(e) => e.stopPropagation()} 
         >
-          <div style={{ filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.5))', width: '100%', maxWidth: '320px' }}>
-            <div 
-              onClick={(e) => e.stopPropagation()} 
-              style={{
-                width: '100%',
-                height: '420px',
-                background: 'rgba(255, 255, 255, 0.82)',
-                backgroundImage: noiseTexture,
-                backdropFilter: 'blur(10px)',
-                position: 'relative',
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '100px 20px 40px 20px',
-                clipPath: 'polygon(0% 0%, 25% 0%, 35% 22%, 65% 22%, 75% 0%, 100% 0%, 100% 100%, 0% 100%)',
-                transform: 'rotate(-1deg)',
-                transition: 'transform 0.4s ease'
-              }}
-            >
-              
-              {!isFlipped ? (
-                /* ======== 正面：绝对纯粹的视觉空间 ======== */
-                <>
-                  <div style={{ textAlign: 'center', marginTop: '30px', opacity: 0.85 }}>
-                    <img 
-                      src="/logo.png" 
-                      alt="End Here Logo" 
-                      style={{ 
-                        width: '64px', height: '64px', marginBottom: '8px',
-                        transform: 'rotate(2deg)',
-                        mixBlendMode: 'multiply',
-                        filter: 'grayscale(100%) contrast(1.2) opacity(0.8)'
-                      }} 
-                    />
-                    <div style={{ fontSize: '18px', letterSpacing: '0.2em', color: '#333'}}>
-                      END HERE
-                    </div>
-                  </div>
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 280 380" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 20 20 L 60 20 L 60 90 Q 140 130 220 90 L 220 20 L 260 20 L 270 360 Q 270 370 260 370 L 20 370 Q 10 370 10 360 Z" stroke="#3f3f46" strokeWidth="1" />
+            <path d="M 30 370 L 30 110" stroke="#3f3f46" strokeWidth="1" strokeDasharray="2 4" opacity="0.4" />
+            <path d="M 250 370 L 250 110" stroke="#3f3f46" strokeWidth="1" strokeDasharray="2 4" opacity="0.4" />
+          </svg>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '100%', position: 'absolute', bottom: '60px', left: 0, padding: '0 20px' }}>
-                    <div style={{ opacity: 0.7, paddingBottom: '5px' }}>
-                      <p style={{ color: '#222', fontSize: '13px', fontFamily: 'monospace', margin: '0 0 4px 0' }}>127.0.0.1</p>
-                      <p style={{ color: '#222', fontSize: '12px', margin: 0 }}>断网巷 404 号</p>
-                    </div>
+          {/* ========== 正面 ========== */}
+          <div 
+            className="absolute inset-0 flex flex-col items-center justify-center p-8"
+            style={{ 
+              opacity: isFlipped ? 0 : 1, 
+              pointerEvents: isFlipped ? 'none' : 'auto',
+              transition: 'opacity 0.4s ease-in-out' 
+            }}
+          >
+            <div className="flex-1 flex flex-col items-center justify-center space-y-4 mt-8">
+              <p className="text-xl tracking-[0.3em] text-zinc-300 font-light">坏情绪</p>
+              <p className="text-sm tracking-[0.4em] text-zinc-500 font-light">禁止外带</p>
+              <p className="text-[10px] tracking-[0.3em] text-zinc-700 font-mono pt-6">END HERE</p>
+            </div>
 
-                    <div style={{ transform: 'rotate(-15deg)', marginRight: '10px', position: 'relative' }}>
-                      <h2 style={{ color: 'rgba(190, 40, 40, 0.9)', fontSize: '18px', fontWeight: 'bold', margin: 0, textShadow: '0.5px 0.5px 1px rgba(190,40,40,0.3)' }}>
-                        坏情绪<br/>禁止外带
-                      </h2>
-                      <div style={{ width: '120%', height: '2px', background: 'rgba(190, 40, 40, 0.5)', position: 'absolute', bottom: '-4px', left: '-10px', transform: 'rotate(2deg)' }} />
-                      <div style={{ width: '100%', height: '1px', background: 'rgba(190, 40, 40, 0.4)', position: 'absolute', bottom: '-8px', left: '-2px', transform: 'rotate(-3deg)' }} />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                /* ======== 背面：PWA 安装说明 ======== */
-                <div style={{ marginTop: '20px', padding: '0 10px', opacity: 0.85 }}>
-                  <h3 style={{ color: '#222', fontSize: '15px', letterSpacing: '0.1em', marginBottom: '16px', borderBottom: '1px solid rgba(0,0,0,0.2)', paddingBottom: '8px' }}>
-                    把破店揣进兜里：
-                  </h3>
-                  <ol style={{ color: '#333', fontSize: '13px', lineHeight: '2.2', paddingLeft: '20px', margin: 0 }}>
-                    <li>点击手机浏览器底部的 <strong>[ 分享 / 菜单 ]</strong></li>
-                    <li>往下滑，找到 <strong>[ 添加到主屏幕 ]</strong></li>
-                    <li>确认添加</li>
-                  </ol>
-                  <p style={{ color: 'rgba(190, 40, 40, 0.8)', fontSize: '12px', marginTop: '30px', fontStyle: 'italic', letterSpacing: '0.05em' }}>
-                    * 免下载，不占内存。<br/>
-                    * 下次遇上烂事，顺着地址回来。
-                  </p>
-                </div>
-              )}
-
-              {/* ======== 底部物理翻面按钮 ======== */}
-              <button 
-                onClick={(e) => { e.stopPropagation(); setIsFlipped(!isFlipped); }}
-                style={{ 
-                  position: 'absolute', bottom: '15px', width: '100%', left: 0, 
-                  textAlign: 'center', background: 'transparent', border: 'none', 
-                  color: 'rgba(0,0,0,0.5)', fontSize: '11px', cursor: 'pointer',
-                  textDecoration: 'underline', textUnderlineOffset: '4px'
-                }}
+            {/* 🟢 修改点：pb-6 改为 pb-12，把按钮往上顶 */}
+            <div className="mt-auto pb-12">
+              <button
+                onClick={() => setIsFlipped(true)}
+                className="fixed bottom-8 left-1/2 transform -translate-x-1/2 text-[11px] tracking-widest text-zinc-600 hover:text-zinc-300 transition-colors outline-none"
               >
-                {isFlipped ? '翻回正面' : '翻到背面看怎么带走'}
+                [ 翻面查看 ]
               </button>
             </div>
           </div>
-        </div>,
-        document.body
-      )}
+
+          {/* ========== 背面 ========== */}
+          <div 
+            className="absolute inset-0 flex flex-col items-center justify-center p-8"
+            style={{ 
+              opacity: isFlipped ? 1 : 0, 
+              pointerEvents: isFlipped ? 'auto' : 'none',
+              transform: 'rotateY(180deg)', 
+              transition: 'opacity 0.4s ease-in-out' 
+            }}
+          >
+            <div className="flex-1 flex flex-col justify-center w-full space-y-6 text-[11px] tracking-widest text-zinc-400 font-light leading-loose text-center mt-6">
+              <div>
+                <p className="text-zinc-300 border-b border-zinc-800 pb-2 inline-block px-2">/ 离线避难所 /</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-zinc-300">iOS 用户</p>
+                <p className="text-zinc-600 text-[10px]">点击底部 [分享] -{'>'} [添加到主屏幕]</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-zinc-300">Android 用户</p>
+                <p className="text-zinc-600 text-[10px]">点击右上角菜单 -{'>'} [安装应用]</p>
+              </div>
+            </div>
+
+            {/* 🟢 修改点：pb-6 改为 pb-12，把按钮往上顶 */}
+            <div className="mt-auto flex w-full justify-center gap-12 pb-12">
+              <button
+                onClick={() => setIsFlipped(false)}
+                className="fixed bottom-8 left-1/3 transform -translate-x-1/2 text-[11px] tracking-widest text-zinc-600 hover:text-zinc-300 transition-colors outline-none"
+              >
+                [ 翻回正面 ]
+              </button>
+              <button
+                onClick={handleClose}
+                className="fixed bottom-8 left-2/3 transform -translate-x-1/2 text-[11px] tracking-widest text-zinc-700 hover:text-red-900/60 transition-colors outline-none"
+              >
+                [ 收起来 ]
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
+  return (
+    <>
+      {!isOpen && <ClosedState />}
+      {isOpen && <ExpandedState />}
     </>
-  )
+  );
 }
