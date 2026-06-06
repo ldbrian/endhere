@@ -70,7 +70,7 @@ export default function EntranceMenu() {
   const secondaryOptions: { id: Scene; label: string }[] = [
     { id: 'resting', label: lang.HOME.tired },
     { id: 'nostalgia', label: lang.HOME.nostalgia },
-    { id: 'roaming', label: lang.HOME.roaming },
+    { id: 'roaming'as Scene, label: lang.HOME.roaming },
   ];
 
   return (
