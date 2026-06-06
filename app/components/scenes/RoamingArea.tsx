@@ -28,17 +28,29 @@ export default function RoamingArea() {
 
   const [entityIds, setEntityIds] = useState<Record<string, string>>({});
   const [wallTraces, setWallTraces] = useState<any[]>([]);
-  const [stoolState, setStoolState] = useState<TraceDecayResult>({ 
-    style: "text-zinc-600/50", text: "一张落了灰的破木凳。" 
-  });
-  
-  const [plantState, setPlantState] = useState<TraceDecayResult>({ 
-    style: "text-zinc-600 opacity-50 line-through", text: "一盆已经枯死的植物残骸。", canInteract: true 
-  });
-  
-  const [basketState, setBasketState] = useState<TraceDecayResult>({ 
-    isVisible: false, style: "", text: "" 
-  });
+  // 1. 破木凳
+const [stoolState, setStoolState] = useState<TraceDecayResult>({ 
+  style: "text-zinc-600/50", 
+  text: "一张落了灰的破木凳。",
+  isVisible: true,      // 补全
+  canInteract: true     // 补全
+});
+
+// 2. 植物
+const [plantState, setPlantState] = useState<TraceDecayResult>({ 
+  style: "text-zinc-600 opacity-50 line-through", 
+  text: "一盆已经枯死的植物残骸。", 
+  isVisible: true,      // 补全
+  canInteract: true 
+});
+
+// 3. 铁筐
+const [basketState, setBasketState] = useState<TraceDecayResult>({ 
+  isVisible: false, 
+  style: "", 
+  text: "", 
+  canInteract: false    // 补全
+});
   useEffect(() => {
     setMounted(true);
     fetchWorldEntities();
