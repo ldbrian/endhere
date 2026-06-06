@@ -60,9 +60,10 @@ export default function PlasticBag() {
             }}
           >
             <div className="flex-1 flex flex-col items-center justify-center space-y-4 mt-8">
+              <p className="text-[24px] tracking-[0.3em] text-zinc-700 font-mono pt-6">END HERE</p>
               <p className="text-xl tracking-[0.3em] text-zinc-300 font-light">坏情绪</p>
               <p className="text-sm tracking-[0.4em] text-zinc-500 font-light">禁止外带</p>
-              <p className="text-[10px] tracking-[0.3em] text-zinc-700 font-mono pt-6">END HERE</p>
+              <p className="text-[10px] tracking-[0.4em] text-zinc-500 font-light">断网街 404 号</p>
             </div>
 
             {/* 🟢 修改点：pb-6 改为 pb-12，把按钮往上顶 */}
