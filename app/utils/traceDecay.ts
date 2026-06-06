@@ -6,6 +6,14 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.tz.setDefault("Asia/Shanghai");
 
+// 规范化返回值接口，确保类型安全
+export interface TraceDecayResult {
+  style: string;
+  text: string;
+  isVisible?: boolean;
+  canInteract?: boolean;
+}
+
 export function getTraceStyleAndText(traceText: string, createdAt: number | string, entityType: 'stool' | 'wall' | 'plant' | 'basket') {
   const now = dayjs().tz("Asia/Shanghai");
   const traceTime = dayjs(createdAt).tz("Asia/Shanghai");

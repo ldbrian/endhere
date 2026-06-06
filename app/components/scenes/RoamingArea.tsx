@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useSpaceStore } from '../../store/useSpaceStore';
 import { createClient } from '@supabase/supabase-js';
-import { getTraceStyleAndText } from '../../utils/traceDecay';
+import { getTraceStyleAndText, TraceDecayResult} from '../../utils/traceDecay';
+
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,10 +28,17 @@ export default function RoamingArea() {
 
   const [entityIds, setEntityIds] = useState<Record<string, string>>({});
   const [wallTraces, setWallTraces] = useState<any[]>([]);
-  const [stoolState, setStoolState] = useState({ style: "text-zinc-600/50", text: "一张落了灰的破木凳。" });
-  const [plantState, setPlantState] = useState({ style: "text-zinc-600 opacity-50 line-through", text: "一盆已经枯死的植物残骸。", canInteract: true });
-  const [basketState, setBasketState] = useState({ isVisible: false, style: "", text: "" });
-
+  const [stoolState, setStoolState] = useState<TraceDecayResult>({ 
+    style: "text-zinc-600/50", text: "一张落了灰的破木凳。" 
+  });
+  
+  const [plantState, setPlantState] = useState<TraceDecayResult>({ 
+    style: "text-zinc-600 opacity-50 line-through", text: "一盆已经枯死的植物残骸。", canInteract: true 
+  });
+  
+  const [basketState, setBasketState] = useState<TraceDecayResult>({ 
+    isVisible: false, style: "", text: "" 
+  });
   useEffect(() => {
     setMounted(true);
     fetchWorldEntities();
