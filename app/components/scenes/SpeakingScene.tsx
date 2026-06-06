@@ -160,22 +160,9 @@ export default function SpeakingScene() {
       
       addEntry(localEntry);
       
-      // 修复 AI 数据的静默失败，统一写入 manager_mailbox
-      try {
-        const { error } = await supabase
-          .from('manager_mailbox')
-          .insert([{ 
-            receipt_id: finalReceiptIdRef.current, 
-            user_message: text, // 同上，落盘数据纯净
-            ai_response: finalParsed.cleanText,
-            created_date: new Date().toISOString().split('T')[0]
-          }]);
-        if (error) throw error;
-      } catch (e) {
-        console.error('[AI模式] 投递至 manager_mailbox 失败:', JSON.stringify(e));
-      }
-
-      setGeneratedReceipt(localEntry);
+      // AI 模式：仅存本地，不写 Supabase
+      // manager_mailbox 只属于 Manager 路径，AI 路径的记录只在用户设备上
+           setGeneratedReceipt(localEntry);
       setStreamState('done');
 
     } catch (error) {
