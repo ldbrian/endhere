@@ -22,6 +22,8 @@ export interface ShelterEntry {
   isSealed?: boolean
   sealedUntil?: number
   destinedItem?: any
+  // 🟢 新增字段：用于区分系统小票和用户手填旧物
+  type?: 'receipt' | 'virtual_item';
 }
 
 interface ShelterState {

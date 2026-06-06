@@ -6,7 +6,6 @@ import { useSpaceStore } from '../../store/useSpaceStore';
 import { createClient } from '@supabase/supabase-js';
 import { getTraceStyleAndText, TraceDecayResult } from '../../utils/traceDecay';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWorldSummary } from '../../hooks/useWorldSummary';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,40 +15,13 @@ const supabase = createClient(
 export default function RoamingArea() {
   const [mounted, setMounted] = useState(false);
   const lang = useLanguage();
-  const envText = useWorldSummary();
   const setScene = useSpaceStore((state) => state.setScene);
-  const [sentences, setSentences] = useState<string[]>(['...']);
-  const [currentIndex, setCurrentIndex] = useState(0);
-   // 🟢 新增：当前激活查看的涂鸦文本
-  const [activeGraffiti, setActiveGraffiti] = useState<string | null>(null);
-  
-  
-    useEffect(() => {
-      if (!envText || envText === '...') return;
-      
-      const parts = envText
-        .split(/[。！？.!?]/)
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
-        
-      if (parts.length > 0) {
-        setSentences(parts);
-        setCurrentIndex(0);
-      }
-    }, [envText]);
-  
-    useEffect(() => {
-      if (sentences.length <= 1) return;
-      
-      const timer = setInterval(() => {
-        setCurrentIndex((prev) => (prev + 1) % sentences.length);
-      }, 5000);
-      
-      return () => clearInterval(timer);
-    }, [sentences.length]);
 
   const [entityIds, setEntityIds] = useState<Record<string, string>>({});
   const [wallTraces, setWallTraces] = useState<any[]>([]);
+  
+  // 🟢 新增：当前激活查看的涂鸦文本
+  const [activeGraffiti, setActiveGraffiti] = useState<string | null>(null);
   
   const [stoolState, setStoolState] = useState<TraceDecayResult>({ 
     style: "text-zinc-600/50", text: "一张落了灰的破木凳。", isVisible: true, canInteract: true 
@@ -89,7 +61,6 @@ export default function RoamingArea() {
           const traces = graffiti?.data?.traces || [];
           const formattedTraces = traces.map((t: any, index: number) => {
             const decay = getTraceStyleAndText(t.text, t.created_at, 'wall');
-            // CDO规范：强制左右侧边安全区 (Left 5-20% 或 Right 5-20%)
             const isLeft = Math.random() > 0.5;
             const horizontalPos = isLeft ? `${5 + Math.random() * 15}%` : `${80 + Math.random() * 15}%`;
             const verticalPos = `${10 + Math.random() * 80}%`;
@@ -151,27 +122,10 @@ export default function RoamingArea() {
         onClick={() => setScene('entrance')}
         className="absolute top-10 left-8 tracking-[0.2em] text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors duration-500 outline-none z-20"
       >
-        {lang.HOME.back} 
+        [ {lang.HOME.back} ] 
       </button>
 
-      {/* 动态呼吸底噪 */}
-      <div className="absolute top-24 w-full h-8 flex items-center justify-center text-[12px] text-zinc-700/60 tracking-[0.2em] font-mono z-20">
-        <AnimatePresence mode="wait">
-          <motion.button
-            key={currentIndex}
-            initial={{ opacity: 0, filter: 'blur(2px)' }}
-            animate={{ opacity: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, filter: 'blur(2px)' }}
-            transition={{ duration: 1.5, ease: "easeInOut" }}
-            onClick={() => track('v3_env_interact', { target_text: sentences[currentIndex] })}
-            className="hover:text-zinc-300 transition-colors duration-500 outline-none cursor-pointer"
-          >
-            [ {sentences[currentIndex]} ]
-          </motion.button>
-        </AnimatePresence>
-      </div>
-
-      {/* 边缘散点涂鸦区 */}
+      {/* 边缘散点涂鸦区 - 赋予了交互指针和点击事件 */}
       <div className="absolute inset-0 pointer-events-none z-0">
         {wallTraces.map((trace) => (
            <button 
@@ -185,10 +139,8 @@ export default function RoamingArea() {
         ))}
       </div>
 
-      {/* 中轴线核心区：巨大的间距 gap-20 (80px) 制造压抑感 */}
       <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-md px-6 gap-20">
         
-        {/* 铁筐 (只读，无中括号) */}
         <div className="flex items-center justify-center min-h-[24px]">
           {basketState.isVisible ? (
             <p className={`text-[13px] tracking-[0.2em] font-light ${basketState.style}`}>
@@ -201,7 +153,6 @@ export default function RoamingArea() {
           )}
         </div>
 
-        {/* 木凳 (可交互，带中括号) */}
         <div className="flex items-center justify-center min-h-[24px]">
           <button 
             onClick={() => handleInteract('破木凳', 'surface_state', { last_occupied_at: Date.now() })}
@@ -211,7 +162,6 @@ export default function RoamingArea() {
           </button>
         </div>
 
-        {/* 植物 (按 CDO 规范实装文本与按钮的剥离) */}
         <div className="flex flex-col items-center justify-center min-h-[40px] gap-4">
           {plantState.canInteract ? (
             <>
@@ -233,7 +183,8 @@ export default function RoamingArea() {
         </div>
 
       </div>
-    {/* 🟢 涂鸦点击后的终端查阅弹窗 */}
+
+      {/* 🟢 涂鸦点击后的终端查阅弹窗 */}
       <AnimatePresence>
         {activeGraffiti && (
           <motion.div
@@ -255,7 +206,7 @@ export default function RoamingArea() {
                 onClick={() => setActiveGraffiti(null)}
                 className="mt-10 text-[10px] text-zinc-600 hover:text-zinc-400 tracking-widest outline-none"
               >
-                [ 关闭 ]
+                [ CLOSE ]
               </button>
             </div>
           </motion.div>

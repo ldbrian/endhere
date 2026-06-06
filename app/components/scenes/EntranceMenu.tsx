@@ -74,7 +74,7 @@ export default function EntranceMenu() {
       <PlasticBag />
 
       {/* 动态呼吸底噪 */}
-      <div className="absolute top-24 w-full h-8 flex items-center justify-center text-[12px] text-zinc-700/60 tracking-[0.2em] font-mono z-20">
+      {/*<div className="absolute top-24 w-full h-8 flex items-center justify-center text-[12px] text-zinc-700/60 tracking-[0.2em] font-mono z-20">
         <AnimatePresence mode="wait">
           <motion.button
             key={currentIndex}
@@ -88,7 +88,7 @@ export default function EntranceMenu() {
             [ {sentences[currentIndex]} ]
           </motion.button>
         </AnimatePresence>
-      </div>
+      </div>*/}
 
       {/* 核心视觉与导航区 */}
       <div className="flex flex-col items-center justify-center w-full max-w-lg gap-20">

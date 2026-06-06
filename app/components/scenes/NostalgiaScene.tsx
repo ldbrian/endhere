@@ -79,7 +79,7 @@ export default function NostalgiaScene() {
         onClick={() => setScene('entrance')}
         className="absolute top-12 left-6 md:left-12 tracking-[0.2em] text-[13px] text-zinc-600 opacity-60 hover:opacity-100 hover:text-zinc-400 transition-all duration-700 outline-none z-30 cursor-pointer block"
       >
-        {lang.NOSTALGIA.back}
+        {lang.HOME.back}
       </button>
 
       {sortedEntries.length === 0 ? (
