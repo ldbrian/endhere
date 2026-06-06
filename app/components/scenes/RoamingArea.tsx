@@ -106,7 +106,7 @@ const [basketState, setBasketState] = useState<TraceDecayResult>({
           const itemText = inventory?.data?.item_text || "一颗薄荷糖";
           const placedAt = inventory?.data?.placed_at || 0;
           const decay = getTraceStyleAndText(itemText, placedAt, 'basket');
-          setBasketState({ isVisible: decay.isVisible || false, style: decay.style, text: decay.text });
+          setBasketState({ isVisible: decay.isVisible || false, style: decay.style, text: decay.text, canInteract: decay.canInteract });
         }
       });
       
