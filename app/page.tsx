@@ -8,6 +8,7 @@ import { AnimatePresence, motion, Variants } from 'framer-motion';
 import RestingScene from './components/scenes/RestingScene';
 import NostalgiaScene from './components/scenes/NostalgiaScene';
 import RoamingArea from './components/scenes/RoamingArea';
+import IncineratorScene from './components/scenes/IncineratorScene'; // 🟢 新增引入焚烧区
 // 待引入的其他组件...
 // import GuestbookArea from '@/components/scenes/GuestbookArea';
 // import TrashBinArea from '@/components/scenes/TrashBinArea';
@@ -51,6 +52,8 @@ export default function EndHereSpace() {
           {currentScene === 'resting' && <motion.div key="resting" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><RestingScene /></motion.div>} 
           {currentScene === 'nostalgia' && <motion.div key="nostalgia" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><NostalgiaScene /></motion.div>} 
           {currentScene === 'roaming' && <motion.div key="roaming" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><RoamingArea /></motion.div>}
+          {/* 🟢 新增焚烧区路由映射 */}
+          {currentScene === 'incinerator' && <motion.div key="incinerator" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><IncineratorScene /></motion.div>}
         </AnimatePresence>
       </div>
     </main>

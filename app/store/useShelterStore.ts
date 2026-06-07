@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export interface ShelterEntry {
-  id: number
+  id: number | string // 🟢 放宽类型：兼容老版本的自增ID和新版本的UUID
   timestamp: number
   createdAt?: string
   emotionStart?: number
@@ -16,28 +16,26 @@ export interface ShelterEntry {
   punchline?: string
   sessions?: any[]
   released?: boolean
-  receiptId: string // V2 核心契约：必须存在的唯一真源 ID
+  receiptId: string 
   manager_message?: string
   manager_reply?: string
   isSealed?: boolean
   sealedUntil?: number
   destinedItem?: any
-  // 🟢 新增字段：用于区分系统小票和用户手填旧物
   type?: 'receipt' | 'virtual_item';
 }
 
 interface ShelterState {
   entries: ShelterEntry[]
   addEntry: (entry: ShelterEntry) => void
-  updateEntry: (id: number, updates: Partial<ShelterEntry>) => void
-  deleteEntry: (id: number) => void
+  updateEntry: (id: number | string, updates: Partial<ShelterEntry>) => void
+  deleteEntry: (id: number | string) => void
+  removeEntry: (id: number | string) => void // 🟢 新增：物理抹杀方法
   
-  // 👇 铁筐领取记录契约
   lastClaimedAt: number | null
   canClaimToday: () => boolean
   markClaimed: () => void
   
-  // 👇 惰性物品状态契约
   hasMint: boolean
   consumeMint: () => void
 }
@@ -47,16 +45,12 @@ export const useShelterStore = create<ShelterState>()(
     (set, get) => ({
       entries: [],
       
-      // ==========================================
-      // 铁筐领取冷却引擎
-      // ==========================================
       lastClaimedAt: null,
       
       canClaimToday: () => {
         const last = get().lastClaimedAt
         if (!last) return true
         
-        // 物理防御：按自然日计算冷却时间
         const lastDate = new Date(last).toLocaleDateString()
         const today = new Date().toLocaleDateString()
         return lastDate !== today
@@ -64,17 +58,11 @@ export const useShelterStore = create<ShelterState>()(
       
       markClaimed: () => set({ lastClaimedAt: Date.now() }),
 
-      // ==========================================
-      // 惰性物品交互引擎 (CTO 修复位置)
-      // ==========================================
       hasMint: true,
       consumeMint: () => set({ hasMint: false }),
 
-      // ==========================================
-      // 小票数据流转引擎
-      // ==========================================
       addEntry: (entry) => set((state) => {
-        if (!entry || typeof entry.id !== 'number') return state 
+        if (!entry || !entry.id) return state // 🟢 解除了对 number 的类型死锁
         
         const safeEntry = {
           ...entry,
@@ -95,10 +83,16 @@ export const useShelterStore = create<ShelterState>()(
         })
       })),
 
+      // 仅标记状态（用于老逻辑）
       deleteEntry: (id) => set((state) => ({
         entries: state.entries.map((e) => 
           e.id === id ? { ...e, status: '已销毁' } : e
         )
+      })),
+
+      // 🟢 真正的物理抹杀（用于焚烧区）
+      removeEntry: (id) => set((state) => ({
+        entries: state.entries.filter((e) => e.id !== id)
       }))
     }),
     {
