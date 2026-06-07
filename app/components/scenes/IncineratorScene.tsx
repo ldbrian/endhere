@@ -6,6 +6,8 @@ import { useShelterStore } from '../../store/useShelterStore';
 import { useLanguage } from '../../hooks/useLanguage';
 import { Receipt } from '../ui/Receipt'; 
 
+type BurnStage = 'idle' | 'burning' | 'black' | 'epitaph' | 'exit';
+
 export default function IncineratorScene() {
   const { setScene, incineratorTarget, setIncineratorTarget } = useSpaceStore();
   const { removeEntry } = useShelterStore();
@@ -13,9 +15,9 @@ export default function IncineratorScene() {
   
   const [report, setReport] = useState('');
   const [isScanning, setIsScanning] = useState(false);
-  const [isAnnihilating, setIsAnnihilating] = useState(false);
   
-  // CTO 修复：并发锁，防御 React 18 的双重触发机制导致的流式响应交叉错乱
+  // 🟢 CDO 规范：使用有限状态机管理焚烧仪式
+  const [burnStage, setBurnStage] = useState<BurnStage>('idle');
   const scanTriggered = useRef(false);
 
   useEffect(() => {
@@ -24,7 +26,6 @@ export default function IncineratorScene() {
       return;
     }
     
-    // 只有在锁未开启时才执行请求
     if (!scanTriggered.current && !report) {
       scanTriggered.current = true;
       triggerScan();
@@ -68,19 +69,61 @@ export default function IncineratorScene() {
   };
 
   const handleAnnihilate = () => {
-    setIsAnnihilating(true);
+    // 阶段1：播放 3.5 秒的碳化动画
+    setBurnStage('burning');
     
     setTimeout(() => {
-      if (incineratorTarget) {
-        removeEntry(incineratorTarget.id);
-        setIncineratorTarget(null);
-      }
-      setScene('entrance');
+      // 阶段2：彻底黑屏 3 秒 (3500ms 后)
+      setBurnStage('black');
+      
+      setTimeout(() => {
+        // 阶段3：浮现终结判词 (3000ms 后)
+        setBurnStage('epitaph');
+        
+        setTimeout(() => {
+          // 阶段4：浮现离开按钮 (1500ms 后)
+          setBurnStage('exit');
+        }, 1500);
+      }, 3000);
     }, 3500);
+  };
+
+  // 🟢 最终手动退出逻辑
+  const handleManualExit = () => {
+    if (incineratorTarget) {
+      removeEntry(incineratorTarget.id);
+      setIncineratorTarget(null);
+    }
+    setScene('entrance'); // 返回门厅
   };
 
   if (!incineratorTarget) return null;
 
+  // 渲染余烬冷却状态（绝对黑屏及后续文字）
+  if (burnStage === 'black' || burnStage === 'epitaph' || burnStage === 'exit') {
+    return (
+      <div className="relative w-full h-full bg-[#030303] flex flex-col items-center justify-center select-none font-mono overflow-hidden">
+         <p 
+           className={`absolute top-1/2 -translate-y-1/2 text-[11px] text-zinc-600 font-mono tracking-widest transition-opacity duration-1000 ${
+             burnStage === 'epitaph' || burnStage === 'exit' ? 'opacity-100' : 'opacity-0'
+           }`}
+         >
+           [ 物理结构已不可逆破坏，彻底归于虚无。 ]
+         </p>
+
+         <button 
+           onClick={handleManualExit}
+           className={`absolute bottom-20 text-[11px] text-zinc-700 hover:text-zinc-400 tracking-widest outline-none transition-opacity duration-1000 ${
+             burnStage === 'exit' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+           }`}
+         >
+           &lt;- [ 离开 ]
+         </button>
+      </div>
+    );
+  }
+
+  // 渲染鉴定与焚烧执行状态
   return (
     <div className="relative w-full h-full bg-[#030303] flex flex-col items-center justify-center select-none font-mono overflow-hidden">
       
@@ -105,7 +148,7 @@ export default function IncineratorScene() {
         }
       `}</style>
 
-      {!isAnnihilating && (
+      {burnStage === 'idle' && (
         <button
           onClick={() => {
             setIncineratorTarget(null);
@@ -119,7 +162,7 @@ export default function IncineratorScene() {
 
       <div className="flex flex-col items-center justify-center w-full max-w-md px-6 gap-12">
         
-        <div className={`w-full flex justify-center transition-all ${isAnnihilating ? 'animate-annihilate-down' : ''}`}>
+        <div className={`w-full flex justify-center transition-all ${burnStage === 'burning' ? 'animate-annihilate-down' : ''}`}>
           {incineratorTarget.type === 'virtual_item' ? (
             <div className="w-full max-w-[280px] bg-white/[0.02] border border-zinc-800 rounded-none p-6 text-left">
               <p className="text-zinc-400 text-[13px] tracking-widest font-light leading-relaxed">
@@ -156,12 +199,11 @@ export default function IncineratorScene() {
           ) : (
             report && (
               <>
-                {/* CDO 修复：增加 w-full max-w-[320px] px-4 确保移动端不顶边，规范行高 */}
-                <p className={`w-full max-w-[320px] px-4 text-zinc-500 text-[13px] tracking-[0.15em] font-light leading-relaxed text-center ${isAnnihilating ? 'animate-text-burn' : ''}`}>
+                <p className={`w-full max-w-[320px] px-4 text-zinc-500 text-[13px] tracking-[0.15em] font-light leading-relaxed text-center ${burnStage === 'burning' ? 'animate-text-burn' : ''}`}>
                   {report}
                 </p>
                 
-                {!isAnnihilating && (
+                {burnStage === 'idle' && (
                   <button 
                     onClick={handleAnnihilate}
                     className="text-[11px] text-red-900/40 hover:text-red-600 transition-colors tracking-widest outline-none border border-red-900/20 px-6 py-2"
