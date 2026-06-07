@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getTraceStyleAndText, TraceDecayResult } from '../../utils/traceDecay';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWorldSummary } from '../../hooks/useWorldSummary';
+import { track } from '../../lib/track';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
