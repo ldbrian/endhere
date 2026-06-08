@@ -7,10 +7,12 @@ import { useShelterStore } from '../../store/useShelterStore';
 import { Receipt } from '../ui/Receipt'; 
 import { supabase } from '../../lib/supabase';
 import { useLanguage } from '../../hooks/useLanguage';
+import type { RuminationContext } from '../../store/useSpaceStore';
 
 export default function NostalgiaScene() {
   const setScene = useSpaceStore((state) => state.setScene);
   const setIncineratorTarget = useSpaceStore((state) => state.setIncineratorTarget);
+  const setRuminationContext = useSpaceStore((state) => state.setRuminationContext);
   
   const entries = useShelterStore((state) => state.entries);
   const updateEntry = useShelterStore((state) => state.updateEntry); 
@@ -81,6 +83,19 @@ export default function NostalgiaScene() {
   const handleTransferToIncinerator = (entry: any) => {
     setIncineratorTarget(entry);
     setScene('incinerator');
+  };
+
+  const handleRuminate = (entry: any) => {
+    const ctx: RuminationContext = {
+      entryId: entry.id,
+      receiptId: entry.receiptId,
+      originalContent: entry.content,
+      originalTimestamp: entry.timestamp,
+      mind_track: entry.mind_track || entry.punchline || entry.cleanText || '',
+      persona: entry.persona && entry.persona !== 'Manager' ? entry.persona : 'Ash',
+    };
+    setRuminationContext(ctx);
+    setScene('speaking');
   };
 
   const sortedEntries = [...entries].sort((a, b) => b.timestamp - a.timestamp);
@@ -168,13 +183,50 @@ export default function NostalgiaScene() {
                         }} 
                       />
                     </div>
-                    {/* CDO 规范：外部右下角挂载常驻操作栏 */}
-                    <button 
-                      onClick={() => handleTransferToIncinerator(entry)}
-                      className="text-[10px] text-zinc-600 hover:text-red-900/80 tracking-widest transition-colors outline-none pr-4"
-                    >
-                      [ 移交销毁 ]
-                    </button>
+
+                    {/* Patch 补丁日志：每次反刍追加，绝不覆盖原始记录 */}
+                    {entry.patches && entry.patches.length > 0 && (
+                      <div className="w-full flex flex-col gap-0">
+                        {entry.patches.map((patch: any, pi: number) => (
+                          <div key={pi} className="w-full border-t border-dashed border-zinc-700/60 pt-4 pb-4 flex flex-col gap-3 px-1">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[9px] text-zinc-600 tracking-[0.2em] font-mono opacity-70">
+                                {patch.timestamp}
+                              </span>
+                              <span className="text-[9px] text-zinc-700 tracking-[0.1em]">/ 又想起来了</span>
+                            </div>
+                            <p className="text-[12px] text-zinc-500 tracking-wider leading-relaxed whitespace-pre-wrap opacity-80">
+                              {patch.content}
+                            </p>
+                            {patch.ai_reply && (
+                              <p className="text-[11px] text-zinc-600 tracking-wider leading-relaxed whitespace-pre-wrap opacity-70 border-l border-zinc-800 pl-3">
+                                {patch.ai_reply}
+                              </p>
+                            )}
+                            {patch.mind_track && (
+                              <p className="text-[10px] text-zinc-700 tracking-[0.15em] italic opacity-60">
+                                摘要：{patch.mind_track}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* 常驻操作栏 */}
+                    <div className="flex gap-6 pr-4">
+                      <button 
+                        onClick={() => handleRuminate(entry)}
+                        className="text-[10px] text-zinc-500 hover:text-zinc-300 tracking-widest transition-colors duration-500 outline-none"
+                      >
+                        [ 我想再谈谈这件事 ]
+                      </button>
+                      <button 
+                        onClick={() => handleTransferToIncinerator(entry)}
+                        className="text-[10px] text-zinc-600 hover:text-red-900/80 tracking-widest transition-colors outline-none"
+                      >
+                        [ 移交销毁 ]
+                      </button>
+                    </div>
                   </div>
                 )}
               </motion.div>

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export interface ShelterEntry {
-  id: number | string // 🟢 放宽类型：兼容老版本的自增ID和新版本的UUID
+  id: number | string 
   timestamp: number
   createdAt?: string
   emotionStart?: number
@@ -22,7 +22,16 @@ export interface ShelterEntry {
   isSealed?: boolean
   sealedUntil?: number
   destinedItem?: any
-  type?: 'receipt' | 'virtual_item';
+  // 🟢 扩充类型：增加 life_fragment
+  type?: 'receipt' | 'virtual_item' | 'life_fragment';
+  // 反刍补丁日志
+  mind_track?: string; // 本条记录提炼出的核心情绪摘要（由 AI 生成）
+  patches?: Array<{
+    timestamp: string;   // ISO，北京时间
+    mind_track: string;  // 本次反刍的 AI 摘要
+    content: string;     // 用户本次说的话
+    ai_reply: string;    // AI 本次回复
+  }>;
 }
 
 interface ShelterState {
@@ -30,7 +39,23 @@ interface ShelterState {
   addEntry: (entry: ShelterEntry) => void
   updateEntry: (id: number | string, updates: Partial<ShelterEntry>) => void
   deleteEntry: (id: number | string) => void
-  removeEntry: (id: number | string) => void // 🟢 新增：物理抹杀方法
+  removeEntry: (id: number | string) => void 
+  addPatch: (entryId: number | string, patch: NonNullable<ShelterEntry['patches']>[number]) => void
+  ruminationContext: {
+  entryId: number | string;
+  originalContent: string;
+  originalTimestamp: number;
+  mind_track?: string;
+} | null;
+
+setRuminationContext: (
+  ctx: {
+    entryId: number | string;
+    originalContent: string;
+    originalTimestamp: number;
+    mind_track?: string;
+  } | null
+) => void;
   
   lastClaimedAt: number | null
   canClaimToday: () => boolean
@@ -62,7 +87,7 @@ export const useShelterStore = create<ShelterState>()(
       consumeMint: () => set({ hasMint: false }),
 
       addEntry: (entry) => set((state) => {
-        if (!entry || !entry.id) return state // 🟢 解除了对 number 的类型死锁
+        if (!entry || !entry.id) return state 
         
         const safeEntry = {
           ...entry,
@@ -83,16 +108,29 @@ export const useShelterStore = create<ShelterState>()(
         })
       })),
 
-      // 仅标记状态（用于老逻辑）
+      ruminationContext: null,
+
+      setRuminationContext: (ctx) =>
+        set({
+          ruminationContext: ctx
+        }),
+
       deleteEntry: (id) => set((state) => ({
         entries: state.entries.map((e) => 
           e.id === id ? { ...e, status: '已销毁' } : e
         )
       })),
 
-      // 🟢 真正的物理抹杀（用于焚烧区）
       removeEntry: (id) => set((state) => ({
         entries: state.entries.filter((e) => e.id !== id)
+      })),
+
+      addPatch: (entryId, patch) => set((state) => ({
+        entries: state.entries.map((e) =>
+          e.id === entryId
+            ? { ...e, patches: [...(e.patches || []), patch] }
+            : e
+        )
       }))
     }),
     {

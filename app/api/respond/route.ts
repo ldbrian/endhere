@@ -9,7 +9,8 @@ const client = new OpenAI({
 
 export async function POST(req: Request) {
   try {
-    const { content, emotion, persona, clientHour, memoryContext } = await req.json()
+    // 🟢 接入 history 和 isSessionEnding
+    const { content, emotion, persona, clientHour, memoryContext, history = [], isSessionEnding = false } = await req.json()
     
     const host = req.headers.get('host') || req.headers.get('x-forwarded-host') || '';
     const isEnglish = host.includes('en.') || host.includes('nightshift');
@@ -17,7 +18,6 @@ export async function POST(req: Request) {
     let finalPrompt = "";
     let userMessage = content;
 
-    // 🟢 分支 A：焚烧区的“法医扫描仪”
     if (persona === 'Scanner') {
       finalPrompt = `
 # Role
@@ -36,7 +36,6 @@ export async function POST(req: Request) {
         finalPrompt = `<CRITICAL_INSTRUCTION>\nYou are serving an English user. ENTIRE OUTPUT MUST BE IN ENGLISH. ONLY translate the forensic report into cold, clinical English.</CRITICAL_INSTRUCTION>\n${finalPrompt}`;
       }
     } 
-    // 🟢 分支 B：门厅的“避难所店员”
     else {
       const hour = typeof clientHour === 'number' ? clientHour : new Date().getHours()
       const timeContext = `当前小时：${hour}`
@@ -49,11 +48,33 @@ export async function POST(req: Request) {
 
       let basePrompt = BASE_PERSONAS[persona] || BASE_PERSONAS['Rin'];
 
-      const FORMAT_RULE = `\n\n【强制输出格式】(必须严格遵守，否则系统崩溃)：
-先输出对客人的对话正文（必须带动作描写）。然后在最后另起三行严格输出以下内容：
+      // 🟢 核心：多轮心流与红线控制
+      let FORMAT_RULE = `\n\n【交互红线（极其严格）】：
+1. 扮演你的角色倾听用户。绝对禁止主动向用户发起提问（如“后来怎么样了？”）。
+2. 禁止输出“不要难过”、“都会好起来的”等说教套话。
+3. 通过复述和确认用户的感受来做出回应。`;
+
+      if (isSessionEnding) {
+        // 第 5 轮：强制退场并生成物品
+        const EXIT_TEXTS: Record<string, string> = {
+          Ash: "不说了，吧台那边有客人叫我，我先去忙。桌上的情绪收据记得拿走。",
+          Rin: "对不起啊，货架那边的夜间理货清单还没对完，我得过去了。今天就先聊到这吧。",
+          Child: "外面好像完全黑了，我再不回家阿嬷要骂了。我要走啦，这个给你。"
+        };
+        const exitText = EXIT_TEXTS[persona] || EXIT_TEXTS['Rin'];
+
+        FORMAT_RULE += `\n\n【结单红线指令】：这是对话的最后一轮。
+你的回复结尾必须强制拼接以下退场理由结束对话：
+"${exitText}"
+并且在最后另起三行严格输出以下物品生成内容（严格遵守，不要有其他解释）：
 ID: [broken_scale, cracked_bowl, rusty_anchor 选1]
 NAME: [物品名称，符合角色性格]
 DESC: [15字以内的物品描述]`;
+      } else {
+        // 正常轮次：禁止生成物品
+        FORMAT_RULE += `\n\n【继续对话指令】：对话还在继续。
+绝对禁止生成物品（不要输出 ID/NAME/DESC）。`;
+      }
 
       finalPrompt = basePrompt + FORMAT_RULE + (memoryContext ? `\n\n${memoryContext}` : "");
 
@@ -71,15 +92,20 @@ FATAL SYSTEM ERROR IF ANY CHINESE CHARACTER IS OUTPUTTED.
       }
     }
 
+    // 🟢 组装对话上下文发送给大模型
+    const apiHistory = history.map((h: any) => ({ role: h.role, content: h.content }));
+    const messages: any[] = [
+      { role: 'system', content: finalPrompt },
+      ...apiHistory,
+      { role: 'user', content: userMessage },
+    ];
+
     const stream = await client.chat.completions.create({
       model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: finalPrompt },
-        { role: 'user', content: userMessage },
-      ],
+      messages: messages,
       stream: true,
-      max_tokens: 400,
-      temperature: persona === 'Scanner' ? 0.3 : 0.85, // 扫描仪需要低温度（更理性）
+      max_tokens: 450,
+      temperature: persona === 'Scanner' ? 0.3 : 0.85, 
     })
 
     const encoder = new TextEncoder()
@@ -92,9 +118,7 @@ FATAL SYSTEM ERROR IF ANY CHINESE CHARACTER IS OUTPUTTED.
           }
         } catch (streamErr) {
           console.error('[Stream Error]', streamErr)
-          const fallback = isEnglish 
-            ? '\n(Connection lost.)' 
-            : '\n（信号有些不好，连接中断。）';
+          const fallback = isEnglish ? '\n(Connection lost.)' : '\n（信号有些不好，连接中断。）';
           controller.enqueue(encoder.encode(fallback))
         } finally {
           controller.close()
