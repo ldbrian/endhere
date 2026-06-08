@@ -10,7 +10,6 @@ import { track } from '../../lib/track';
 import { useWorldSummary } from '../../hooks/useWorldSummary';
 import { useLanguage } from '../../hooks/useLanguage';
 
-// 🟢 CDO 规范：补齐店长与情绪锚点
 const PERSONAS = [
   { id: 'Manager', label: '店长' },
   { id: 'Ash', label: 'Ash (调酒师)' },
@@ -21,6 +20,9 @@ const PERSONAS = [
 const EMOTION_ANCHORS = ['感到疲惫', '无法平静', '觉得一切毫无意义', '只是想骂人'];
 
 const parseAiResponse = (rawText: string) => {
+  const mindMatch = rawText.match(/<mind>([\s\S]*?)<\/mind>/);
+  const mind_track = mindMatch ? mindMatch[1].trim() : null;
+
   const itemRegex = /ID:\s*(\w+)\s*NAME:\s*([^\sDESC:]+)\s*DESC:\s*(.+)/;
   const match = rawText.match(itemRegex);
   let clean = rawText;
@@ -29,7 +31,7 @@ const parseAiResponse = (rawText: string) => {
     clean = rawText.replace(itemRegex, '').trim();
     item = { id: match[1], name: match[2], desc: match[3] };
   }
-  return { cleanText: clean, item };
+  return { cleanText: clean, item, mind_track };
 };
 
 export default function SpeakingScene() {
@@ -64,7 +66,8 @@ export default function SpeakingScene() {
     }
   }, [history, currentAiText]);
 
-  const finalizeReceipt = (finalAiText: string, parsedItem: any) => {
+  // 🟢 CTO 修复：接收 mindTrack 参数，并补充缺失的类型字段以通过 TS 编译
+  const finalizeReceipt = (finalAiText: string, parsedItem: any, mindTrack: string | null = null) => {
     const fullUserMessage = history.filter(h => h.role === 'user').map(h => h.content).join('\n\n');
     
     const entryData = {
@@ -74,6 +77,7 @@ export default function SpeakingScene() {
       persona: persona,
       cleanText: finalAiText,
       item: parsedItem,
+      mind_track: mindTrack || '', // 保证非 undefined
       timestamp: Date.now(),
       status: '待处理',
       createdAt: new Date().toISOString()
@@ -84,7 +88,8 @@ export default function SpeakingScene() {
       addPatch(ruminationContext.entryId, {
         timestamp: bjTimestamp,
         content: fullUserMessage,
-        ai_reply: finalAiText
+        ai_reply: finalAiText,
+        mind_track: mindTrack || '' // 🟢 补齐 Store 要求的类型签名
       });
       setRuminationContext(null);
     } else {
@@ -112,7 +117,7 @@ export default function SpeakingScene() {
     setHistory(newHistory);
     setText('');
     
-    // 店长路线 (纯前端硬编码退场 + 数据库静默写入)
+    // 🟢 CTO 修复：店长路线补充反刍补丁逻辑及类型补齐
     if (persona === 'Manager') {
       const exitText = '……话说完了就出去吧。单据在桌上，自己拿。';
       const fullUserMessage = newHistory.filter(h => h.role === 'user').map(h => h.content).join('\n\n');
@@ -124,12 +129,24 @@ export default function SpeakingScene() {
         persona: 'Manager',
         cleanText: exitText,
         item: null,
+        mind_track: '',
         timestamp: Date.now(),
         status: '待处理',
         createdAt: new Date().toISOString()
       };
       
-      addEntry(entryData);
+      if (ruminationContext) {
+        const bjTimestamp = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+        addPatch(ruminationContext.entryId, {
+          timestamp: bjTimestamp,
+          content: fullUserMessage,
+          ai_reply: exitText,
+          mind_track: ''
+        });
+        setRuminationContext(null);
+      } else {
+        addEntry(entryData);
+      }
       
       supabase.from('manager_mailbox').insert([{ 
         receipt_id: entryData.receiptId, 
@@ -143,7 +160,6 @@ export default function SpeakingScene() {
       return; 
     }
 
-    // AI 路线：正常进入大模型流式请求
     setIsTyping(true);
     const isEnding = isForcedEnd || nextTurn >= 5;
 
@@ -187,21 +203,21 @@ export default function SpeakingScene() {
       setHistory([...newHistory, { id: crypto.randomUUID(), role: 'assistant', content: finalParsed.cleanText }]);
 
       if (isEnding) {
-        finalizeReceipt(finalParsed.cleanText, finalParsed.item);
+        // 🟢 CTO 修复：透传解析出的 mind_track
+        finalizeReceipt(finalParsed.cleanText, finalParsed.item, finalParsed.mind_track);
       }
 
     } catch (error) {
       setIsTyping(false);
       const fallback = '信号中断了...';
       setHistory([...newHistory, { id: crypto.randomUUID(), role: 'assistant', content: fallback }]);
-      if (isEnding) finalizeReceipt(fallback, null);
+      if (isEnding) finalizeReceipt(fallback, null, '');
     }
   };
 
   return (
     <div className="relative w-full h-[100dvh] flex flex-col bg-transparent overflow-hidden select-none font-mono">
       
-      {/* 顶部返回导航 */}
       {step === 'chat' && (
         <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-[#030303] via-[#030303]/80 to-transparent z-20 pointer-events-none flex items-start p-8">
           <button
@@ -209,7 +225,7 @@ export default function SpeakingScene() {
               setRuminationContext(null);
               setScene('entrance');
             }}
-            className="absolute top-10 left-8 tracking-[0.2em] text-[11px] text-zinc-600 hover:text-zinc-300 transition-colors duration-500 outline-none pointer-events-auto mt-2"
+            className="tracking-[0.2em] text-[11px] text-zinc-600 hover:text-zinc-300 transition-colors duration-500 outline-none pointer-events-auto mt-2"
           >
             {lang.HOME.back}
           </button>
@@ -218,11 +234,9 @@ export default function SpeakingScene() {
 
       <AnimatePresence mode="wait">
         {step === 'chat' ? (
-          // 🟢 布局修复：加大侧边距与底部留白，彻底释放空间
-          <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col pt-12 pb-24 px-6 md:px-12 relative">
+          <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col pt-12 pb-24 relative">
             
-            {/* 聊天瀑布流 */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto pb-6 [&::-webkit-scrollbar]:hidden relative z-10">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 pb-6 [&::-webkit-scrollbar]:hidden relative z-10">
               <div className="w-full h-24 shrink-0 pointer-events-none" /> 
 
               <div className="max-w-2xl mx-auto flex flex-col gap-8">
@@ -237,7 +251,7 @@ export default function SpeakingScene() {
 
                 {history.map((msg) => (
                   <div key={msg.id} className={`w-full flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <p className={`text-[14px] md:text-base tracking-widest leading-loose font-light max-w-[85%] whitespace-pre-wrap ${msg.role === 'user' ? 'text-zinc-500 text-right' : 'text-zinc-300 text-left'}`}>
+                    <p className={`text-[14px] md:text-base tracking-widest leading-loose font-light max-w-[100%] whitespace-pre-wrap ${msg.role === 'user' ? 'text-zinc-500 text-right' : 'text-zinc-300 text-left'}`}>
                       {msg.content}
                     </p>
                   </div>
@@ -245,7 +259,7 @@ export default function SpeakingScene() {
 
                 {isTyping && (
                   <div className="w-full flex justify-start">
-                    <p className="text-zinc-300 text-[14px] md:text-base tracking-widest leading-loose font-light max-w-[85%] whitespace-pre-wrap">
+                    <p className="text-zinc-300 text-[14px] md:text-base tracking-widest leading-loose font-light max-w-[100%] whitespace-pre-wrap">
                       {currentAiText || <span className="animate-pulse text-zinc-600 text-[12px]">...</span>}
                     </p>
                   </div>
@@ -253,13 +267,11 @@ export default function SpeakingScene() {
               </div>
             </div>
 
-            {/* 🟢 布局修复：底部复合体块，追加 mb-8 md:mb-12 让其完全悬空 */}
-            <div className="shrink-0 z-30 mb-10 w-full px-8 box-border">
+            <div className="shrink-0 w-full max-w-2xl mx-auto z-30 mb-8 md:mb-12 px-8">
               <div className="flex flex-col w-full">
                 
                 {turnCount === 0 && history.length === 0 && (
                   <>
-                    {/* 1. 情绪标签行：加大换行安全距 (gap-y-5) */}
                     <div className="flex flex-wrap gap-x-6 gap-y-5 mb-10">
                       {EMOTION_ANCHORS.map(anchor => (
                         <button 
@@ -272,7 +284,6 @@ export default function SpeakingScene() {
                       ))}
                     </div>
 
-                    {/* 2. NPC 选择器：同样加大物理间距 */}
                     <div className="flex flex-wrap gap-x-6 gap-y-5 mb-8">
                       {PERSONAS.map(p => (
                         <button 
@@ -287,7 +298,6 @@ export default function SpeakingScene() {
                   </>
                 )}
 
-                {/* 3. 输入框与发送：扩大顶部留白 (pt-8)，拉高输入框高度 (h-20) */}
                 <div className="flex items-end gap-6 w-full border-t border-zinc-800/30 pt-8">
                   <textarea
                     autoFocus
@@ -298,7 +308,7 @@ export default function SpeakingScene() {
                     placeholder={isTyping ? "..." : (turnCount === 0 ? "在这里写下吧..." : "继续说...")}
                     className="flex-1 h-20 bg-transparent outline-none resize-none font-mono text-zinc-400 caret-zinc-500 text-[14px] md:text-base tracking-widest placeholder:text-zinc-700/50 leading-relaxed"
                   />
-                  <div className="flex flex-col gap-4 pb-2">
+                  <div className="flex flex-col gap-4 pb-2 shrink-0">
                     <button onClick={() => handleSend(false)} disabled={isTyping || !text.trim()} className="text-[13px] text-zinc-500 hover:text-zinc-300 disabled:opacity-30 tracking-[0.2em] outline-none text-right whitespace-nowrap">
                       [ 发送 ]
                     </button>
@@ -315,8 +325,7 @@ export default function SpeakingScene() {
 
           </motion.div>
         ) : (
-          /* 小票结算期 */
-          <motion.div key="receipt" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full h-full flex flex-col items-center justify-center overflow-y-auto px-6 py-24">
+          <motion.div key="receipt" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full h-full flex flex-col items-center justify-center overflow-y-auto px-8 py-24">
             <div className="w-full max-w-[400px] mx-auto flex flex-col items-center">
               
               {aiItem && !ruminationContext && persona !== 'Manager' && (
