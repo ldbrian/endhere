@@ -66,7 +66,6 @@ export default function SpeakingScene() {
     }
   }, [history, currentAiText]);
 
-  // 🟢 CTO 修复：接收 mindTrack 参数，并补充缺失的类型字段以通过 TS 编译
   const finalizeReceipt = (finalAiText: string, parsedItem: any, mindTrack: string | null = null) => {
     const fullUserMessage = history.filter(h => h.role === 'user').map(h => h.content).join('\n\n');
     
@@ -77,7 +76,7 @@ export default function SpeakingScene() {
       persona: persona,
       cleanText: finalAiText,
       item: parsedItem,
-      mind_track: mindTrack || '', // 保证非 undefined
+      mind_track: mindTrack || '',
       timestamp: Date.now(),
       status: '待处理',
       createdAt: new Date().toISOString()
@@ -89,7 +88,7 @@ export default function SpeakingScene() {
         timestamp: bjTimestamp,
         content: fullUserMessage,
         ai_reply: finalAiText,
-        mind_track: mindTrack || '' // 🟢 补齐 Store 要求的类型签名
+        mind_track: mindTrack || ''
       });
       setRuminationContext(null);
     } else {
@@ -117,7 +116,6 @@ export default function SpeakingScene() {
     setHistory(newHistory);
     setText('');
     
-    // 🟢 CTO 修复：店长路线补充反刍补丁逻辑及类型补齐
     if (persona === 'Manager') {
       const exitText = '……话说完了就出去吧。单据在桌上，自己拿。';
       const fullUserMessage = newHistory.filter(h => h.role === 'user').map(h => h.content).join('\n\n');
@@ -164,7 +162,7 @@ export default function SpeakingScene() {
     const isEnding = isForcedEnd || nextTurn >= 5;
 
     try {
-      const anchorContext = activeAnchor && nextTurn === 1 ? `[系统：用户带着情绪标签：“${activeAnchor}”。]\n` : '';
+      const anchorContext = activeAnchor && nextTurn === 1 ? `[系统：用户带着情绪标签："${activeAnchor}"。]\n` : '';
       const ruminCtxStr = ruminationContext && nextTurn === 1
         ? `[系统：用户目前正在反刍一张过去的记录。他过去说："${ruminationContext.originalContent}"。请基于此倾听他现在的感受。]\n` : '';
       
@@ -203,7 +201,6 @@ export default function SpeakingScene() {
       setHistory([...newHistory, { id: crypto.randomUUID(), role: 'assistant', content: finalParsed.cleanText }]);
 
       if (isEnding) {
-        // 🟢 CTO 修复：透传解析出的 mind_track
         finalizeReceipt(finalParsed.cleanText, finalParsed.item, finalParsed.mind_track);
       }
 
@@ -216,16 +213,16 @@ export default function SpeakingScene() {
   };
 
   return (
-    <div className="relative w-full h-[100dvh] flex flex-col bg-transparent overflow-hidden select-none font-mono">
+    <div style={{ paddingLeft: '24px', paddingRight: '24px' }} className="relative w-full h-[100dvh] flex flex-col bg-transparent overflow-hidden select-none font-mono">
       
       {step === 'chat' && (
-        <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-[#030303] via-[#030303]/80 to-transparent z-20 pointer-events-none flex items-start p-8">
+        <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-[#030303] via-[#030303]/80 to-transparent z-20 pointer-events-none">
           <button
             onClick={() => {
               setRuminationContext(null);
               setScene('entrance');
             }}
-            className="tracking-[0.2em] text-[11px] text-zinc-600 hover:text-zinc-300 transition-colors duration-500 outline-none pointer-events-auto mt-2"
+            className="absolute top-10 left-8 tracking-[0.2em] text-[11px] text-zinc-600 hover:text-zinc-300 transition-colors duration-500 outline-none pointer-events-auto"
           >
             {lang.HOME.back}
           </button>
@@ -236,7 +233,7 @@ export default function SpeakingScene() {
         {step === 'chat' ? (
           <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col pt-12 pb-24 relative">
             
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 pb-6 [&::-webkit-scrollbar]:hidden relative z-10">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto pb-6 [&::-webkit-scrollbar]:hidden relative z-10">
               <div className="w-full h-24 shrink-0 pointer-events-none" /> 
 
               <div className="max-w-2xl mx-auto flex flex-col gap-8">
@@ -267,12 +264,12 @@ export default function SpeakingScene() {
               </div>
             </div>
 
-            <div className="shrink-0 w-full max-w-2xl mx-auto z-30 mb-8 md:mb-12 px-8">
+            <div className="shrink-0 w-full max-w-2xl mx-auto z-30 mb-8 md:mb-12">
               <div className="flex flex-col w-full">
                 
                 {turnCount === 0 && history.length === 0 && (
                   <>
-                    <div className="flex flex-wrap gap-x-6 gap-y-5 mb-10">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '32px' }}>
                       {EMOTION_ANCHORS.map(anchor => (
                         <button 
                           key={anchor} 
@@ -284,7 +281,7 @@ export default function SpeakingScene() {
                       ))}
                     </div>
 
-                    <div className="flex flex-wrap gap-x-6 gap-y-5 mb-8">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '32px' }}>
                       {PERSONAS.map(p => (
                         <button 
                           key={p.id} 
@@ -298,7 +295,7 @@ export default function SpeakingScene() {
                   </>
                 )}
 
-                <div className="flex items-end gap-6 w-full border-t border-zinc-800/30 pt-8">
+                <div className="flex items-end gap-6 w-full border-t border-zinc-800/30 pt-6 mt-2">
                   <textarea
                     autoFocus
                     disabled={isTyping}
@@ -325,7 +322,7 @@ export default function SpeakingScene() {
 
           </motion.div>
         ) : (
-          <motion.div key="receipt" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full h-full flex flex-col items-center justify-center overflow-y-auto px-8 py-24">
+          <motion.div key="receipt" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full h-full flex flex-col items-center justify-center overflow-y-auto px-10 py-24">
             <div className="w-full max-w-[400px] mx-auto flex flex-col items-center">
               
               {aiItem && !ruminationContext && persona !== 'Manager' && (
