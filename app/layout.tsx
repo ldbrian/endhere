@@ -40,7 +40,7 @@ export default function RootLayout({
         <DataMigrator />
         
         {/* 清理了旧版的 style 内联样式和重复挂载的 WorldEngine */}
-        <main className="min-h-screen flex items-center justify-center">
+        <main className="w-full">
           {children}
         </main>
       </body>

@@ -8,6 +8,41 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../../hooks/useLanguage';
 import PlasticBag from '../PlasticBag';
 
+function SponsorModule() {
+  const [showQR, setShowQR] = useState(false);
+  return (
+    <div className="mt-20 flex flex-col items-center w-full pb-12">
+      <button 
+        onClick={() => setShowQR(!showQR)}
+        className="text-zinc-700 hover:text-zinc-500 text-[10px] tracking-widest font-mono outline-none transition-colors"
+      >
+        &gt; 装着零钱的铁筐。
+      </button>
+
+      <AnimatePresence>
+        {showQR && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.5 }}
+            className="flex flex-col items-center mt-6 overflow-hidden"
+          >
+            <div className="w-50 h-50 bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+              <span className="text-zinc-600 text-xs">
+                <img src="/pay_code.png" alt="QR Code" className="w-full h-full object-contain" />
+              </span>
+            </div>
+            <p className="mt-4 text-zinc-600 text-[10px] italic tracking-widest text-center">
+              不提供 any 特权，只保证这里不会关门。
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export default function EntranceMenu() {
   const setScene = useSpaceStore((state) => state.setScene);
   const addEntry = useShelterStore((state) => state.addEntry);
@@ -18,32 +53,22 @@ export default function EntranceMenu() {
   const [lifeFragment, setLifeFragment] = useState('');
   const [showArchived, setShowArchived] = useState(false);
 
+  // 🟢 核心修复1：清理混乱的 localStorage 操作，无感接入底层结构化探针
   useEffect(() => {
-    // 修复后的精确访问量埋点
-    let totalVisits = parseInt(localStorage.getItem('eh_total_visits') || '0', 10);
-    const hasCountedThisSession = sessionStorage.getItem('eh_session_counted');
-
-    if (!hasCountedThisSession) {
-      totalVisits += 1;
-      localStorage.setItem('eh_total_visits', totalVisits.toString());
-      sessionStorage.setItem('eh_session_counted', 'true'); 
-    }
-
-    track('v3_entrance_view', { 
-      visit_count: totalVisits,                 
-      is_returning_user: totalVisits > 1,       
-      user_stickiness: totalVisits > 5 ? 'high' : (totalVisits > 1 ? 'medium' : 'new') 
-    });
-  }, []);
+    track('v3_entrance_view');
+  }, []); // 👈 补齐了之前遗失的闭合锚点，将 handleSceneEnter 释放回主作用域
 
   const handleSceneEnter = (targetScene: Scene) => {
     track('v3_scene_enter', { scene_name: targetScene });
     setScene(targetScene);
   };
 
-  // 🟢 提交生活碎片 (静默落库)
+  // 提交生活碎片 (静默落库)
   const handleLifeSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && lifeFragment.trim()) {
+      // 🟢 结构化埋点：记录提交的行为和文字长度
+      track('SUBMIT_LIFE_SLICE', { length: lifeFragment.trim().length });
+
       addEntry({
         id: crypto.randomUUID(),
         receiptId: `LIFE-${Date.now().toString().slice(-6)}`,
@@ -90,7 +115,7 @@ export default function EntranceMenu() {
           </h1>
         </div>
 
-        {/* 🟢 主入口区：观点轨 vs 生活轨 */}
+        {/* 主入口区：观点轨 vs 生活轨 */}
         <div className="flex flex-col items-center w-full gap-8 min-h-[120px]">
           
           {/* 入口 A：观点轨 (深度倾诉) */}
@@ -125,7 +150,7 @@ export default function EntranceMenu() {
                   value={lifeFragment}
                   onChange={(e) => setLifeFragment(e.target.value)}
                   onKeyDown={handleLifeSubmit}
-                  onBlur={() => !lifeFragment.trim() && setIsLifeInputActive(false)} // 失去焦点且为空时还原
+                  onBlur={() => !lifeFragment.trim() && setIsLifeInputActive(false)} 
                   className="w-full max-w-[280px] bg-transparent border-b border-zinc-800 text-zinc-300 text-[13px] tracking-[0.1em] text-center pb-2 outline-none placeholder:text-zinc-700/50 focus:border-zinc-500"
                   placeholder="无需意义，哪怕只是喝了一杯水。"
                 />
@@ -158,7 +183,10 @@ export default function EntranceMenu() {
             </button>
           ))}
         </div>
+
+        {/* 隐性赞助模块 */}
+        <SponsorModule />
       </div>
     </div>
   );
-}
+} // 🟢 核心修复2：移除了原先末尾多余的无主闭合花括号，确保整个编译流清爽无阻

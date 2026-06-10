@@ -213,7 +213,7 @@ export default function SpeakingScene() {
   };
 
   return (
-    <div style={{ paddingLeft: '24px', paddingRight: '24px' }} className="relative w-full h-[100dvh] flex flex-col bg-transparent overflow-hidden select-none font-mono">
+    <div className="relative w-full h-[100dvh] flex flex-col bg-transparent overflow-hidden select-none font-mono">
       
       {step === 'chat' && (
         <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-[#030303] via-[#030303]/80 to-transparent z-20 pointer-events-none">
@@ -231,7 +231,7 @@ export default function SpeakingScene() {
 
       <AnimatePresence mode="wait">
         {step === 'chat' ? (
-          <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col pt-12 pb-24 relative">
+          <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ paddingLeft: '32px', paddingRight: '32px' }} className="w-full h-full flex flex-col pt-12 pb-24 relative">
             
             <div ref={scrollRef} className="flex-1 overflow-y-auto pb-6 [&::-webkit-scrollbar]:hidden relative z-10">
               <div className="w-full h-24 shrink-0 pointer-events-none" /> 
@@ -264,7 +264,7 @@ export default function SpeakingScene() {
               </div>
             </div>
 
-            <div className="shrink-0 w-full max-w-2xl mx-auto z-30 mb-8 md:mb-12">
+            <div className="shrink-0 w-full max-w-2xl mx-auto z-30 mb-16 md:mb-20">
               <div className="flex flex-col w-full">
                 
                 {turnCount === 0 && history.length === 0 && (
@@ -305,7 +305,7 @@ export default function SpeakingScene() {
                     placeholder={isTyping ? "..." : (turnCount === 0 ? "在这里写下吧..." : "继续说...")}
                     className="flex-1 h-20 bg-transparent outline-none resize-none font-mono text-zinc-400 caret-zinc-500 text-[14px] md:text-base tracking-widest placeholder:text-zinc-700/50 leading-relaxed"
                   />
-                  <div className="flex flex-col gap-4 pb-2 shrink-0">
+                  <div className="flex flex-col gap-4 shrink-0 justify-center">
                     <button onClick={() => handleSend(false)} disabled={isTyping || !text.trim()} className="text-[13px] text-zinc-500 hover:text-zinc-300 disabled:opacity-30 tracking-[0.2em] outline-none text-right whitespace-nowrap">
                       [ 发送 ]
                     </button>

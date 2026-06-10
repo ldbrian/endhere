@@ -112,13 +112,13 @@ export default function NostalgiaScene() {
       
       <button
         onClick={() => setScene('entrance')}
-        className="absolute top-12 left-6 md:left-12 tracking-[0.2em] text-[13px] text-zinc-600 opacity-60 hover:opacity-100 hover:text-zinc-400 transition-all duration-700 outline-none z-30 cursor-pointer block"
+        className="absolute top-10 left-8 tracking-[0.2em] text-[11px] text-zinc-600 hover:text-zinc-300 transition-colors duration-500 outline-none z-30 cursor-pointer"
       >
         {lang.HOME.back}
       </button>
 
-      <div className="absolute inset-0 overflow-y-auto z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col items-center">
-        <div className="w-full max-w-[400px] flex flex-col items-center gap-10 pt-0 pb-40 px-5">
+      <div className="absolute inset-0 overflow-y-auto z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col items-center" style={{ paddingLeft: '32px', paddingRight: '32px' }}>
+        <div className="w-full max-w-[400px] flex flex-col items-center gap-10 pt-0 pb-40">
           
           <div style={{ height: "140px", flexShrink: 0 }} />
 

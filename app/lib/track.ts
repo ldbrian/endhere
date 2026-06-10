@@ -1,35 +1,52 @@
-export async function track(event_name: string, properties: Record<string, any> = {}) {
+import { supabase } from './supabase';
+
+export const track = async (eventName: string, properties: Record<string, any> = {}) => {
+  if (typeof window === 'undefined') return;
+
   try {
-    // 1. 在前端静默抓取用户的本地访问次数 (加个 window 判断防 SSR 报错)
-    let visitCount = 1;
-    if (typeof window !== 'undefined') {
-      visitCount = parseInt(localStorage.getItem('endhere_visit_count') || '1', 10);
+    // 🟢 1. 匿名设备指纹：哪怕不登录，也能精准统计真实物理设备数 (UV)
+    let deviceId = localStorage.getItem('eh_device_id');
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem('eh_device_id', deviceId);
     }
 
-    // 2. 把 visitCount 缝合进埋点属性里
-    const enrichedProperties = {
+    // 🟢 2. 会话与访问次数防抖：解决你之前的新老用户误判问题
+    let visitCount = parseInt(localStorage.getItem('eh_total_visits') || '0', 10);
+    const hasCountedThisSession = sessionStorage.getItem('eh_session_counted');
+
+    if (!hasCountedThisSession) {
+      visitCount += 1;
+      localStorage.setItem('eh_total_visits', visitCount.toString());
+      sessionStorage.setItem('eh_session_counted', 'true');
+    }
+
+    // 访问次数 > 1 即为回头客
+    const isReturningUser = visitCount > 1;
+
+    // 🟢 3. 组装强化的 Payload
+    const enrichedPayload = {
       ...properties,
-      visitCount,
+      url: window.location.pathname,
+      screen_width: window.innerWidth, // 顺手带上设备屏幕宽度，方便以后做移动端适配分析
     };
 
-    // 3. 发送给后端
-    await fetch('/api/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_name, properties: enrichedProperties }),
-      // CTO 核心补丁：确保组件卸载、页面关闭时，fetch 请求不会被浏览器强行终止
-      keepalive: true, 
-    })
-  } catch {
-    // 埋点失败不影响主流程
-  }
-}
+    // 开发环境：在控制台静默打印，方便 debug
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Supabase Tracker] ${eventName}`, { deviceId, visitCount, isReturningUser, ...enrichedPayload });
+    }
 
-export async function checkLimit(): Promise<{ allowed: boolean; count?: number; limit?: number }> {
-  try {
-    const res = await fetch('/api/check-limit', { method: 'POST' })
-    return await res.json()
-  } catch {
-    return { allowed: true }
+    // 🟢 4. 异步落库（不阻塞主线程）
+    await supabase.from('visit_logs').insert([{
+      device_id: deviceId,
+      event_name: eventName,
+      is_returning: isReturningUser,
+      visit_count: visitCount,
+      payload: enrichedPayload,
+      // created_at 会由数据库默认生成
+    }]);
+
+  } catch (e) {
+    console.warn('[Telemetry Warning] Failed to log event:', e);
   }
-}
+};
