@@ -1,31 +1,21 @@
-# Product Strategy - 《End Here》产品哲学与战略红线
+Product Strategy - 《End Here》产品哲学与战略红线 (v3.2)
+1. 核心定位与护城河：状态观测仪与真人 IP
+[ZH] 情绪为入口，生活为证据（Dual-Track System）：全面运行“观点轨（Mind）”与“生活轨（Life）”双轨制。废除单一的树洞发泄，将产品价值升维至“私人痕迹的编年史记录”。
 
-# Product Strategy - "End Here" Product Philosophy & Strategic Redlines
+[ZH] 真人 IP 与物理现实映射（Founder IP & Reality Mapping）：产品的最高壁垒是创始人的物理存在感。通过“店长动态”（如杭州街头的真实白描、网约车后座的见闻反馈），在虚拟避难所中建立不可复制的温度锚点。打破纯工具的冷漠，建立极高净值的用户信任。
 
-## 1. 核心定位：状态观测仪而非情绪急救包
+[EN] Founder IP & Reality Mapping: The ultimate moat is the founder's physical presence. Through the "Shopkeeper Dynamics", we establish an irreplaceable emotional anchor, breaking the coldness of pure tools and building high-net-worth user trust.
 
-## 1. Core Positioning: State Observatory, Not an Emotional First-Aid Kit
+2. 交互与空间哲学：极简、克制与零压力
+[ZH] 极简急诊分诊台（Minimalist Triage）：首页废除臃肿元素与具象化 3D 头像（Memoji），仅保留极简双轨入口与高饱和度警示色（亮黄色呼吸灯 bg-yellow-500）。保持废土美学的高级感。
 
-* **[ZH] 情绪为入口，生活为证据（Dual-Track System）**：全面引入“观点轨（Mind）”与“生活轨（Life）”双轨制。产品核心价值从“安抚情绪”升级为“记录个人的长期状态演化”。
-* **[EN] Emotion as Entrance, Life as Evidence**：Fully implement the Dual-Track System consisting of the "Mind Track" and "Life Track". The product's core value upgrades from "soothing emotions" to "recording the long-term evolution of personal states".
-* **[ZH] 零评价红线（Zero-Judgment Policy）**：AI 绝对禁止输出“你成长了”、“你变强了”等价值判断词汇，不贩卖成长焦虑。只做历史快照的客观对比呈现（“第一次来时你经常说... 最近你开始做...”）。系统彻底废除任何情绪分值（Score）、打卡或积分体系。
-* **[EN] Zero-Judgment Policy**：AI is strictly forbidden from outputting value-judging phrases like "you have grown" or "you are stronger", eliminating growth anxiety. Only objective comparisons of historical snapshots are presented. The system completely abolishes any emotional scoring, check-ins, or point systems.
+[ZH] 去语义化互动（De-semanticized Interaction）：彻底封杀点赞、评论与社交媒体式的表态。店长动态仅支持隐形点击，并触发极弱的 [ 谢谢。 ] Toast 提示。只确认彼此存在，不制造任何社交评判压力。
 
-## 2. 交互与空间哲学
+[ZH] 模糊时间轴（Fuzzy Time Buckets）：在“我的痕迹”中彻底废除精确时间戳。采用 [ 刚刚 ]、[ 几天前 ] 等模糊标头，辅以无图标差异化排版（生活碎片左边框引用块），还原人类记忆的粗糙感与沧桑感。
 
-## 2. Interaction & Spatial Philosophy
+[EN] De-semanticized Interaction: Completely ban likes, comments, and social media-style expressions. Interactions are reduced to invisible clicks triggering a faint [ Thank you. ] toast, confirming existence without creating social pressure.
 
-* **[ZH] 极简急诊分诊台（Minimalist Triage）**：首页废除世界观底噪展示，仅提供平权的极简入口（情绪倾诉入口与极简生活碎片录入）。降低用户的表露门槛与社交压力。
-* **[ZH] 世界的呼吸与共存感（Respiration & Co-existence）**：漫游区（Roaming Zone）定义为“痕迹博物馆”。所有实体（木凳、铁筐、植物、墙壁涂鸦）必须遵循“产生-衰减-残骸-遗忘”的生命周期。时间流逝不以人的意志为转移。
-* **[EN] Minimalist Triage**：The homepage abolishes world-building background noise, providing only egalitarian minimalist entries (emotional venting and minimalist life fragment recording). This lowers the user's expression threshold and social pressure.
-* **[EN] Respiration & Co-existence**：The Roaming Zone is defined as a "Trace Museum". All physical entities (stool, basket, plant, wall graffiti) must follow a lifecycle of "Spawn-Decay-Remains-Void". The passage of time operates independently of human will.
+3. 告别与共存协议
+[ZH] 灰烬变异机制（Incinerated Ashes）：怀念区与销毁区彻底分离。被销毁的痕迹不执行“无痕消失”，而是坍缩为不可交互的 [ 💨 几克碳化的灰烬 ]。完成对痛苦释放的视觉确权与物质守恒隐喻。
 
-## 3. 告别与反刍协议
-
-## 3. Farewell & Rumination Protocols
-
-* **[ZH] 怀念与销毁分离**：怀念区（Archive）作为绝对安全的只读记忆库；销毁区（Incinerator）作为不可逆的物理抹除终点。两者不可混用。
-* **[ZH] 情绪反刍支持（Rumination Support）**：允许用户唤醒历史情绪小票，进行基于历史上下文的二次镜像对话，并以补丁日志的形式追加记录，呈现情绪的反复与最终释怀。
-* **[EN] Separation of Nostalgia and Destruction**：The Archive serves as an absolutely safe, read-only memory bank; the Incinerator serves as the endpoint of irreversible physical erasure. The two must never be mixed.
-* **[EN] Rumination Support**：Allow users to awaken historical emotion receipts for secondary mirroring conversations based on historical context. Records are appended as patch logs, displaying the recurrence of emotions and ultimate relief.
-
+[ZH] 铁筐半开放置换（Iron Basket Protocol）：漫游区铁筐遵循“系统控制物理壳，用户注入生活魂”的原则。产生-衰减-残骸-遗忘的生命周期由 24 小时冷却锁严格限制，制造极端的“行为稀缺性”。

@@ -23,3 +23,16 @@
 * **[ZH/EN] 旧数据冗余表 (Redundant Data Tables)**: 物理删除了 `physical_traces`、`world_timeline_logs` 等表，全面收归至 ECS `entity_components`。/ Physically deleted legacy tables, fully consolidating into ECS `entity_components`.
 * **[ZH/EN] 情绪分值系统 (Emotional Scoring System)**: 彻底斩断对用户情感的数字化评判。/ Completely severed digital evaluation of user emotions.
 
+
+[ZH/EN] 漫游区网格化重构 (Roaming Area Grid Refactoring): 彻底铲除漫游区的无序绝对定位，引入严格的 CSS 九宫格坐标与痕迹轮播状态机，解决文字重叠灾难。/ Eradicated chaotic absolute positioning in the Roaming Zone, introducing a strict CSS grid and trace carousel state machine to solve text overlap disasters.
+
+[ZH/EN] 视觉降噪与质感重塑 (Visual Denoising & Texture Reshape): 废除时间轴上泛滥的彩色小图标。生活碎片改用“左边框引用块（Left-Border Blockquote）”极简渲染，凸显残缺物理质感。/ Abolished excessive colored icons on the timeline. Life fragments now use minimalist "Left-Border Blockquotes" to highlight a broken physical texture.
+
+[ZH/EN] 交互折叠逻辑 (Interaction Folding Logic): 时间轴上的所有次级操作按钮（重新谈谈/销毁）、漫游区的交互面板，默认全量隐藏，点击后方可平滑展开。/ All secondary action buttons and interaction panels default to fully hidden, expanding smoothly only upon click.
+
+Removed [移除]
+[ZH/EN] 具象化 3D 头像 (Memoji/Avatars): 强行清退首页所有高饱和度卡通头像，捍卫避难所冷峻、孤独的美学底线。/ Forcibly removed all high-saturation cartoon avatars from the homepage to defend the sanctuary's cold and solitary aesthetic baseline.
+
+[ZH/EN] 精确时间戳显示 (Exact Timestamps Display): 在历史追溯场景中彻底删除了 YYYY-MM-DD HH:MM 格式，剥离数据库日志感。/ Completely deleted exact date-time formats in historical tracing scenarios to strip away the database log feel.
+
+[ZH/EN] 具有倾向性的社交文案 (Biased Social Copywriting): 移除了“我懂”、“我也一样”等带有主观评判色彩的互动按钮。/ Removed biased interactive buttons lik

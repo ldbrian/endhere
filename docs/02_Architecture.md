@@ -1,31 +1,21 @@
-# Architecture - 《End Here》系统全栈技术架构白皮书
+Architecture - 《End Here》系统全栈技术架构白皮书 (v3.2)
+1. 核心工程与合规防线
+[ZH] 绝对单页心流（SPA-First）：基于 Next.js + Tailwind CSS，全盘废弃 MPA 跳转。由 Zustand (useSpaceStore) 管控状态流转，实现无缝失焦与淡入淡出。
 
-# Architecture - "End Here" Full-Stack Technical Architecture Whitepaper
+[ZH] 公私数据解耦与软删除（Data Decoupling & Soft Delete）：强制实行软删除逻辑。焚烧小票仅更新 status = 'incinerated' 并物理清空涉密文本，保留 UUID 与时间戳供时间轴渲染“灰烬”。
 
-## 1. 核心工程与数据隐私红线
+[ZH] 备案沙盒与 PWA 战略（Sandbox ICP & PWA Strategy）：为突破国内微信扫码红字拦截，锁定 PWA（渐进式 Web 应用）路线，并在申请 OPC 企业主体与域名 ICP 备案期间，采用“纯静态技术博客”作为前端路由沙盒伪装，确保合规通关。
 
-## 1. Core Engineering & Data Privacy Redlines
+[EN] Sandbox ICP & PWA Strategy: To bypass domestic WeChat red-screen warnings, secure the PWA route and implement a "static tech blog" frontend routing sandbox during the OPC corporate entity and ICP filing application to ensure compliance.
 
-* **[ZH] 绝对单页心流（SPA-First）**：全盘废弃 MPA 跳转。所有场景切换由 `useSpaceStore` 状态机管控，通过无缝淡入淡出及失焦溶解实现。
-* **[ZH] 公私数据解耦架构（Public-Private Data Decoupling）**：具体倾诉文本、人名及事件细节绝对留存本地（Local Storage）；仅云端（Supabase）抽取并存储抽象的观点（Mind Track）与无定语的行为切片（Life Track）。
-* **[EN] SPA-First**：Completely abandon MPA routing. All scene transitions are governed by the `useSpaceStore` state machine, realized through seamless fade-ins and out-of-focus dissolves.
-* **[EN] Public-Private Data Decoupling**：Specific venting texts, names, and event details must remain strictly local (Local Storage). Only abstracted views (Mind Track) and modifier-free behavioral slices (Life Track) are extracted and stored in the cloud (Supabase).
+2. 空间网格与状态引擎
+[ZH] 物理网格防撞系统（CSS Grid Spatial Engine）：漫游区废除 position: absolute 导致的 Z-Index 失控与重叠灾难。采用 3x3 空间网格，将痕迹（墙壁涂鸦、NPC状态）锁死在特定坐标，实行单条轮播状态机。
 
-## 2. ECS Lite 与惰性计算引擎
+[ZH] 交互折叠（Interaction Folding）：核心操作区（如铁筐投递）必须应用状态机控制。默认收起为单行文本锚点，点击后平滑展开（Bottom Sheet / Modal），用完即折叠，维持环境极简呼吸感。
 
-## 2. ECS Lite & Lazy Evaluation Engine
+[ZH] 经济通胀锁（Anti-Inflation Locks）：利用 localStorage 配合 UTC+8 日期校验，在前端与 Zustand 中强控铁筐的每日单次 PUT/TAKE 动作，封死恶意刷接口的可能。
 
-* **[ZH] 统一痕迹底座（Trace Registry）**：所有漫游区痕迹收束至 `entity_components` 表。废弃一切独立业务表（如 `physical_traces`）。强制要求所有时间戳写入正八区（UTC+8）。
-* **[ZH] 惰性衰减机制（Lazy Decay Evaluation）**：严禁在后端编写用于状态推演的 CRON 轮询任务。所有痕迹的衰减（如木凳冷却、植物枯死），必须由前端在读取数据时计算时间差（$\Delta T$ = 当前时间 - 触发时间），并实时降维渲染文本 UI。
-* **[EN] Trace Registry**：All roaming zone traces are consolidated into the `entity_components` table. Abandon all independent business tables. Mandatory enforcement of UTC+8 for all timestamps.
-* **[EN] Lazy Decay Evaluation**：Strictly forbid writing backend CRON jobs for state derivation. The decay of all traces (e.g., stool cooling, plant wilting) must be calculated by the frontend upon data retrieval ($\Delta T$ = current time - trigger time), rendering the downgraded UI text in real-time.
+3. 大模型（LLM）调用契约
+[ZH] API 意图守门人（AI Gatekeeper）：在 /api/basket/put 路由前置极轻量级 DeepSeek 审查 Prompt。强制拦截纯负能量发泄、谩骂与空洞成功学鸡汤，只允许“真实生活切片”入库。
 
-## 3. 大模型（LLM）调用契约
-
-## 3. LLM Invocation Contracts
-
-* **[ZH] 静默提纯管道（Silent Extraction Pipeline）**：在 `/api/respond` 的多轮对话响应中，大模型必须在后台静默输出 JSON，分离提取 `mind_track` 与 `life_track`，不主动向用户发起有关生活细节的追问。
-* **[ZH] 渐进式心流驱动（Progressive Flow Engine）**：发呆区废除静态数组循环。调用大模型按需生成细微环境观察，前端使用递进式时间戳数组（如 5s, 8s, 12s, 17s）配合递归 `setTimeout` 调度留白时间。
-* **[EN] Silent Extraction Pipeline**：In the multi-turn `/api/respond` response, the LLM must silently output JSON in the background, separating `mind_track` and `life_track`, without actively interrogating the user about life details.
-* **[EN] Progressive Flow Engine**：The Daydream zone abolishes static array loops. Call the LLM on-demand to generate subtle environmental observations. The frontend uses a progressive timestamp array (e.g., 5s, 8s, 12s, 17s) combined with recursive `setTimeout` to schedule blank intervals.
-
+[ZH] 静默提纯管道（Silent Extraction Pipeline）：/api/respond 必须在后台静默输出 JSON 格式，精准分离 mind_track 与 life_track。严禁 AI 向用户发起过度热情的反问。
