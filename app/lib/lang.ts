@@ -99,9 +99,9 @@ export const CN = {
     welcome: "欢迎光临。",
     prompt: "今天过得怎么样？",
     saySomething: "我有很多话想说",
-    tired: "我只是有点累",
-    nostalgia: "我想起了一些以前的事",
-    roaming: "我想到处看看",
+    tired: "我有点累",
+    nostalgia: "我的痕迹",
+    roaming: "我想逛逛",
     back: "[ 退回门厅 ]"
   },
   SPEAKING: {

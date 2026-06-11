@@ -108,7 +108,19 @@ export const useShelterStore = create<ShelterState>()(
       setRuminationContext: (ctx) => set({ ruminationContext: ctx }),
 
       deleteEntry: (id) => set((state) => ({
-        entries: state.entries.map((e) => e.id === id ? { ...e, status: '已销毁' } : e)
+        entries: state.entries.map((e) => 
+          e.id === id ? { 
+            ...e, 
+            status: 'incinerated',
+            content: '',          // 强行清洗原始内容
+            rawResponse: '',      // 洗白 AI 原始回复
+            punchline: '',        // 洗白金句
+            analysis: '',         
+            mind_track: '',       // 洗白情绪轨迹
+            manager_message: '',  // 洗白店长批注
+            patches: []           // 强行清空所有反刍补丁
+          } : e
+        )
       })),
 
       removeEntry: (id) => set((state) => ({
