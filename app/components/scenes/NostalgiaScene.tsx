@@ -261,7 +261,7 @@ export default function NostalgiaScene() {
                         )}
 
                         {/* 3. 情绪小票 (Receipt) */}
-                        {(entry.type === 'receipt' || !entry.type) && entry.type !== 'life_fragment' && entry.type !== 'virtual_item' && (
+                        {(entry.type === 'receipt' || !entry.type) && entry.status !== 'incinerated' && (
                           <div className="w-full flex flex-col items-end gap-2">
                             <div className="w-full flex justify-center">
                               <Receipt
