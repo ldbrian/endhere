@@ -97,7 +97,6 @@ export default function EntranceMenu() {
   const submitLifeFragment = () => {
     if (!lifeFragment.trim()) return;
 
-    // 🟢 结构化埋点：记录提交的行为和文字长度
     track('SUBMIT_LIFE_SLICE', { length: lifeFragment.trim().length });
 
     addEntry({
@@ -113,7 +112,6 @@ export default function EntranceMenu() {
     setIsLifeInputActive(false);
     setShowArchived(true);
 
-    // 短促归档提示，2秒后恢复原状
     setTimeout(() => setShowArchived(false), 2000);
   };
 
@@ -121,9 +119,10 @@ export default function EntranceMenu() {
     if (e.key === 'Enter') submitLifeFragment();
   };
 
-  const secondaryOptions: { id: Scene; label: string }[] = [
+  // 🟢 重构数据结构：支持挂载角标
+  const secondaryOptions: { id: Scene; label: string; isNew?: boolean }[] = [
     { id: 'resting', label: lang.HOME.tired },
-    { id: 'nostalgia', label: lang.HOME.nostalgia },
+    { id: 'nostalgia', label: '我的痕迹', isNew: true }, // 直接改为中文，防止被多语言字典覆盖
     { id: 'roaming', label: lang.HOME.roaming },
   ];
 
@@ -139,32 +138,34 @@ export default function EntranceMenu() {
 
       {/* 核心分诊台 */}
       <div className="flex flex-col items-center justify-center w-full max-w-lg gap-10 mt-16">
-        {/* 🟢 模块一/第2项：店长动态胶囊 */}
+        
+        {/* 店长动态胶囊 */}
         <div className="absolute top-15 left-1/2 -translate-x-1/2 flex flex-col items-center z-40">
-        <button
-          onClick={handleShopkeeperTap}
-          style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '7px', paddingBottom: '7px' }}
-          className="border border-zinc-800 bg-zinc-900/50 rounded-full mb-12 flex items-center gap-4 transition-colors hover:bg-zinc-800/80 outline-none cursor-pointer"
-        >
-          <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse shrink-0" />
-          <span className="text-zinc-300 text-[13px] tracking-[0.15em] font-mono leading-relaxed whitespace-nowrap">{shopkeeperStatus}</span>
-        </button>
-        {/* 🟢 修复中心：致谢弹窗直接锚定在胶囊下方 */}
-        <AnimatePresence>
-          {showThankYou && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="absolute top-full mt-3 pointer-events-none"
-            >
-              <span className="text-zinc-500 text-[11px] tracking-widest font-mono">
-                [ 谢谢。 ]
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          <button
+            onClick={handleShopkeeperTap}
+            style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '7px', paddingBottom: '7px' }}
+            className="border border-zinc-800 bg-zinc-900/50 rounded-full mb-12 flex items-center gap-4 transition-colors hover:bg-zinc-800/80 outline-none cursor-pointer"
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse shrink-0" />
+            <span className="text-zinc-300 text-[13px] tracking-[0.15em] font-mono leading-relaxed whitespace-nowrap">{shopkeeperStatus}</span>
+          </button>
+          
+          <AnimatePresence>
+            {showThankYou && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="absolute top-full mt-3 pointer-events-none"
+              >
+                <span className="text-zinc-500 text-[11px] tracking-widest font-mono">
+                  [ 谢谢。 ]
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+
         <div className="flex-col items-center mt-16">
           <h1 className="text-2xl md:text-3xl text-zinc-300 tracking-[0.1em] font-medium">
             {lang.HOME.prompt}
@@ -174,7 +175,6 @@ export default function EntranceMenu() {
         {/* 主入口区：观点轨 vs 生活轨 */}
         <div className="flex flex-col items-center w-full gap-1 min-h-[120px]">
           
-          {/* 入口 A：观点轨 (深度倾诉) */}
           <button
             onClick={() => handleSceneEnter('speaking')}
             className="group flex items-center justify-center gap-4 py-2 text-zinc-300 hover:text-zinc-50 transition-all duration-700 ease-out outline-none"
@@ -186,7 +186,6 @@ export default function EntranceMenu() {
             <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-700 font-light text-xl">]</span>
           </button>
 
-          {/* 入口 B：生活轨 (碎片归档) */}
           <div className="w-full flex justify-center items-center h-12">
             <AnimatePresence mode="wait">
               {showArchived ? (
@@ -242,13 +241,21 @@ export default function EntranceMenu() {
         {/* 辅助功能区 */}
         <div className="flex flex-col items-center gap-10 w-full mt-2">
           {secondaryOptions.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleSceneEnter(item.id)}
-              className="tracking-[0.1em] text-[13px] text-zinc-600 hover:text-zinc-300 transition-colors duration-700 ease-out outline-none"
-            >
-              {item.label}
-            </button>
+            <div key={item.id} className="relative flex items-center justify-center">
+              <button
+                onClick={() => handleSceneEnter(item.id)}
+                className="tracking-[0.1em] text-[13px] text-zinc-600 hover:text-zinc-300 transition-colors duration-700 ease-out outline-none"
+              >
+                {item.label}
+              </button>
+              
+              {/* 🟢 低饱和度极简角标 */}
+              {item.isNew && (
+                <span className="absolute -right-8 -top-1.5 text-[8px] text-[#6b8e23] font-mono tracking-widest bg-[#6b8e23]/10 px-1 py-[1px] rounded-[2px] opacity-80 pointer-events-none">
+                  NEW
+                </span>
+              )}
+            </div>
           ))}
         </div>
 
@@ -258,4 +265,4 @@ export default function EntranceMenu() {
       
     </div>
   );
-} // 🟢 核心修复2：移除了原先末尾多余的无主闭合花括号，确保整个编译流清爽无阻
+}

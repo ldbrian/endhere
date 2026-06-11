@@ -35,4 +35,4 @@ Removed [移除]
 
 [ZH/EN] 精确时间戳显示 (Exact Timestamps Display): 在历史追溯场景中彻底删除了 YYYY-MM-DD HH:MM 格式，剥离数据库日志感。/ Completely deleted exact date-time formats in historical tracing scenarios to strip away the database log feel.
 
-[ZH/EN] 具有倾向性的社交文案 (Biased Social Copywriting): 移除了“我懂”、“我也一样”等带有主观评判色彩的互动按钮。/ Removed biased interactive buttons lik
+[ZH/EN] 具有倾向性的社交文案 (Biased Social Copywriting): 移除了“我懂”、“我也一样”等带有主观评判色彩的互动按钮。/ Removed biased interactive buttons like "I get it" or "Me too".
