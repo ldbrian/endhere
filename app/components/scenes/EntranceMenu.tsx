@@ -55,6 +55,7 @@ export default function EntranceMenu() {
   const [showArchived, setShowArchived] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
   const [shopkeeperStatus, setShopkeeperStatus] = useState('');
+  const [showLockedToast, setShowLockedToast] = useState(false);
 
   // 🟢 核心修复1：清理混乱的 localStorage 操作，无感接入底层结构化探针
   useEffect(() => {
@@ -248,12 +249,19 @@ export default function EntranceMenu() {
           {secondaryOptions.map((item) => (
             <div key={item.id} className="relative flex items-center justify-center">
               <button
-                onClick={() => !item.locked && handleSceneEnter(item.id)}
-                disabled={item.locked}
+                // 🟢 修复：接管点击事件，锁定状态触发 Toast，解锁状态正常跳转
+                onClick={() => {
+                  if (item.locked) {
+                    setShowLockedToast(true);
+                    setTimeout(() => setShowLockedToast(false), 2000);
+                  } else {
+                    handleSceneEnter(item.id);
+                  }
+                }}
                 className={`tracking-[0.1em] text-[13px] transition-colors duration-700 ease-out outline-none ${
                   item.locked 
-                    ? 'text-zinc-800 cursor-not-allowed' // 未解锁：极暗灰色，禁用鼠标指针
-                    : 'text-zinc-600 hover:text-zinc-300'  // 已解锁：正常交互颜色
+                    ? 'text-zinc-800 cursor-pointer' // 锁定状态允许点击（为了触发提示）
+                    : 'text-zinc-600 hover:text-zinc-300'
                 }`}
               >
                 {item.label}
@@ -261,11 +269,7 @@ export default function EntranceMenu() {
               
               {/* 🟢 动态角标：未解锁时角标也同步置灰，解锁后恢复灰绿色 */}
               {item.isNew && (
-                <span className={`absolute -right-8 -top-1.5 text-[8px] font-mono tracking-widest px-1 py-[1px] rounded-[2px] pointer-events-none transition-colors duration-700 ${
-                  item.locked 
-                    ? 'text-zinc-700 bg-zinc-800/20' 
-                    : 'text-[#6b8e23] bg-[#6b8e23]/10 opacity-80'
-                }`}>
+                <span className="absolute -right-8 -top-1.5 text-[8px] font-mono tracking-widest px-1 py-[1px] rounded-[2px] pointer-events-none transition-colors duration-700 text-[#6b8e23] bg-[#6b8e23]/10 opacity-80">
                   NEW
                 </span>
               )}
