@@ -119,10 +119,15 @@ export default function EntranceMenu() {
     if (e.key === 'Enter') submitLifeFragment();
   };
 
-  // 🟢 重构数据结构：支持挂载角标
-  const secondaryOptions: { id: Scene; label: string; isNew?: boolean }[] = [
+  // 🟢 CTO 逻辑：获取总留痕数量，判定镜子解锁状态 (阈值 >= 10)
+  const entries = useShelterStore((state) => state.entries);
+  const isMirrorUnlocked = entries.length >= 10;
+
+  // 🟢 固化路由结构：增加 locked 属性控制可见性与交互
+  const secondaryOptions: { id: Scene; label: string; isNew?: boolean; locked?: boolean }[] = [
     { id: 'resting', label: lang.HOME.tired },
-    { id: 'nostalgia', label: '我的痕迹', isNew: true }, // 直接改为中文，防止被多语言字典覆盖
+    { id: 'mirror' as Scene, label: '照照镜子', isNew: true, locked: !isMirrorUnlocked },
+    { id: 'nostalgia', label: '我的痕迹' }, 
     { id: 'roaming', label: lang.HOME.roaming },
   ];
 
@@ -243,15 +248,24 @@ export default function EntranceMenu() {
           {secondaryOptions.map((item) => (
             <div key={item.id} className="relative flex items-center justify-center">
               <button
-                onClick={() => handleSceneEnter(item.id)}
-                className="tracking-[0.1em] text-[13px] text-zinc-600 hover:text-zinc-300 transition-colors duration-700 ease-out outline-none"
+                onClick={() => !item.locked && handleSceneEnter(item.id)}
+                disabled={item.locked}
+                className={`tracking-[0.1em] text-[13px] transition-colors duration-700 ease-out outline-none ${
+                  item.locked 
+                    ? 'text-zinc-800 cursor-not-allowed' // 未解锁：极暗灰色，禁用鼠标指针
+                    : 'text-zinc-600 hover:text-zinc-300'  // 已解锁：正常交互颜色
+                }`}
               >
                 {item.label}
               </button>
               
-              {/* 🟢 低饱和度极简角标 */}
+              {/* 🟢 动态角标：未解锁时角标也同步置灰，解锁后恢复灰绿色 */}
               {item.isNew && (
-                <span className="absolute -right-8 -top-1.5 text-[8px] text-[#6b8e23] font-mono tracking-widest bg-[#6b8e23]/10 px-1 py-[1px] rounded-[2px] opacity-80 pointer-events-none">
+                <span className={`absolute -right-8 -top-1.5 text-[8px] font-mono tracking-widest px-1 py-[1px] rounded-[2px] pointer-events-none transition-colors duration-700 ${
+                  item.locked 
+                    ? 'text-zinc-700 bg-zinc-800/20' 
+                    : 'text-[#6b8e23] bg-[#6b8e23]/10 opacity-80'
+                }`}>
                   NEW
                 </span>
               )}

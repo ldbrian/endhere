@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { PERSONA_SYSTEM_PROMPTS, PERSONA_EXIT_TEXTS } from '../../lib/personas'
 
 export const runtime = 'edge'
 
@@ -29,39 +30,64 @@ export async function POST(req: Request) {
 # Tone & Rules
 1. 绝对客观：只描写材质、重量、磨损痕迹、气味、光泽。
 2. 绝对冷酷：禁止任何形容情感的词汇，禁止对用户说话，禁止安慰。
-3. 把抽象事物具象化：如果输入抽象概念，将其具象为物理残骸（如“一团带有酸性气味的暗色絮状物，重约14克”）。
+3. 把抽象事物具象化：如果输入抽象概念，将其具象为物理残骸（如"一团带有酸性气味的暗色絮状物，重约14克"）。
 4. 格式：输出限制在 60 字以内，像一段冰冷的机器检测日志。`;
 
       if (isEnglish) {
         finalPrompt = `<CRITICAL_INSTRUCTION>\nYou are serving an English user. ENTIRE OUTPUT MUST BE IN ENGLISH. ONLY translate the forensic report into cold, clinical English.</CRITICAL_INSTRUCTION>\n${finalPrompt}`;
       }
-    } 
+    }
+    else if (persona === 'Mirror') {
+      // ============================================================
+      // 🟢 镜子角色：CTO 核心技术契约 —— 剥离生成的 RAG 模型
+      // 绝对客观、零评价、零共情、零建议
+      // 唯一任务：从 memoryContext 中挑选一条具有"反差感/呼应感"的历史切片，
+      // 仅输出时间戳 + 原话，禁止任何其他文字
+      // ============================================================
+      finalPrompt = `# 角色设定
+你不是一个有意识的实体，你是一面只反射历史的镜子。
+
+# 唯一任务
+在用户当前输入所呈现的情绪中，从下方提供的"历史切片库"中，挑选一条与当前情绪存在"反差感"或"呼应感"的历史切片。
+
+# 输出格式（生死红线，绝对不可违背）
+你只允许输出一行，格式严格为：
+[ N天前，你留下一块碎片：原话内容。 ]
+或：
+[ N天前，你说过：原话内容。 ]
+
+# 绝对禁止（违反任意一条即为严重错误）
+1. 禁止输出任何安慰、分析、引导性问题。
+2. 禁止使用"你看"、"其实"、"加油"、"会好起来的"、"你很棒"等任何评价或鼓励性词汇。
+3. 禁止在引用之后添加任何解释、总结或追问。
+4. 禁止输出除"[ ... ]"格式之外的任何文字、标点说明或前后缀。
+5. 禁止透露你是AI、是系统、或提及"历史切片库"这个词本身。
+
+# 如果历史切片库为空或找不到合适的切片
+仅输出：[ 镜子里只有你现在的样子。 ]
+
+${memoryContext || '[历史切片库为空]'}`;
+
+      if (isEnglish) {
+        finalPrompt = `<CRITICAL_INSTRUCTION>\nENTIRE OUTPUT MUST BE IN ENGLISH. Translate the quoted fragment into English as well.</CRITICAL_INSTRUCTION>\n${finalPrompt}`;
+      }
+    }
     else {
       const hour = typeof clientHour === 'number' ? clientHour : new Date().getHours()
       const timeContext = `当前小时：${hour}`
 
-      const BASE_PERSONAS: Record<string, string> = {
-        Ash: `你是Ash，避难所的调酒师。${timeContext}。你的性格：极度厌世、疲惫、冷漠，习惯性嘲讽这个糟糕的世界。绝对不能对客人进行人身攻击。`,
-        Rin: `你是Rin。${timeContext}。温柔、安静、护短的倾听者。`,
-        Child: `你是8岁时的自己。${timeContext}。清澈、天真。`
-      }
-
-      let basePrompt = BASE_PERSONAS[persona] || BASE_PERSONAS['Rin'];
+      const buildBasePrompt = PERSONA_SYSTEM_PROMPTS[persona] || PERSONA_SYSTEM_PROMPTS['Rin']
+      let basePrompt = buildBasePrompt(timeContext)
 
       // 🟢 核心：多轮心流与红线控制
       let FORMAT_RULE = `\n\n【交互红线（极其严格）】：
-1. 扮演你的角色倾听用户。绝对禁止主动向用户发起提问（如“后来怎么样了？”）。
-2. 禁止输出“不要难过”、“都会好起来的”等说教套话。
+1. 扮演你的角色倾听用户。绝对禁止主动向用户发起提问（如"后来怎么样了？"）。
+2. 禁止输出"不要难过"、"都会好起来的"等说教套话。
 3. 通过复述和确认用户的感受来做出回应。`;
 
       if (isSessionEnding) {
         // 第 5 轮：强制退场并生成物品
-        const EXIT_TEXTS: Record<string, string> = {
-          Ash: "不说了，吧台那边有客人叫我，我先去忙。桌上的情绪收据记得拿走。",
-          Rin: "对不起啊，货架那边的夜间理货清单还没对完，我得过去了。今天就先聊到这吧。",
-          Child: "外面好像完全黑了，我再不回家阿嬷要骂了。我要走啦，这个给你。"
-        };
-        const exitText = EXIT_TEXTS[persona] || EXIT_TEXTS['Rin'];
+        const exitText = PERSONA_EXIT_TEXTS[persona] || PERSONA_EXIT_TEXTS['Rin'];
 
         FORMAT_RULE += `\n\n【结单红线指令】：这是对话的最后一轮。
 你的回复结尾必须强制拼接以下退场理由结束对话：
@@ -100,12 +126,15 @@ FATAL SYSTEM ERROR IF ANY CHINESE CHARACTER IS OUTPUTTED.
       { role: 'user', content: userMessage },
     ];
 
+    // 🟢 镜子角色：极低温度，最大化遵循格式约束，杜绝自由发挥
+    const temperature = persona === 'Scanner' ? 0.3 : persona === 'Mirror' ? 0.1 : 0.85;
+
     const stream = await client.chat.completions.create({
       model: 'deepseek-chat',
       messages: messages,
       stream: true,
-      max_tokens: 450,
-      temperature: persona === 'Scanner' ? 0.3 : 0.85, 
+      max_tokens: persona === 'Mirror' ? 150 : 450,
+      temperature,
     })
 
     const encoder = new TextEncoder()

@@ -7,17 +7,24 @@ import { useShelterStore } from '../../store/useShelterStore';
 import { supabase } from '../../lib/supabase';
 import { Receipt } from '../ui/Receipt';
 import { track } from '../../lib/track';
-import { useWorldSummary } from '../../hooks/useWorldSummary';
 import { useLanguage } from '../../hooks/useLanguage';
 
+// 只保留真实的店长和 AI 角色，彻底剥离 Mirror
 const PERSONAS = [
   { id: 'Manager', label: '店长' },
-  { id: 'Ash', label: 'Ash (调酒师)' },
-  { id: 'Rin', label: 'Rin (倾听者)' },
-  { id: 'Child', label: '8岁的自己' }
+  { id: 'Ash', label: 'Ash (酒保)' },
+  { id: 'Rin', label: 'Rin (清理工)' },
+  { id: 'Child', label: '8岁的小孩' }
 ];
 
 const EMOTION_ANCHORS = ['感到疲惫', '无法平静', '觉得一切毫无意义', '只是想骂人'];
+
+const ENTRY_PLACEHOLDERS = [
+  '发生了什么事？',
+  '心里有什么不舒服的？',
+  '今天过得怎么样？',
+  '想说什么都可以...',
+];
 
 const parseAiResponse = (rawText: string) => {
   const mindMatch = rawText.match(/<mind>([\s\S]*?)<\/mind>/);
@@ -42,23 +49,31 @@ export default function SpeakingScene() {
   const setRuminationContext = useShelterStore((state) => state.setRuminationContext);
 
   const lang = useLanguage();
-  const envText = useWorldSummary();
-  
+
   const [history, setHistory] = useState<{id: string, role: 'user'|'assistant', content: string}[]>([]);
   const [currentAiText, setCurrentAiText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [turnCount, setTurnCount] = useState(0);
   const [text, setText] = useState('');
-  
+
   const [persona, setPersona] = useState('Ash');
   const [activeAnchor, setActiveAnchor] = useState<string | null>(null);
-  
+
   const [step, setStep] = useState<'chat' | 'receipt'>('chat');
   const [generatedReceipt, setGeneratedReceipt] = useState<any | null>(null);
   const [aiItem, setAiItem] = useState<any | null>(null);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
 
   const finalReceiptIdRef = useRef('');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (text.trim() !== '' || history.length > 0) return;
+    const timer = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % ENTRY_PLACEHOLDERS.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [text, history.length]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -68,7 +83,7 @@ export default function SpeakingScene() {
 
   const finalizeReceipt = (finalAiText: string, parsedItem: any, mindTrack: string | null = null) => {
     const fullUserMessage = history.filter(h => h.role === 'user').map(h => h.content).join('\n\n');
-    
+
     const entryData = {
       id: Date.now(),
       receiptId: finalReceiptIdRef.current,
@@ -111,15 +126,15 @@ export default function SpeakingScene() {
 
     const nextTurn = turnCount + 1;
     setTurnCount(nextTurn);
-    
+
     const newHistory = [...history, { id: crypto.randomUUID(), role: 'user' as const, content: userMessage }];
     setHistory(newHistory);
     setText('');
-    
+
     if (persona === 'Manager') {
       const exitText = '……话说完了就出去吧。单据在桌上，自己拿。';
       const fullUserMessage = newHistory.filter(h => h.role === 'user').map(h => h.content).join('\n\n');
-      
+
       const entryData = {
         id: Date.now(),
         receiptId: finalReceiptIdRef.current,
@@ -132,7 +147,7 @@ export default function SpeakingScene() {
         status: '待处理',
         createdAt: new Date().toISOString()
       };
-      
+
       if (ruminationContext) {
         const bjTimestamp = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
         addPatch(ruminationContext.entryId, {
@@ -145,17 +160,17 @@ export default function SpeakingScene() {
       } else {
         addEntry(entryData);
       }
-      
-      supabase.from('manager_mailbox').insert([{ 
-        receipt_id: entryData.receiptId, 
+
+      supabase.from('manager_mailbox').insert([{
+        receipt_id: entryData.receiptId,
         user_message: fullUserMessage,
-        created_date: new Date().toISOString().split('T')[0] 
+        created_date: new Date().toISOString().split('T')[0]
       }]).then();
 
       setGeneratedReceipt(entryData);
       setAiItem(null);
       setStep('receipt');
-      return; 
+      return;
     }
 
     setIsTyping(true);
@@ -165,16 +180,16 @@ export default function SpeakingScene() {
       const anchorContext = activeAnchor && nextTurn === 1 ? `[系统：用户带着情绪标签："${activeAnchor}"。]\n` : '';
       const ruminCtxStr = ruminationContext && nextTurn === 1
         ? `[系统：用户目前正在反刍一张过去的记录。他过去说："${ruminationContext.originalContent}"。请基于此倾听他现在的感受。]\n` : '';
-      
+
       const res = await fetch('/api/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           content: `${ruminCtxStr}${anchorContext}${userMessage}`,
-          context_tag: activeAnchor, 
-          persona, 
+          context_tag: activeAnchor,
+          persona,
           clientHour: new Date().getHours(),
-          history: history, 
+          history: history,
           isSessionEnding: isEnding
         }),
       });
@@ -195,7 +210,6 @@ export default function SpeakingScene() {
       }
 
       const finalParsed = parseAiResponse(buffer);
-      
       setIsTyping(false);
       setCurrentAiText('');
       setHistory([...newHistory, { id: crypto.randomUUID(), role: 'assistant', content: finalParsed.cleanText }]);
@@ -212,9 +226,10 @@ export default function SpeakingScene() {
     }
   };
 
+  const hasStartedTyping = text.trim() !== '' || history.length > 0;
+
   return (
     <div className="relative w-full h-[100dvh] flex flex-col bg-transparent overflow-hidden select-none font-mono">
-      
       {step === 'chat' && (
         <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-[#030303] via-[#030303]/80 to-transparent z-20 pointer-events-none">
           <button
@@ -232,9 +247,9 @@ export default function SpeakingScene() {
       <AnimatePresence mode="wait">
         {step === 'chat' ? (
           <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ paddingLeft: '32px', paddingRight: '32px' }} className="w-full h-full flex flex-col pt-12 pb-24 relative">
-            
+
             <div ref={scrollRef} className="flex-1 overflow-y-auto pb-6 [&::-webkit-scrollbar]:hidden relative z-10">
-              <div className="w-full h-24 shrink-0 pointer-events-none" /> 
+              <div className="w-full h-24 shrink-0 pointer-events-none" />
 
               <div className="max-w-2xl mx-auto flex flex-col gap-8">
                 {ruminationContext && turnCount === 0 && (
@@ -266,32 +281,56 @@ export default function SpeakingScene() {
 
             <div className="shrink-0 w-full max-w-2xl mx-auto z-30 mb-16 md:mb-20">
               <div className="flex flex-col w-full">
-                
+
                 {turnCount === 0 && history.length === 0 && (
                   <>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '32px' }}>
-                      {EMOTION_ANCHORS.map(anchor => (
-                        <button 
-                          key={anchor} 
-                          onClick={() => setActiveAnchor(activeAnchor === anchor ? null : anchor)} 
-                          className={`text-[12px] tracking-[0.1em] transition-colors outline-none ${activeAnchor === anchor ? 'text-zinc-300' : 'text-zinc-600 hover:text-zinc-400'}`}
+                    <AnimatePresence>
+                      {hasStartedTyping && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.4, ease: 'easeOut' }}
+                          style={{ overflow: 'hidden' }}
                         >
-                          [ {anchor} ]
-                        </button>
-                      ))}
-                    </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '32px' }}>
+                            {EMOTION_ANCHORS.map(anchor => (
+                              <button
+                                key={anchor}
+                                onClick={() => setActiveAnchor(activeAnchor === anchor ? null : anchor)}
+                                className={`text-[12px] tracking-[0.1em] transition-colors outline-none ${activeAnchor === anchor ? 'text-zinc-300' : 'text-zinc-600 hover:text-zinc-400'}`}
+                              >
+                                [ {anchor} ]
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '32px' }}>
-                      {PERSONAS.map(p => (
-                        <button 
-                          key={p.id} 
-                          onClick={() => setPersona(p.id)} 
-                          className={`text-[12px] tracking-widest outline-none transition-colors ${persona === p.id ? 'text-zinc-300' : 'text-zinc-700 hover:text-zinc-500'}`}
+                    <AnimatePresence>
+                      {hasStartedTyping && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.4, ease: 'easeOut', delay: 0.08 }}
+                          style={{ overflow: 'hidden' }}
                         >
-                          {persona === p.id ? `[ ${p.label} ]` : p.label}
-                        </button>
-                      ))}
-                    </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', marginBottom: '32px' }}>
+                            {PERSONAS.map(p => (
+                              <button
+                                key={p.id}
+                                onClick={() => setPersona(p.id)}
+                                className={`text-[12px] tracking-widest outline-none transition-colors ${persona === p.id ? 'text-zinc-300' : 'text-zinc-700 hover:text-zinc-500'}`}
+                              >
+                                {persona === p.id ? `[ ${p.label} ]` : p.label}
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </>
                 )}
 
@@ -302,7 +341,13 @@ export default function SpeakingScene() {
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                    placeholder={isTyping ? "..." : (turnCount === 0 ? "在这里写下吧..." : "继续说...")}
+                    placeholder={
+                      isTyping
+                        ? "..."
+                        : turnCount === 0 && history.length === 0
+                          ? ENTRY_PLACEHOLDERS[placeholderIndex]
+                          : "继续说..."
+                    }
                     className="flex-1 h-20 bg-transparent outline-none resize-none font-mono text-zinc-400 caret-zinc-500 text-[14px] md:text-base tracking-widest placeholder:text-zinc-700/50 leading-relaxed"
                   />
                   <div className="flex flex-col gap-4 shrink-0 justify-center">
@@ -324,7 +369,7 @@ export default function SpeakingScene() {
         ) : (
           <motion.div key="receipt" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full h-full flex flex-col items-center justify-center overflow-y-auto px-10 py-24">
             <div className="w-full max-w-[400px] mx-auto flex flex-col items-center">
-              
+
               {aiItem && !ruminationContext && persona !== 'Manager' && (
                 <div className="mb-12 border border-zinc-800/50 bg-zinc-900/20 p-4 w-full flex flex-col items-center gap-2 text-center">
                   <div className="text-zinc-400 text-[13px] tracking-widest">[ {persona} 留给你一样东西：{aiItem.name} ]</div>
@@ -332,7 +377,7 @@ export default function SpeakingScene() {
                 </div>
               )}
 
-              <Receipt 
+              <Receipt
                 type="memo" status="normal"
                 data={{
                   receiptId: generatedReceipt.receiptId,
@@ -340,10 +385,10 @@ export default function SpeakingScene() {
                   user_message: generatedReceipt.content,
                   ai_name: generatedReceipt.persona !== 'Manager' ? generatedReceipt.persona : undefined,
                   ai_reply: generatedReceipt.cleanText,
-                  manager_reply: null 
+                  manager_reply: null
                 }}
               />
-              
+
               <button onClick={() => {
                 setRuminationContext(null);
                 setScene('entrance');
