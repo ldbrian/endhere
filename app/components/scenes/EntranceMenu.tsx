@@ -280,7 +280,20 @@ export default function EntranceMenu() {
         {/* 隐性赞助模块 */}
         <SponsorModule />
       </div>
-      
+      <AnimatePresence>
+        {showLockedToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="absolute bottom-24 pointer-events-none z-50 flex justify-center w-full"
+          >
+            <span className="text-zinc-500 text-[11px] tracking-[0.2em] font-mono bg-zinc-900/90 px-4 py-2 border border-zinc-800/80 backdrop-blur-sm">
+              [ 需要更多痕迹解锁 ]
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
