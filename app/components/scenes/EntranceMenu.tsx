@@ -126,10 +126,10 @@ export default function EntranceMenu() {
 
   // 🟢 固化路由结构：增加 locked 属性控制可见性与交互
   const secondaryOptions: { id: Scene; label: string; isNew?: boolean; locked?: boolean }[] = [
-    { id: 'resting', label: lang.HOME.tired },
+    { id: 'resting', label: lang.HOME.tired ,isNew: true},
     { id: 'mirror' as Scene, label: '照照镜子', isNew: true, locked: !isMirrorUnlocked },
     { id: 'nostalgia', label: '我的痕迹' }, 
-    { id: 'roaming', label: lang.HOME.roaming },
+    { id: 'roaming', label: lang.HOME.roaming ,isNew: true},
   ];
 
   return (
