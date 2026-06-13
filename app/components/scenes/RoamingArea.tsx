@@ -53,6 +53,11 @@ export default function RoamingArea() {
   const [errorMsg, setErrorMsg] = useState('');
   const [activeSlice, setActiveSlice] = useState<any | null>(null);
 
+  // 🟢 接力留言状态
+  const [patchText, setPatchText] = useState('');
+  const [patchStatus, setPatchStatus] = useState<'idle' | 'submitting' | 'error'>('idle');
+  const [patchError, setPatchError] = useState('');
+
   useEffect(() => {
     if (!envText || envText === '...') return;
     const parts = envText.split(/[。！？.!?]/).map(s => s.trim()).filter(s => s.length > 0);
@@ -118,7 +123,7 @@ export default function RoamingArea() {
   };
 
   const fetchBasketItems = async () => {
-    const { data } = await supabase.from('iron_basket_items').select('*').limit(3);
+    const { data } = await supabase.from('iron_basket_items').select('id, item_shell, trace_logs, durability').limit(3);
     if (data) setBasketItems(data);
   };
 
@@ -161,10 +166,41 @@ export default function RoamingArea() {
   const handleTakeBasket = async (item: any) => {
     if (!canInteractBasketToday('take')) return;
     setActiveSlice(item);
+    setPatchText('');
+    setPatchStatus('idle');
+    setPatchError('');
     setBasketItems(prev => prev.filter(i => i.id !== item.id));
-    await supabase.from('iron_basket_items').update({ is_claimed: true }).eq('id', item.id);
     track('BASKET_TAKE');
     markBasketInteraction('take');
+  };
+
+  // 🟢 接力：在物品上追加一段留言，放回铁筐
+  const handlePatchBasket = async () => {
+    if (!activeSlice || !patchText.trim()) return;
+    setPatchStatus('submitting');
+    setPatchError('');
+
+    try {
+      const res = await fetch('/api/basket/patch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: activeSlice.id, text: patchText.trim() })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || 'System Error');
+
+      track('BASKET_PATCH', { item_id: activeSlice.id, weathered: data.status === 'weathered' });
+
+      // 关闭弹窗
+      setActiveGraffiti(null);
+      setActiveSlice(null);
+      setPatchText('');
+      setPatchStatus('idle');
+    } catch (err: any) {
+      setPatchStatus('error');
+      setPatchError(err.message);
+    }
   };
 
   if (!mounted) return null;
@@ -350,17 +386,78 @@ export default function RoamingArea() {
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-6"
             onClick={() => { setActiveGraffiti(null); setActiveSlice(null); }}
           >
-            <div className="border border-zinc-800 bg-[#050505] p-8 max-w-sm w-full text-center flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-              {activeSlice && <span className="text-[10px] tracking-widest mb-4">别人留下的：{activeSlice.item_shell}</span>}
-              <p className="text-zinc-300 text-[13px] tracking-[0.2em] font-light leading-loose">
-                {activeGraffiti || activeSlice?.life_slice}
-              </p>
-              <button 
-                onClick={() => { setActiveGraffiti(null); setActiveSlice(null); }}
-                className="mt-10 text-[10px] hover:text-zinc-400 tracking-widest outline-none"
-              >
-                [ 关闭 ]
-              </button>
+            <div className="border border-zinc-800 bg-[#050505] p-8 max-w-sm w-full flex flex-col" onClick={(e) => e.stopPropagation()}>
+
+              {/* 墙面涂鸦：保持原样 */}
+              {activeGraffiti && (
+                <>
+                  <p className="text-zinc-300 text-[13px] tracking-[0.2em] font-light leading-loose text-center">
+                    {activeGraffiti}
+                  </p>
+                  <button
+                    onClick={() => { setActiveGraffiti(null); setActiveSlice(null); }}
+                    className="mt-10 text-[10px] hover:text-zinc-400 tracking-widest outline-none self-center"
+                  >
+                    [ 关闭 ]
+                  </button>
+                </>
+              )}
+
+              {/* 铁筐物品：终端日志风格 */}
+              {activeSlice && (
+                <>
+                  <span className="text-[10px] tracking-widest text-zinc-600 mb-4">
+                    别人留下的：{activeSlice.item_shell}
+                  </span>
+
+                  {/* 工业级日志排版：等宽字体单向向下排列 */}
+                  <div className="flex flex-col gap-2 mb-6 max-h-[240px] overflow-y-auto [&::-webkit-scrollbar]:hidden">
+                    {(activeSlice.trace_logs || []).map((log: any, i: number) => {
+                      const d = new Date(log.timestamp);
+                      const stamp = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                      return (
+                        <p key={i} className="text-zinc-400 text-[12px] font-mono leading-relaxed tracking-wide">
+                          <span className="text-zinc-700">[ {stamp} ]</span> : {log.text}
+                        </p>
+                      );
+                    })}
+                  </div>
+
+                  <span className="text-[10px] text-zinc-800 tracking-widest mb-6">
+                    耐久度 {activeSlice.durability} / 5
+                  </span>
+
+                  {/* 接力留言输入 */}
+                  <div className="flex flex-col gap-2 border-t border-dashed border-zinc-800 pt-4">
+                    <span className="text-[10px] text-zinc-700 tracking-[0.2em]">在它上面留下一句话，再放回去</span>
+                    <textarea
+                      maxLength={100}
+                      value={patchText}
+                      onChange={(e) => setPatchText(e.target.value)}
+                      placeholder="写点什么..."
+                      className="h-[56px] bg-transparent text-zinc-400 text-[12px] outline-none resize-none placeholder:text-zinc-800 leading-relaxed border-b border-zinc-800 focus:border-zinc-600 transition-colors pb-1"
+                    />
+                    {patchStatus === 'error' && (
+                      <p className="text-red-900/80 text-[10px] tracking-widest">{patchError}</p>
+                    )}
+                    <div className="flex items-center justify-between mt-2">
+                      <button
+                        onClick={() => { setActiveGraffiti(null); setActiveSlice(null); }}
+                        className="text-[11px] text-zinc-800 hover:text-zinc-600 tracking-widest outline-none transition-colors"
+                      >
+                        先不留
+                      </button>
+                      <button
+                        onClick={handlePatchBasket}
+                        disabled={patchStatus === 'submitting' || !patchText.trim()}
+                        className="text-[12px] text-zinc-500 hover:text-zinc-200 disabled:opacity-20 tracking-[0.25em] transition-colors outline-none"
+                      >
+                        {patchStatus === 'submitting' ? '放回中...' : '[ 放回铁筐 ]'}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </motion.div>
         )}

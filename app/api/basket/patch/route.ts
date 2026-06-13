@@ -12,29 +12,16 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY! || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// 第一层：item_shell 白名单，必须是前端预设选项之一
-const ALLOWED_SHELLS = [
-  '一把伞', '一件外套', '一本书', '一杯饮料',
-  '一张纸条', '一副耳机', '一双鞋', '一首歌',
-];
-
-// 第二层：本地敏感词快速拦截，命中直接 403 不走 AI
+// 与 /api/basket/put 共用同一套审核规则
 const BLOCKED_PATTERNS = [
-  // 自杀/自伤
   /自杀|自残|去死|想死|死[一了]死|割腕|轻生|跳楼|跳桥|上吊|烧炭/,
-  // 严重谩骂
   /操你|妈的|fuck|shit|你妈|傻[逼屄]|[滚去]你的|废物.*死/i,
-  // 色情
   /做爱|性交|插入|射精|勃起|阴茎|阴道|口交|肛交/,
-  // 政治敏感（基础）
   /天安门事件|六四|法轮功|台独|藏独|xinjiang.*camp/i,
-  // 广告/引流
   /加我微信|扫码|私信|vx:|wx:|qq群|telegram|discord.*邀请/i,
-  // 联系方式
   /1[3-9]\d{9}|(\d{3,4}[-\s]?\d{7,8})/,
 ];
 
-// IP 频率限制：同一 IP 每小时最多 3 次
 const ipRateMap = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(ip: string): boolean {
@@ -60,20 +47,16 @@ export async function POST(req: Request) {
       }), { status: 429 });
     }
 
-    const { item_shell, life_slice } = await req.json();
+    const { item_id, text } = await req.json();
 
-    if (!item_shell || !life_slice) {
+    if (!item_id || !text) {
       return new Response(JSON.stringify({ error: '内容不能为空' }), { status: 400 });
     }
 
-    if (!ALLOWED_SHELLS.includes(item_shell)) {
-      return new Response(JSON.stringify({ error: '不支持的物品类型' }), { status: 400 });
-    }
-
-    const trimmed = life_slice.trim();
-    if (trimmed.length < 5 || trimmed.length > 100) {
+    const trimmed = text.trim();
+    if (trimmed.length < 2 || trimmed.length > 100) {
       return new Response(JSON.stringify({
-        error: trimmed.length < 5 ? '描述太短了，多写几个字吧' : '最多100个字'
+        error: trimmed.length < 2 ? '写点什么吧' : '最多100个字'
       }), { status: 400 });
     }
 
@@ -81,12 +64,12 @@ export async function POST(req: Request) {
       if (pattern.test(trimmed)) {
         return new Response(JSON.stringify({
           status: 'reject',
-          message: '这件东西没办法留在这里。'
+          message: '这段话没办法留在这里。'
         }), { status: 403 });
       }
     }
 
-    const systemPrompt = `你是避难所的守门人。用户想把一样东西留给下一个路过的陌生人。你只需要拦截：恶意谩骂、人身攻击、色情、违法内容、自杀/自伤相关内容。其他所有内容一律放行，不要用审美标准评判质量。返回 {"status": "pass"} 或 {"status": "reject", "reason": "具体原因"}。强制输出JSON格式。`;
+    const systemPrompt = `你是避难所的守门人。用户想在一件物品上追加一段留言，传给下一个路过的陌生人。你只需要拦截：恶意谩骂、人身攻击、色情、违法内容、自杀/自伤相关内容。其他所有内容一律放行，不要用审美标准评判质量。返回 {"status": "pass"} 或 {"status": "reject", "reason": "具体原因"}。强制输出JSON格式。`;
 
     const completion = await client.chat.completions.create({
       model: 'deepseek-chat',
@@ -103,25 +86,56 @@ export async function POST(req: Request) {
     if (aiResponse.status !== 'pass') {
       return new Response(JSON.stringify({
         status: 'reject',
-        message: '这件东西没办法留在这里。'
+        message: '这段话没办法留在这里。'
       }), { status: 403 });
     }
 
-    // 🟢 新建物品：初始化 trace_logs，锁定 durability = 5
-    const { error } = await supabase.from('iron_basket_items').insert([{
-      item_shell,
-      trace_logs: [
-        { timestamp: new Date().toISOString(), text: trimmed }
-      ],
-      durability: 5,
-    }]);
+    // 🟢 取出当前物品
+    const { data: item, error: fetchError } = await supabase
+      .from('iron_basket_items')
+      .select('id, item_shell, trace_logs, durability')
+      .eq('id', item_id)
+      .single();
 
-    if (error) throw error;
+    if (fetchError || !item) {
+      return new Response(JSON.stringify({ error: '这件东西已经不在铁筐里了' }), { status: 404 });
+    }
 
-    return new Response(JSON.stringify({ status: 'success' }), { status: 200 });
+    const newTraceLogs = [
+      ...(item.trace_logs || []),
+      { timestamp: new Date().toISOString(), text: trimmed }
+    ];
+    const newDurability = item.durability - 1;
+
+    if (newDurability <= 0) {
+      // 🟢 风化：转移至归档废墟库，从铁筐池中永久剔除
+      const { error: archiveError } = await supabase.from('basket_archive').insert([{
+        item_shell: item.item_shell,
+        trace_logs: newTraceLogs,
+      }]);
+      if (archiveError) throw archiveError;
+
+      const { error: deleteError } = await supabase
+        .from('iron_basket_items')
+        .delete()
+        .eq('id', item_id);
+      if (deleteError) throw deleteError;
+
+      return new Response(JSON.stringify({ status: 'weathered' }), { status: 200 });
+    }
+
+    // 🟢 正常接力：更新 trace_logs 与 durability
+    const { error: updateError } = await supabase
+      .from('iron_basket_items')
+      .update({ trace_logs: newTraceLogs, durability: newDurability })
+      .eq('id', item_id);
+
+    if (updateError) throw updateError;
+
+    return new Response(JSON.stringify({ status: 'success', durability: newDurability }), { status: 200 });
 
   } catch (error) {
-    console.error('[Basket Put Error]', error);
+    console.error('[Basket Patch Error]', error);
     return new Response(JSON.stringify({ error: 'System Error' }), { status: 500 });
   }
 }
