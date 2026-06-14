@@ -10,6 +10,7 @@ import NostalgiaScene from './components/scenes/NostalgiaScene';
 import RoamingArea from './components/scenes/RoamingArea';
 import IncineratorScene from './components/scenes/IncineratorScene'; // 🟢 新增引入焚烧区
 import MirrorScene from './components/scenes/MirrorScene'; // 🟢 新增引入镜子角色场景
+import ShopkeeperScene from './components/scenes/ShopkeeperScene'; // 🟢 新增引入店长痕迹页
 // 待引入的其他组件...
 // import GuestbookArea from '@/components/scenes/GuestbookArea';
 // import TrashBinArea from '@/components/scenes/TrashBinArea';
@@ -57,6 +58,8 @@ export default function EndHereSpace() {
           {currentScene === 'incinerator' && <motion.div key="incinerator" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><IncineratorScene /></motion.div>}
           {/* 🟢 新增镜子场景路由映射 */}
           {currentScene === 'mirror' && <motion.div key="mirror" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><MirrorScene /></motion.div>}
+          {/* 🟢 新增店长痕迹页路由映射 */}
+          {currentScene === 'shopkeeper' && <motion.div key="shopkeeper" variants={fadeVariants} initial="initial" animate="animate" exit="exit" className="w-full h-full"><ShopkeeperScene /></motion.div>}
         </AnimatePresence>
       </div>
     </main>

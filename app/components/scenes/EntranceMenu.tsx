@@ -53,9 +53,7 @@ export default function EntranceMenu() {
   const [isLifeInputActive, setIsLifeInputActive] = useState(false);
   const [lifeFragment, setLifeFragment] = useState('');
   const [showArchived, setShowArchived] = useState(false);
-  const [showThankYou, setShowThankYou] = useState(false);
   const [shopkeeperStatus, setShopkeeperStatus] = useState('');
-  const [showLockedToast, setShowLockedToast] = useState(false);
 
   // 🟢 核心修复1：清理混乱的 localStorage 操作，无感接入底层结构化探针
   useEffect(() => {
@@ -88,10 +86,8 @@ export default function EntranceMenu() {
   };
 
   const handleShopkeeperTap = () => {
-    const currentTextId = 'npc_cleaning_bar';
-    track('SHOPKEEPER_TEXT_TAP', { text_id: currentTextId });
-    setShowThankYou(true);
-    setTimeout(() => setShowThankYou(false), 2000);
+    track('SHOPKEEPER_CAPSULE_TAP');
+    setScene('shopkeeper');
   };
 
   // 提交生活碎片 (静默落库)
@@ -120,16 +116,11 @@ export default function EntranceMenu() {
     if (e.key === 'Enter') submitLifeFragment();
   };
 
-  // 🟢 CTO 逻辑：获取总留痕数量，判定镜子解锁状态 (阈值 >= 10)
-  const entries = useShelterStore((state) => state.entries);
-  const isMirrorUnlocked = entries.length >= 10;
-
-  // 🟢 固化路由结构：增加 locked 属性控制可见性与交互
-  const secondaryOptions: { id: Scene; label: string; isNew?: boolean; locked?: boolean }[] = [
-    { id: 'resting', label: lang.HOME.tired ,isNew: true},
-    { id: 'mirror' as Scene, label: '照照镜子', isNew: true, locked: !isMirrorUnlocked },
-    { id: 'nostalgia', label: '我的痕迹' }, 
-    { id: 'roaming', label: lang.HOME.roaming ,isNew: true},
+  // 🟢 重构数据结构：支持挂载角标
+  const secondaryOptions: { id: Scene; label: string; isNew?: boolean }[] = [
+    { id: 'resting', label: lang.HOME.tired },
+    { id: 'nostalgia', label: '我的痕迹', isNew: true }, // 直接改为中文，防止被多语言字典覆盖
+    { id: 'roaming', label: lang.HOME.roaming },
   ];
 
   return (
@@ -156,20 +147,6 @@ export default function EntranceMenu() {
             <span className="text-zinc-300 text-[13px] tracking-[0.15em] font-mono leading-relaxed whitespace-nowrap">{shopkeeperStatus}</span>
           </button>
           
-          <AnimatePresence>
-            {showThankYou && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="absolute top-full mt-3 pointer-events-none"
-              >
-                <span className="text-zinc-500 text-[11px] tracking-widest font-mono">
-                  [ 谢谢。 ]
-                </span>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
         <div className="flex-col items-center mt-16">
@@ -249,27 +226,15 @@ export default function EntranceMenu() {
           {secondaryOptions.map((item) => (
             <div key={item.id} className="relative flex items-center justify-center">
               <button
-                // 🟢 修复：接管点击事件，锁定状态触发 Toast，解锁状态正常跳转
-                onClick={() => {
-                  if (item.locked) {
-                    setShowLockedToast(true);
-                    setTimeout(() => setShowLockedToast(false), 2000);
-                  } else {
-                    handleSceneEnter(item.id);
-                  }
-                }}
-                className={`tracking-[0.1em] text-[13px] transition-colors duration-700 ease-out outline-none ${
-                  item.locked 
-                    ? 'text-zinc-800 cursor-pointer' // 锁定状态允许点击（为了触发提示）
-                    : 'text-zinc-600 hover:text-zinc-300'
-                }`}
+                onClick={() => handleSceneEnter(item.id)}
+                className="tracking-[0.1em] text-[13px] text-zinc-600 hover:text-zinc-300 transition-colors duration-700 ease-out outline-none"
               >
                 {item.label}
               </button>
               
-              {/* 🟢 动态角标：未解锁时角标也同步置灰，解锁后恢复灰绿色 */}
+              {/* 🟢 低饱和度极简角标 */}
               {item.isNew && (
-                <span className="absolute -right-8 -top-1.5 text-[8px] font-mono tracking-widest px-1 py-[1px] rounded-[2px] pointer-events-none transition-colors duration-700 text-[#6b8e23] bg-[#6b8e23]/10 opacity-80">
+                <span className="absolute -right-8 -top-1.5 text-[8px] text-[#6b8e23] font-mono tracking-widest bg-[#6b8e23]/10 px-1 py-[1px] rounded-[2px] opacity-80 pointer-events-none">
                   NEW
                 </span>
               )}
@@ -280,20 +245,7 @@ export default function EntranceMenu() {
         {/* 隐性赞助模块 */}
         <SponsorModule />
       </div>
-      <AnimatePresence>
-        {showLockedToast && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="absolute bottom-24 pointer-events-none z-50 flex justify-center w-full"
-          >
-            <span className="text-zinc-500 text-[11px] tracking-[0.2em] font-mono bg-zinc-900/90 px-4 py-2 border border-zinc-800/80 backdrop-blur-sm">
-              [ 组成镜子需要更多痕迹碎片 ]
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      
     </div>
   );
 }

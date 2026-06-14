@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 // 🟢 扩充 Scene，增加 incinerator
-export type Scene = 'entrance' | 'speaking' | 'resting' | 'nostalgia' | 'roaming' | 'incinerator' | 'mirror';
+export type Scene = 'entrance' | 'speaking' | 'trashing' | 'resting' | 'nostalgia' | 'roaming' | 'incinerator' | 'mirror' | 'shopkeeper';
 
 export interface RuminationContext {
   entryId: number | string;  // 被反刍的小票 id
