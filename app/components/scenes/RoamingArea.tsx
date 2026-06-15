@@ -19,7 +19,7 @@ const SHELL_OPTIONS = [
   { id: '一把伞', label: '一把伞' },
   { id: '一件外套', label: '一件外套' },
   { id: '一本书', label: '一本书' },
-  { id: '一杯还没喝完的饮料', label: '一杯还没喝完的饮料' },
+  { id: '一杯饮料', label: '一杯饮料' },
   { id: '一张纸条', label: '一张纸条' },
   { id: '一副耳机', label: '一副耳机' },
   { id: '一双鞋', label: '一双鞋' },

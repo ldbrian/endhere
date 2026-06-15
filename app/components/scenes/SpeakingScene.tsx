@@ -45,8 +45,9 @@ export default function SpeakingScene() {
   const setScene = useSpaceStore((state) => state.setScene);
   const addEntry = useShelterStore((state) => state.addEntry);
   const addPatch = useShelterStore((state) => state.addPatch);
-  const ruminationContext = useShelterStore((state) => state.ruminationContext);
-  const setRuminationContext = useShelterStore((state) => state.setRuminationContext);
+  // 🟢 Bug Fix: ruminationContext 由 useSpaceStore 管理，NostalgiaScene 写入的也是这里
+  const ruminationContext = useSpaceStore((state) => state.ruminationContext);
+  const setRuminationContext = useSpaceStore((state) => state.setRuminationContext);
 
   const lang = useLanguage();
 

@@ -66,7 +66,7 @@ export default function ShopkeeperScene() {
         className="absolute top-20 inset-0 overflow-y-auto z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col items-center"
         style={{ paddingLeft: '32px', paddingRight: '32px' }}
       >
-        <div className="w-full flex flex-col pt-32 pb-24" style={{ maxWidth: '420px' }}>
+        <div className="w-full flex flex-col pt-16 pb-24" style={{ maxWidth: '420px' }}>
 
           {/* 页面标题 */}
           <div className="mb-12">

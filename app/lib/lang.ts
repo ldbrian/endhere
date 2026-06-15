@@ -2,7 +2,7 @@
 export const EN = {
   HOME: {
     welcome: "Welcome.",
-    prompt: "How are you doing today?",
+    prompt: "A trace will invariably persist in some form.",
     saySomething: "I have something to say",
     tired: "I'm just a bit tired",
     nostalgia: "I'm thinking about the past",
@@ -97,7 +97,7 @@ export const EN = {
 export const CN = {
   HOME: {
     welcome: "欢迎光临。",
-    prompt: "今天过得怎么样？",
+    prompt: "总会有个地方，留下一点痕迹。",
     saySomething: "我有很多话想说",
     tired: "我有点累",
     nostalgia: "我的痕迹",

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSpaceStore, Scene } from '../../store/useSpaceStore';
 import { useShelterStore } from '../../store/useShelterStore';
 import { track } from '../../lib/track';
@@ -8,6 +8,51 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../../hooks/useLanguage';
 import PlasticBag from '../PlasticBag';
 import { supabase } from '../../lib/supabase';
+import { isMirrorUnlocked } from '../../lib/personas';
+import type { ShelterEntry } from '../../store/useShelterStore';
+
+const HOME_SLOGAN_LINES = ['总会有个地方，', '留下一点痕迹。'];
+
+function HomeExhibitLayer({ entries }: { entries: ShelterEntry[] }) {
+  const fragments = useMemo(() => {
+    return entries
+      .filter((entry) => entry.status !== 'incinerated' && entry.content?.trim())
+      .slice(0, 3)
+      .map((entry) => {
+        const content = entry.content.trim().replace(/\s+/g, ' ');
+        return content.length > 18 ? `${content.slice(0, 18)}...` : content;
+      });
+  }, [entries]);
+
+  const slots = [
+    'left-[8%] top-[28%] rotate-[-2deg]',
+    'right-[7%] top-[58%] rotate-[2deg]',
+    'left-[13%] bottom-[16%] rotate-[1deg]',
+  ];
+
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      <div className="absolute inset-x-10 top-[116px] h-px bg-gradient-to-r from-transparent via-zinc-900/70 to-transparent" />
+      <div className="absolute inset-x-14 bottom-[98px] h-px bg-gradient-to-r from-transparent via-zinc-900/70 to-transparent" />
+
+      <div className="absolute left-[18%] top-[24%] hidden h-[46%] w-px bg-zinc-900/70 md:block" />
+      <div className="absolute right-[18%] top-[24%] hidden h-[46%] w-px bg-zinc-900/70 md:block" />
+
+      <div className="absolute left-1/2 top-[39%] h-px w-[min(48vw,250px)] -translate-x-1/2 bg-gradient-to-r from-transparent via-zinc-900 to-transparent opacity-50" />
+      <div className="absolute left-1/2 top-[66%] h-px w-[min(42vw,220px)] -translate-x-1/2 bg-gradient-to-r from-transparent via-zinc-900 to-transparent opacity-40" />
+
+      {fragments.map((fragment, index) => (
+        <div
+          key={`${fragment}-${index}`}
+          className={`absolute hidden max-w-[126px] border-l border-zinc-800/50 pl-3 text-left font-mono text-[9px] leading-relaxed tracking-[0.18em] text-zinc-700/55 md:block ${slots[index]}`}
+        >
+          <span className="mb-2 block h-px w-6 bg-zinc-800/60" />
+          {fragment}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function SponsorModule() {
   const [showQR, setShowQR] = useState(false);
@@ -47,13 +92,18 @@ function SponsorModule() {
 export default function EntranceMenu() {
   const setScene = useSpaceStore((state) => state.setScene);
   const addEntry = useShelterStore((state) => state.addEntry);
+  const entries = useShelterStore((state) => state.entries);
   const lang = useLanguage();
+
+  // 🟢 镜子解锁：黑盒判定，不暴露任何进度提示
+  const mirrorUnlocked = useMemo(() => isMirrorUnlocked(entries), [entries]);
 
   // 生活轨独立状态
   const [isLifeInputActive, setIsLifeInputActive] = useState(false);
   const [lifeFragment, setLifeFragment] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [shopkeeperStatus, setShopkeeperStatus] = useState('');
+  const [showMirrorToast, setShowMirrorToast] = useState(false);
 
   // 🟢 核心修复1：清理混乱的 localStorage 操作，无感接入底层结构化探针
   useEffect(() => {
@@ -116,15 +166,24 @@ export default function EntranceMenu() {
     if (e.key === 'Enter') submitLifeFragment();
   };
 
-  // 🟢 重构数据结构：支持挂载角标
-  const secondaryOptions: { id: Scene; label: string; isNew?: boolean }[] = [
-    { id: 'resting', label: lang.HOME.tired },
-    { id: 'nostalgia', label: '我的痕迹', isNew: true }, // 直接改为中文，防止被多语言字典覆盖
-    { id: 'roaming', label: lang.HOME.roaming },
+  const secondaryOptions: { id: Scene; label: string; isNew?: boolean; className: string }[] = [
+    { id: 'resting', label: '坐一会儿', className: 'col-span-2 justify-self-center' },
+    { id: 'nostalgia', label: '看看我的痕迹', isNew: false, className: 'justify-self-end' },
+    { id: 'roaming', label: '在店里走走', className: 'justify-self-start' },
   ];
+
+  const handleMirrorTap = () => {
+    if (mirrorUnlocked) {
+      handleSceneEnter('mirror');
+    } else {
+      setShowMirrorToast(true);
+      setTimeout(() => setShowMirrorToast(false), 2500);
+    }
+  };
 
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-center bg-transparent select-none">
+      <HomeExhibitLayer entries={entries} />
       
       <div className="absolute top-8 left-6 md:left-12 z-40 flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity duration-500">
         <img src="/logo.png" alt="End Here Logo" className="w-5 h-5 object-contain" />
@@ -133,25 +192,28 @@ export default function EntranceMenu() {
 
       <PlasticBag />
 
+      <div className="absolute top-[58px] md:top-[60px] left-1/2 -translate-x-1/2 flex flex-col items-center z-40">
+        <button
+          onClick={handleShopkeeperTap}
+          style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '7px', paddingBottom: '7px' }}
+          className="border border-zinc-800 bg-zinc-900/50 rounded-full flex items-center gap-4 transition-colors hover:bg-zinc-800/80 outline-none cursor-pointer"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse shrink-0" />
+          <span className="text-zinc-300 text-[13px] tracking-[0.15em] font-mono leading-relaxed whitespace-nowrap">{shopkeeperStatus}</span>
+        </button>
+      </div>
+
       {/* 核心分诊台 */}
-      <div className="flex flex-col items-center justify-center w-full max-w-lg gap-10 mt-16">
+      <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-lg gap-10 pt-24 translate-y-8 md:translate-y-10">
         
         {/* 店长动态胶囊 */}
-        <div className="absolute top-15 left-1/2 -translate-x-1/2 flex flex-col items-center z-40">
-          <button
-            onClick={handleShopkeeperTap}
-            style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '7px', paddingBottom: '7px' }}
-            className="border border-zinc-800 bg-zinc-900/50 rounded-full mb-12 flex items-center gap-4 transition-colors hover:bg-zinc-800/80 outline-none cursor-pointer"
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse shrink-0" />
-            <span className="text-zinc-300 text-[13px] tracking-[0.15em] font-mono leading-relaxed whitespace-nowrap">{shopkeeperStatus}</span>
-          </button>
-          
-        </div>
-
-        <div className="flex-col items-center mt-16">
-          <h1 className="text-2xl md:text-3xl text-zinc-300 tracking-[0.1em] font-medium">
-            {lang.HOME.prompt}
+        <div className="flex flex-col items-center px-8 text-center">
+          <h1 className="flex flex-col items-center gap-3 text-[21px] md:text-[27px] text-zinc-300 tracking-[0.12em] font-light leading-relaxed">
+            {HOME_SLOGAN_LINES.map((line) => (
+              <span key={line} className="whitespace-nowrap">
+                {line}
+              </span>
+            ))}
           </h1>
         </div>
 
@@ -162,11 +224,9 @@ export default function EntranceMenu() {
             onClick={() => handleSceneEnter('speaking')}
             className="group flex items-center justify-center gap-4 py-2 text-zinc-300 hover:text-zinc-50 transition-all duration-700 ease-out outline-none"
           >
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-700 font-light text-xl">[</span>
             <span className="tracking-[0.15em] text-lg font-medium">
-              [ 我有很多话想说 ]
+              [ 我有些话想说 ]
             </span>
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-700 font-light text-xl">]</span>
           </button>
 
           <div className="w-full flex justify-center items-center h-12">
@@ -222,9 +282,9 @@ export default function EntranceMenu() {
         <div className="w-8 h-[1px] bg-zinc-800/80 mt-4" />
 
         {/* 辅助功能区 */}
-        <div className="flex flex-col items-center gap-10 w-full mt-2">
+        <div className="grid grid-cols-2 items-center gap-x-14 gap-y-9 w-full max-w-[320px] mt-2">
           {secondaryOptions.map((item) => (
-            <div key={item.id} className="relative flex items-center justify-center">
+            <div key={item.id} className={`relative flex items-center justify-center ${item.className}`}>
               <button
                 onClick={() => handleSceneEnter(item.id)}
                 className="tracking-[0.1em] text-[13px] text-zinc-600 hover:text-zinc-300 transition-colors duration-700 ease-out outline-none"
@@ -240,6 +300,34 @@ export default function EntranceMenu() {
               )}
             </div>
           ))}
+
+          {/* 🟢 镜子入口：常驻，未解锁时置灰 + toast */}
+          <div className="relative col-span-2 flex flex-col items-center justify-self-center">
+            <button
+              onClick={handleMirrorTap}
+              className={`tracking-[0.1em] text-[13px] transition-colors duration-700 ease-out outline-none ${
+                mirrorUnlocked
+                  ? 'text-zinc-600 hover:text-zinc-300'
+                  : 'text-zinc-800 cursor-default'
+              }`}
+            >
+              和过去的自己坐一会儿
+            </button>
+
+            <AnimatePresence>
+              {showMirrorToast && (
+                <motion.span
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute top-full mt-3 text-[10px] text-zinc-600 tracking-[0.15em] font-mono whitespace-nowrap pointer-events-none"
+                >
+                  镜子需要更多痕迹合成
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* 隐性赞助模块 */}

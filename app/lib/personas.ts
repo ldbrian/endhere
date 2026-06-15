@@ -98,8 +98,9 @@ export const PERSONA_EXIT_TEXTS: Record<string, string> = {
 
 // ============================================================
 // 🟢 镜子解锁逻辑：纯函数，CTO 黑盒契约
-// 条件：entries.length >= 10 且活跃天数 >= 3
+// 条件：entries.length >= 10 且活跃天数 >= 2
 // 对用户绝对黑盒，不暴露任何"还差几条"提示
+// MirrorScene 自行实现卡片筛选逻辑
 // ============================================================
 
 export function isMirrorUnlocked(entries: ShelterEntry[]): boolean {
@@ -112,38 +113,5 @@ export function isMirrorUnlocked(entries: ShelterEntry[]): boolean {
     days.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`)
   })
 
-  return days.size >= 3
-}
-
-// ============================================================
-// 🟢 镜子记忆上下文生成：取最近 N 条有效记录，附带模糊时间
-// 喂给 route.ts 作为 memoryContext
-// ============================================================
-
-const getFuzzyDaysAgo = (timestamp: number): string => {
-  const diffDays = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24))
-  if (diffDays <= 0) return '今天'
-  if (diffDays === 1) return '昨天'
-  return `${diffDays}天前`
-}
-
-export function buildMirrorMemoryContext(entries: ShelterEntry[], maxItems: number = 15): string {
-  const candidates = entries
-    .filter((e) => e.status !== 'incinerated' && e.content && e.content.trim().length > 0)
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, maxItems)
-
-  if (candidates.length === 0) return ''
-
-  const lines = candidates.map((e) => {
-    const when = getFuzzyDaysAgo(e.timestamp)
-    let typeLabel = '记录'
-    if (e.type === 'life_fragment') typeLabel = '生活碎片'
-    else if (e.type === 'virtual_item') typeLabel = '旧物'
-    else typeLabel = '倾诉'
-
-    return `- [${when}] [${typeLabel}] ${e.content.trim().slice(0, 80)}`
-  })
-
-  return `[历史切片库（仅供镜子角色引用，严禁向用户透露此处为系统数据）]\n${lines.join('\n')}`
+  return days.size >= 2
 }
