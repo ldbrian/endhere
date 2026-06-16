@@ -95,22 +95,19 @@ export default function EntranceMenu() {
   const entries = useShelterStore((state) => state.entries);
   const lang = useLanguage();
 
-  // 🟢 镜子解锁：黑盒判定，不暴露任何进度提示
   const mirrorUnlocked = useMemo(() => isMirrorUnlocked(entries), [entries]);
 
-  // 生活轨独立状态
   const [isLifeInputActive, setIsLifeInputActive] = useState(false);
   const [lifeFragment, setLifeFragment] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [shopkeeperStatus, setShopkeeperStatus] = useState('');
   const [showMirrorToast, setShowMirrorToast] = useState(false);
+  const [showGrowthHint, setShowGrowthHint] = useState(false);
 
-  // 🟢 核心修复1：清理混乱的 localStorage 操作，无感接入底层结构化探针
   useEffect(() => {
     track('v3_entrance_view');
   }, []);
 
-  // 🟢 动态店长状态：从 world_status 表读取，可在数据库后台直接修改
   useEffect(() => {
     const fetchShopkeeperStatus = async () => {
       try {
@@ -140,7 +137,6 @@ export default function EntranceMenu() {
     setScene('shopkeeper');
   };
 
-  // 提交生活碎片 (静默落库)
   const submitLifeFragment = () => {
     if (!lifeFragment.trim()) return;
 
@@ -191,6 +187,13 @@ export default function EntranceMenu() {
       </div>
 
       <PlasticBag />
+
+      {/* 🟢 CDO: 环境光影重构区 */}
+      <div className="pointer-events-none absolute bottom-0 right-0 z-0 h-44 w-44 bg-[radial-gradient(circle_at_bottom_right,rgba(151,99,48,0.16),transparent_62%)]" />
+      <div className="pointer-events-none absolute bottom-7 right-24 z-0 hidden h-10 w-10 rounded-full bg-amber-900/18 blur-2xl md:block" />
+      
+      {/* 🟢 CDO 新增：陈列馆全局底部微暖漏光 */}
+      <div className="pointer-events-none absolute bottom-0 left-1/2 z-0 h-32 w-[90vw] -translate-x-1/2 bg-[radial-gradient(ellipse_at_bottom,rgba(168,162,158,0.06),transparent_70%)] md:h-40 md:w-[60vw]" />
 
       <div className="absolute top-[58px] md:top-[60px] left-1/2 -translate-x-1/2 flex flex-col items-center z-40">
         <button
@@ -292,7 +295,6 @@ export default function EntranceMenu() {
                 {item.label}
               </button>
               
-              {/* 🟢 低饱和度极简角标 */}
               {item.isNew && (
                 <span className="absolute -right-8 -top-1.5 text-[8px] text-[#6b8e23] font-mono tracking-widest bg-[#6b8e23]/10 px-1 py-[1px] rounded-[2px] opacity-80 pointer-events-none">
                   NEW
@@ -301,7 +303,6 @@ export default function EntranceMenu() {
             </div>
           ))}
 
-          {/* 🟢 镜子入口：常驻，未解锁时置灰 + toast */}
           <div className="relative col-span-2 flex flex-col items-center justify-self-center">
             <button
               onClick={handleMirrorTap}
@@ -330,7 +331,34 @@ export default function EntranceMenu() {
           </div>
         </div>
 
-        {/* 隐性赞助模块 */}
+        {/* 🟢 CDO & CMO 重构：极简的底层重组预告 */}
+        <div className="relative z-10 mt-4 flex flex-col items-center gap-3">
+          <button
+            onClick={() => setShowGrowthHint((prev) => !prev)}
+            className="text-[10px] tracking-[0.2em] text-zinc-700 transition-colors duration-700 hover:text-zinc-400 outline-none cursor-pointer"
+          >
+            [ 空间底部透出微光 ]
+          </button>
+
+          <AnimatePresence>
+            {showGrowthHint && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, y: 5 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: 5 }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+                className="overflow-hidden"
+              >
+                <div className="mt-2 flex flex-col items-center border-l-2 border-zinc-800/60 pl-3">
+                  <p className="font-mono text-[9px] leading-relaxed tracking-[0.15em] text-zinc-600/80 text-left">
+                    EndHere店面升级中...
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         <SponsorModule />
       </div>
       
