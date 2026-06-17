@@ -35,7 +35,7 @@ export default function PlasticBag() {
     if (!mounted) return null;
 
     return createPortal(
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/96">
         
         <div className="absolute inset-0 cursor-pointer" onClick={handleClose} />
 
