@@ -48,7 +48,7 @@ export const useFragmentStore = create<FragmentState>()(
           visibility: draft.visibility,
           allow_shopkeeper_review: draft.allow_shopkeeper_review,
           shopkeeper_comment: null,
-          meta: { source: 'manual' },
+          meta: { source: 'manual', ai_persona: draft.ai_persona },
           created_at: now,
           updated_at: now,
         };

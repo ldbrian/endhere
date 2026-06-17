@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { PERSONA_SYSTEM_PROMPTS } from '../../../../lib/personas'
 
 export const runtime = 'edge'
 
@@ -12,6 +13,18 @@ type OrganizedFragment = {
   narration_content: string
 }
 
+type FragmentPersonaId = 'Ash' | 'Rin' | 'Child'
+
+const PERSONA_NAMES: Record<FragmentPersonaId, string> = {
+  Ash: 'Ash',
+  Rin: 'Rin',
+  Child: '8岁的自己',
+}
+
+function normalizePersona(persona: unknown): FragmentPersonaId {
+  return persona === 'Ash' || persona === 'Child' ? persona : 'Rin'
+}
+
 function fallbackTitle(original: string) {
   const firstLine = original.trim().split(/\n+/)[0] || '一块碎片'
   return firstLine.length > 12 ? `${firstLine.slice(0, 10)}...` : firstLine
@@ -19,9 +32,10 @@ function fallbackTitle(original: string) {
 
 function keepNarrationShorter(narration: string, original: string) {
   const compact = narration.trim()
-  const limit = Math.max(0, Math.min(original.trim().length - 1, 90))
+  const hasOriginal = original.trim().length > 0
+  const limit = 70
 
-  if (limit <= 0) return ''
+  if (!hasOriginal) return ''
   return compact.length > limit ? compact.slice(0, limit) : compact
 }
 
@@ -38,22 +52,29 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     original = typeof body.original_content === 'string' ? body.original_content.trim() : ''
+    const persona = normalizePersona(body.persona)
 
     if (!original) {
       return Response.json({ error: 'EMPTY_ORIGINAL_CONTENT' }, { status: 400 })
     }
 
-    const maxNarrationChars = Math.max(8, Math.min(original.length - 1, 70))
+    const maxNarrationChars = 70
+    const timeContext = `当前小时：${new Date().getHours()}`
+    const personaPrompt = PERSONA_SYSTEM_PROMPTS[persona](timeContext)
     const prompt = `
-你是 End Here V2 的静默档案员。
+你是 End Here V2 的碎片旁白生成器。
 
 产品宪法：
 这里不解答人生的意义，只保管人生的体验。
 AI 不是替代用户记录。AI 是帮助用户记录。
 用户原文永远是主角。你的文字只是展品旁边的小说明牌。
 
+角色底色：
+${personaPrompt}
+
 任务：
 为用户输入的一块人生体验碎片生成 title 和 narration_content。
+narration_content 必须像 ${PERSONA_NAMES[persona]} 对这块碎片留下的一句短短秒描述或评价。
 
 禁止：
 - 安慰
@@ -66,11 +87,12 @@ AI 不是替代用户记录。AI 是帮助用户记录。
 
 允许：
 - 提炼具象标题
+- 带有角色性格，但不要变成聊天回复
 - 以档案备注、博物馆展品说明、时间胶囊旁白的方式补充一点画面
 - 保留体验本身，不解释体验
 
 硬性要求：
-- narration_content 必须短于用户原文
+- narration_content 是一句短评，不要复述或改写用户原文
 - narration_content 最多 ${maxNarrationChars} 个中文
 - title 最多 12 个中文
 - 只返回 JSON，不要 Markdown，不要额外文字
@@ -78,7 +100,7 @@ AI 不是替代用户记录。AI 是帮助用户记录。
 返回格式：
 {
   "title": "一件展品名",
-  "narration_content": "短旁白"
+  "narration_content": "一句角色短评"
 }
 `
 

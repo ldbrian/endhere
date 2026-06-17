@@ -8,6 +8,7 @@ import {
   clampNarrationToOriginal,
   fallbackFragmentTitle,
   normalizeFragmentText,
+  type FragmentPersonaId,
   type FragmentVisibility,
 } from '../../_core/fragments';
 import { useFragmentStore } from '../../_core/storage';
@@ -20,6 +21,11 @@ type OrganizedFragment = {
 };
 
 const INSPIRATION = ['一个情绪', '一段回忆', '一件旧物', '一句话'];
+const AI_PERSONAS: { id: FragmentPersonaId; name: string; sub: string }[] = [
+  { id: 'Ash', name: 'Ash', sub: '冷一点' },
+  { id: 'Rin', name: 'Rin', sub: '轻一点' },
+  { id: 'Child', name: '8岁的自己', sub: '近一点' },
+];
 
 export default function V2NewFragmentPage() {
   const router = useRouter();
@@ -29,6 +35,7 @@ export default function V2NewFragmentPage() {
   const [organized, setOrganized] = useState<OrganizedFragment | null>(null);
   const [visibility, setVisibility] = useState<FragmentVisibility>('private');
   const [allowShopkeeperReview, setAllowShopkeeperReview] = useState(false);
+  const [aiPersona, setAiPersona] = useState<FragmentPersonaId>('Rin');
   const [error, setError] = useState('');
 
   const original = normalizeFragmentText(originalContent);
@@ -54,7 +61,7 @@ export default function V2NewFragmentPage() {
       const response = await fetch('/api/v2/fragments/organize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ original_content: original }),
+        body: JSON.stringify({ original_content: original, persona: aiPersona }),
       });
 
       if (!response.ok) throw new Error('organize failed');
@@ -86,6 +93,7 @@ export default function V2NewFragmentPage() {
       narration_content: safeOrganized.narration_content,
       visibility,
       allow_shopkeeper_review: allowShopkeeperReview,
+      ai_persona: aiPersona,
     });
 
     // 🟢 CTO 修复：在这里加锁！记录最后一次成功提交的时间
@@ -135,14 +143,35 @@ export default function V2NewFragmentPage() {
                   autoFocus
                 />
 
+                <div className="mt-8 grid grid-cols-3 gap-2">
+                  {AI_PERSONAS.map((persona) => {
+                    const active = aiPersona === persona.id;
+                    return (
+                      <button
+                        key={persona.id}
+                        type="button"
+                        onClick={() => setAiPersona(persona.id)}
+                        className={`min-h-16 border px-2 py-3 text-center transition-colors duration-300 outline-none ${
+                          active
+                            ? 'border-zinc-500 bg-zinc-900/70 text-zinc-100'
+                            : 'border-zinc-900 bg-transparent text-zinc-600 hover:border-zinc-700 hover:text-zinc-300'
+                        }`}
+                      >
+                        <span className="block text-[12px] leading-5 tracking-[0.08em]">{persona.name}</span>
+                        <span className="mt-1 block text-[10px] leading-4 tracking-[0.1em] opacity-70">{persona.sub}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <div className="mt-7 flex items-center justify-between">
-                  <span className="text-[10px] tracking-[0.14em] text-zinc-700">{original.length}/140</span>
+                  <span className="text-[10px] tracking-[0.14em] text-zinc-700">{original.length}/800</span>
                   <button
                     onClick={organize}
                     disabled={!original}
                     className="text-[13px] tracking-[0.18em] text-zinc-300 transition-colors duration-500 hover:text-white disabled:text-zinc-800"
                   >
-                    交给档案员
+                    交给 {AI_PERSONAS.find((persona) => persona.id === aiPersona)?.name}
                   </button>
                 </div>
                 {error && <p className="mt-6 text-[11px] tracking-[0.12em] text-red-900/80">{error}</p>}
@@ -152,7 +181,7 @@ export default function V2NewFragmentPage() {
             {step === 'organizing' && (
               <motion.div key="organizing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
                 <div className="mx-auto mb-8 h-2 w-2 rounded-full bg-zinc-600 animate-pulse" />
-                <p className="text-[14px] tracking-[0.16em] text-zinc-500">档案员正在整理这块碎片</p>
+                <p className="text-[14px] tracking-[0.16em] text-zinc-500">{AI_PERSONAS.find((persona) => persona.id === aiPersona)?.name} 正在看这块碎片</p>
                 <p className="mt-6 text-[11px] tracking-[0.12em] text-zinc-700">不会改写你的原文。</p>
               </motion.div>
             )}
@@ -179,7 +208,9 @@ export default function V2NewFragmentPage() {
                 </div>
 
                 <div className="mt-10 border-l border-zinc-900 pl-5">
-                  <p className="text-[11px] tracking-[0.2em] text-zinc-700">档案旁白</p>
+                  <p className="text-[11px] tracking-[0.2em] text-zinc-700">
+                    {AI_PERSONAS.find((persona) => persona.id === aiPersona)?.name} 留下的一句
+                  </p>
                   <p className="mt-5 whitespace-pre-wrap text-[13px] font-light leading-7 tracking-[0.06em] text-zinc-500">
                     {organized.narration_content || '这块碎片暂时不需要旁白。'}
                   </p>

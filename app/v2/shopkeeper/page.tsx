@@ -4,24 +4,28 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
-import type { Fragment } from '../_core/fragments';
+
+type ShopkeeperLog = {
+  id: string;
+  content: string;
+  created_at: string;
+};
 
 export default function V2ShopkeeperPage() {
-  const [logs, setLogs] = useState<Fragment[]>([]);
+  const [logs, setLogs] = useState<ShopkeeperLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        // 🟢 V2 架构大一统：从核心 fragments 表中拉取店长专属碎片
+        // 胶囊点击后的二级页：读取店长历史动态记录
         const { data, error } = await supabase
-          .from('fragments')
-          .select('*')
-          .eq('owner_id', 'system_shopkeeper')
+          .from('shopkeeper_logs')
+          .select('id, content, created_at')
           .order('created_at', { ascending: false });
 
         if (!error && data) {
-          setLogs(data as Fragment[]);
+          setLogs(data as ShopkeeperLog[]);
         }
       } catch (e) {
         console.error('[ShopkeeperPage] fetch error:', e);
@@ -52,7 +56,7 @@ export default function V2ShopkeeperPage() {
       <div className="relative z-10 flex w-full max-w-[430px] flex-1 flex-col overflow-y-auto px-8 pb-32 pt-28 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         
         <div className="mb-14 flex flex-col items-center text-center">
-          <h1 className="text-[15px] font-light tracking-[0.2em] text-zinc-300 mb-4">店长观察日志</h1>
+          <h1 className="text-[15px] font-light tracking-[0.2em] text-zinc-300 mb-4">店长动态</h1>
           <p className="text-[11px] leading-relaxed tracking-[0.15em] text-zinc-600">
             这里存放着店长留下的、不干预任何人的世界碎片。
           </p>
@@ -77,11 +81,8 @@ export default function V2ShopkeeperPage() {
                 <span className="mb-6 text-[10px] tracking-[0.25em] text-zinc-600 font-mono">
                   {new Date(log.created_at).toLocaleDateString().replace(/\//g, '.')}
                 </span>
-                <h2 className="mb-4 text-[15px] font-light tracking-[0.08em] text-zinc-200">
-                  {log.title}
-                </h2>
                 <p className="whitespace-pre-wrap text-[13px] font-light leading-[2] tracking-[0.1em] text-zinc-400">
-                  {log.original_content}
+                  {log.content}
                 </p>
               </motion.article>
             ))}

@@ -8,18 +8,31 @@ import { motion } from 'framer-motion';
 import type { Fragment } from './_core/fragments';
 import { FEATURED_SEED_FRAGMENTS } from './_core/fragments';
 import { getFeaturedExhibit } from './_core/storage';
-import { useSpaceStore, type Scene } from '../store/useSpaceStore';
 import { supabase } from '../lib/supabase';
 import PlasticBag from '../components/PlasticBag';
 import { useMigrationProbe } from './_core/useMigrationProbe';
 // 🟢 新增：引入埋点工具
 import { track } from '../lib/track'; 
 
+type WorldStatusCapsule = {
+  id?: string;
+  key: string;
+  value: string;
+  sort_order?: number | null;
+  is_active?: boolean | null;
+};
+
+const FALLBACK_CAPSULE: WorldStatusCapsule = {
+  id: 'fallback-shopkeeper-status',
+  key: 'shopkeeper_status',
+  value: '店长正在清理吧台',
+};
+
 export default function V2HomePage() {
   useMigrationProbe(); 
   const router = useRouter();
   const [featured, setFeatured] = useState<Fragment>(FEATURED_SEED_FRAGMENTS[0]);
-  const [shopkeeperStatus, setShopkeeperStatus] = useState('');
+  const [worldStatusCapsules, setWorldStatusCapsules] = useState<WorldStatusCapsule[]>([FALLBACK_CAPSULE]);
 
   // 🟢 埋点 1：记录大厅曝光
   useEffect(() => {
@@ -34,23 +47,58 @@ export default function V2HomePage() {
   }, []);
 
   useEffect(() => {
-    // 店长胶囊状态拉取
-    const fetchShopkeeperStatus = async () => {
+    // 首页胶囊状态拉取：由 world_status 表手动维护
+    const fetchWorldStatusCapsules = async () => {
       try {
-        const { data, error } = await supabase
+        const richResult = await supabase
           .from('world_status')
-          .select('value')
+          .select('key, value, sort_order, is_active')
+          .order('sort_order', { ascending: true });
+
+        let data = richResult.data;
+        let error = richResult.error;
+
+        if (error) {
+          const basicResult = await supabase
+            .from('world_status')
+            .select('key, value');
+
+          data = basicResult.data?.map((item) => ({
+            ...item,
+            sort_order: null,
+            is_active: null,
+          })) || null;
+          error = basicResult.error;
+        }
+
+        if (!error && data && data.length > 0) {
+          setWorldStatusCapsules(
+            data
+              .filter((item) => item.is_active !== false)
+              .filter((item) => typeof item.value === 'string' && item.value.trim())
+              .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))
+              .map((item) => ({
+                ...item,
+                value: item.value.trim(),
+              }))
+          );
+          return;
+        }
+
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('world_status')
+          .select('key, value')
           .eq('key', 'shopkeeper_status')
           .single();
 
-        if (!error && data?.value) {
-          setShopkeeperStatus(data.value);
+        if (!fallbackError && fallbackData?.value) {
+          setWorldStatusCapsules([{ ...FALLBACK_CAPSULE, ...fallbackData, value: fallbackData.value.trim() }]);
         }
       } catch (err) {
-        console.error('获取店长状态失败:', err);
+        console.error('获取世界状态失败:', err);
       }
     };
-    fetchShopkeeperStatus();
+    fetchWorldStatusCapsules();
   }, []);
 
   
@@ -70,24 +118,29 @@ export default function V2HomePage() {
           <PlasticBag />
         </header>
 
-        <div className="flex shrink-0 justify-center pt-3">
-          <motion.button
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: 'easeOut' }}
-            // 🟢 埋点 2：店长状态点击
-            onClick={() => {
-              track('v2_shopkeeper_tap');
-              router.push('/v2/shopkeeper'); // 🟢 CTO 修复：直接利用 Next.js 路由跳转至新页面
-            }}
-            style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '7px', paddingBottom: '7px' }}
-            className="flex items-center gap-4 rounded-full border border-zinc-800 bg-zinc-900/50 transition-colors hover:bg-zinc-800/80 outline-none cursor-pointer"
-          >
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-yellow-500 animate-pulse" />
-            <span className="whitespace-nowrap text-[13px] tracking-[0.15em] text-zinc-300 font-mono leading-relaxed">
-              {shopkeeperStatus}
-            </span>
-          </motion.button>
+        <div className="-mx-8 flex shrink-0 justify-center overflow-x-auto px-8 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-max items-center gap-2">
+            {worldStatusCapsules.map((capsule, index) => (
+              <motion.button
+                key={`${capsule.key}-${index}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: index * 0.04, ease: 'easeOut' }}
+                // 🟢 埋点 2：首页胶囊点击
+                onClick={() => {
+                  track('v2_world_status_tap', { key: capsule.key });
+                  router.push('/v2/shopkeeper');
+                }}
+                style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '7px', paddingBottom: '7px' }}
+                className="flex items-center gap-3 rounded-full border border-zinc-800 bg-zinc-900/50 transition-colors hover:bg-zinc-800/80 outline-none cursor-pointer"
+              >
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-yellow-500 animate-pulse" />
+                <span className="whitespace-nowrap text-[13px] tracking-[0.15em] text-zinc-300 font-mono leading-relaxed">
+                  {capsule.value}
+                </span>
+              </motion.button>
+            ))}
+          </div>
         </div>
 
         <section className="flex shrink-0 flex-col items-center pt-6 text-center">

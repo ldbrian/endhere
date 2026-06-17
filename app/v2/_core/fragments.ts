@@ -1,4 +1,5 @@
 export type FragmentVisibility = 'private' | 'public';
+export type FragmentPersonaId = 'Ash' | 'Rin' | 'Child';
 
 export type Fragment = {
   id: string;
@@ -11,6 +12,7 @@ export type Fragment = {
   shopkeeper_comment: string | null;
   meta: {
     source: 'manual' | 'seed';
+    ai_persona?: FragmentPersonaId;
     featured?: boolean;
     quality_score?: number;
   };
@@ -24,6 +26,7 @@ export type FragmentDraft = {
   narration_content: string;
   visibility: FragmentVisibility;
   allow_shopkeeper_review: boolean;
+  ai_persona?: FragmentPersonaId;
 };
 
 export const V2_OWNER_KEY = 'endhere_v2_owner_id';
@@ -80,9 +83,10 @@ export function normalizeFragmentText(text: string) {
 
 export function clampNarrationToOriginal(narration: string, original: string) {
   const compact = narration.trim();
-  const maxLength = Math.max(0, Math.min(original.trim().length - 1, 90));
+  const hasOriginal = original.trim().length > 0;
+  const maxLength = 70;
 
-  if (maxLength <= 0) return '';
+  if (!hasOriginal) return '';
   return compact.length > maxLength ? compact.slice(0, maxLength) : compact;
 }
 
