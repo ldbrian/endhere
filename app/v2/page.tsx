@@ -25,7 +25,7 @@ type WorldStatusCapsule = {
 const FALLBACK_CAPSULE: WorldStatusCapsule = {
   id: 'fallback-shopkeeper-status',
   key: 'shopkeeper_status',
-  value: '店长正在清理吧台',
+  value: '正在搜索店长行踪…',
 };
 
 export default function V2HomePage() {
