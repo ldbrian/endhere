@@ -21,6 +21,7 @@ interface FragmentState {
   _hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
   addLocalFragment: (draft: FragmentDraft) => Fragment;
+  mergeShopkeeperComments: (comments: Record<string, string | null>) => void;
   lastSubmitTime: number | null;
   setLastSubmitTime: (time: number) => void;
 }
@@ -62,6 +63,20 @@ export const useFragmentStore = create<FragmentState>()(
         syncFragmentToCloud(fragment);
 
         return fragment;
+      },
+      mergeShopkeeperComments: (comments) => {
+        set((state) => ({
+          localFragments: state.localFragments.map((fragment) => {
+            if (!(fragment.id in comments)) return fragment;
+            const shopkeeperComment = comments[fragment.id]?.trim() || null;
+
+            if (fragment.shopkeeper_comment === shopkeeperComment) return fragment;
+            return {
+              ...fragment,
+              shopkeeper_comment: shopkeeperComment,
+            };
+          }),
+        }));
       },
     }),
     {

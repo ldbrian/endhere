@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useFragmentStore } from '../_core/storage';
 import type { Fragment } from '../_core/fragments';
+import { supabase } from '../../lib/supabase';
 
 const getFuzzyTime = (timestamp: string): string => {
   const diff = Date.now() - new Date(timestamp).getTime();
@@ -22,6 +23,40 @@ const getFuzzyTime = (timestamp: string): string => {
 export default function V2NostalgiaPage() {
   const localFragments = useFragmentStore((state) => state.localFragments);
   const hasHydrated = useFragmentStore((state) => state._hasHydrated);
+  const mergeShopkeeperComments = useFragmentStore((state) => state.mergeShopkeeperComments);
+  const fragmentIdKey = useMemo(
+    () => localFragments.map((fragment) => fragment.id).join('|'),
+    [localFragments]
+  );
+
+  useEffect(() => {
+    const fragmentIds = fragmentIdKey.split('|').filter(Boolean);
+    if (!hasHydrated || fragmentIds.length === 0) return;
+
+    const fetchShopkeeperComments = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('fragments')
+          .select('id, shopkeeper_comment')
+          .in('id', fragmentIds);
+
+        if (error || !data) return;
+
+        const comments = data.reduce<Record<string, string | null>>((acc, item) => {
+          if (typeof item.id === 'string') {
+            acc[item.id] = typeof item.shopkeeper_comment === 'string' ? item.shopkeeper_comment : null;
+          }
+          return acc;
+        }, {});
+
+        mergeShopkeeperComments(comments);
+      } catch (error) {
+        console.error('[Nostalgia] sync shopkeeper comments failed:', error);
+      }
+    };
+
+    fetchShopkeeperComments();
+  }, [hasHydrated, fragmentIdKey, mergeShopkeeperComments]);
 
   const buckets = useMemo(() => {
     const sorted = [...localFragments].sort(

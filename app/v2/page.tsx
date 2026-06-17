@@ -180,6 +180,14 @@ export default function V2HomePage() {
                   {featured.narration_content}
                 </p>
               )}
+              {featured.shopkeeper_comment && (
+                <div className="mt-5 rounded-sm border border-zinc-800/50 bg-zinc-900/40 px-4 py-3">
+                  <p className="mb-2 font-mono text-[9px] tracking-[0.18em] text-zinc-600">SHOPKEEPER</p>
+                  <p className="whitespace-pre-wrap text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-400">
+                    {featured.shopkeeper_comment}
+                  </p>
+                </div>
+              )}
             </div>
           </motion.article>
 
