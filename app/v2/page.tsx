@@ -85,7 +85,7 @@ export default function V2HomePage() {
           >
             <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-yellow-500 animate-pulse" />
             <span className="whitespace-nowrap text-[13px] tracking-[0.15em] text-zinc-300 font-mono leading-relaxed">
-              {shopkeeperStatus || '店长正在整理货架'}
+              {shopkeeperStatus}
             </span>
           </motion.button>
         </div>
