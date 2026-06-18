@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useFragmentStore } from '../_core/storage';
@@ -28,6 +28,7 @@ export default function V2NostalgiaPage() {
   const localFragments = useFragmentStore((state) => state.localFragments);
   const hasHydrated = useFragmentStore((state) => state._hasHydrated);
   const mergeShopkeeperComments = useFragmentStore((state) => state.mergeShopkeeperComments);
+  const [featuredFragmentIds, setFeaturedFragmentIds] = useState<Set<string>>(new Set());
   const fragmentIdKey = useMemo(
     () => localFragments.map((fragment) => fragment.id).join('|'),
     [localFragments]
@@ -62,6 +63,28 @@ export default function V2NostalgiaPage() {
 
     fetchShopkeeperComments();
   }, [hasHydrated, fragmentIdKey, mergeShopkeeperComments]);
+
+  useEffect(() => {
+    const fragmentIds = fragmentIdKey.split('|').filter(Boolean);
+    if (!hasHydrated || fragmentIds.length === 0) return;
+
+    const fetchFeaturedFragments = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('fragments')
+          .select('id')
+          .in('id', fragmentIds)
+          .eq('is_featured', true);
+
+        if (error || !data) return;
+        setFeaturedFragmentIds(new Set(data.map((item) => item.id).filter(Boolean)));
+      } catch (error) {
+        console.error('[Nostalgia] sync featured fragments failed:', error);
+      }
+    };
+
+    fetchFeaturedFragments();
+  }, [hasHydrated, fragmentIdKey]);
 
   const buckets = useMemo(() => {
     const sorted = [...localFragments].sort(
@@ -186,6 +209,11 @@ export default function V2NostalgiaPage() {
                         <span className="text-[9px] tracking-[0.15em] text-zinc-700 font-mono">
                           {new Date(fragment.created_at).toLocaleDateString().replace(/\//g, '.')}
                         </span>
+                        {featuredFragmentIds.has(fragment.id) && (
+                          <span className="max-w-[11rem] text-right text-[9px] leading-4 tracking-[0.12em] text-zinc-700">
+                            今天有人在这块碎片前安静地站了一会儿。
+                          </span>
+                        )}
                       </div>
                     </motion.article>
                   ))}

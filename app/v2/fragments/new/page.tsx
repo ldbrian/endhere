@@ -21,11 +21,52 @@ type OrganizedFragment = {
 };
 
 const INSPIRATION = ['一个情绪', '一段回忆', '一件旧物', '一句话'];
+const ORIGINAL_CONTENT_LIMIT = 350;
+const ENTRY_PLACEHOLDERS = [
+  '今天哪一瞬间，你觉得只剩自己一个人？',
+  '写下一个你再也见不到的人的名字，和那天发生的事。',
+  '凌晨三点，你在为什么醒着？',
+  '哪句话你一直没有机会说出口？',
+  '今天有什么东西，轻轻刺了你一下？',
+  '如果这一天只留下一帧画面，会是什么？',
+  '你最近一次假装没事，是因为什么？',
+];
 const AI_PERSONAS: { id: FragmentPersonaId; name: string; sub: string }[] = [
   { id: 'Ash', name: 'Ash', sub: '冷一点' },
   { id: 'Rin', name: 'Rin', sub: '轻一点' },
   { id: 'Child', name: '8岁的自己', sub: '近一点' },
 ];
+
+function createReceiptId() {
+  return `Fragment_#${Date.now().toString().slice(-4)}`;
+}
+
+function playReceiptClick() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const AudioContext = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContext) return;
+
+    const context = new AudioContext();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+
+    oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(520, context.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(180, context.currentTime + 0.06);
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.045, context.currentTime + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.09);
+
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.1);
+  } catch {
+    // Audio is ornamental; ignore browser autoplay or context failures.
+  }
+}
 
 export default function V2NewFragmentPage() {
   const router = useRouter();
@@ -37,6 +78,8 @@ export default function V2NewFragmentPage() {
   const [allowShopkeeperReview, setAllowShopkeeperReview] = useState(false);
   const [aiPersona, setAiPersona] = useState<FragmentPersonaId>('Rin');
   const [error, setError] = useState('');
+  const [placeholder] = useState(() => ENTRY_PLACEHOLDERS[Math.floor(Math.random() * ENTRY_PLACEHOLDERS.length)]);
+  const [receiptId, setReceiptId] = useState(() => createReceiptId());
 
   const original = normalizeFragmentText(originalContent);
   const lastSubmitTime = useFragmentStore((state) => state.lastSubmitTime);
@@ -98,9 +141,11 @@ export default function V2NewFragmentPage() {
 
     // 🟢 CTO 修复：在这里加锁！记录最后一次成功提交的时间
     setLastSubmitTime(Date.now());
+    setReceiptId(createReceiptId());
+    playReceiptClick();
 
     setStep('saved');
-    window.setTimeout(() => router.push('/v2'), 700);
+    window.setTimeout(() => router.push('/v2'), 2200);
   };
 
   return (
@@ -137,9 +182,9 @@ export default function V2NewFragmentPage() {
                 <textarea
                   value={originalContent}
                   onChange={(event) => setOriginalContent(event.target.value)}
-                  placeholder="今天有什么东西，值得被留下来？"
+                  placeholder={placeholder}
                   className="mt-12 h-32 w-full resize-none border-none bg-transparent pb-4 text-[15px] font-light leading-8 tracking-[0.08em] text-zinc-200 outline-none placeholder:text-zinc-800 focus:ring-0 focus:drop-shadow-[0_0_8px_rgba(255,255,255,0.1)]"
-                  maxLength={800} // 依照宪法 PRD，放宽至 800 字
+                  maxLength={ORIGINAL_CONTENT_LIMIT}
                   autoFocus
                 />
 
@@ -165,7 +210,7 @@ export default function V2NewFragmentPage() {
                 </div>
 
                 <div className="mt-7 flex items-center justify-between">
-                  <span className="text-[10px] tracking-[0.14em] text-zinc-700">{original.length}/800</span>
+                  <span className="text-[10px] tracking-[0.14em] text-zinc-700">{original.length}/{ORIGINAL_CONTENT_LIMIT}</span>
                   <button
                     onClick={organize}
                     disabled={!original}
@@ -304,9 +349,29 @@ export default function V2NewFragmentPage() {
             )}
 
             {step === 'saved' && (
-              <motion.div key="saved" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
-                <p className="text-[15px] tracking-[0.18em] text-zinc-300">已归档</p>
-                <p className="mt-6 text-[11px] tracking-[0.12em] text-zinc-700">正在回到大厅。</p>
+              <motion.div
+                key="saved"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex min-h-[420px] items-center justify-center text-center"
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 1.1, ease: 'easeOut', delay: 0.25 }}
+                  className="w-full max-w-[286px] border border-zinc-800/80 bg-zinc-950/80 px-7 py-8 shadow-[0_28px_90px_rgba(0,0,0,0.5)]"
+                >
+                  <p className="font-mono text-[9px] tracking-[0.26em] text-zinc-700">DIGITAL RECEIPT</p>
+                  <div className="my-6 h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
+                  <p className="text-[15px] tracking-[0.16em] text-zinc-300">
+                    [ {receiptId} 已封存。]
+                  </p>
+                  <p className="mt-7 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-500">
+                    {organized?.narration_content || '它被安静地留在这里。'}
+                  </p>
+                  <div className="mt-8 h-px bg-gradient-to-r from-transparent via-zinc-900 to-transparent" />
+                  <p className="mt-5 font-mono text-[9px] tracking-[0.24em] text-zinc-800">END HERE ARCHIVE</p>
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
