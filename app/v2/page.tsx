@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { Fragment } from './_core/fragments';
 import { FEATURED_SEED_FRAGMENTS } from './_core/fragments';
 import { getFeaturedExhibit } from './_core/storage';
@@ -22,17 +22,37 @@ type WorldStatusCapsule = {
   is_active?: boolean | null;
 };
 
+const ORIGINAL_CONTENT_LIMIT = 350;
+
 const FALLBACK_CAPSULE: WorldStatusCapsule = {
   id: 'fallback-shopkeeper-status',
   key: 'shopkeeper_status',
   value: '正在搜索店长行踪…',
 };
 
+function clampOriginalContent(content: string) {
+  const characters = Array.from(content);
+
+  if (characters.length <= ORIGINAL_CONTENT_LIMIT) {
+    return {
+      text: content,
+      isClamped: false,
+    };
+  }
+
+  return {
+    text: `${characters.slice(0, ORIGINAL_CONTENT_LIMIT).join('').trimEnd()}...`,
+    isClamped: true,
+  };
+}
+
 export default function V2HomePage() {
   useMigrationProbe(); 
   const router = useRouter();
   const [featured, setFeatured] = useState<Fragment>(FEATURED_SEED_FRAGMENTS[0]);
   const [worldStatusCapsules, setWorldStatusCapsules] = useState<WorldStatusCapsule[]>([FALLBACK_CAPSULE]);
+  const [showSponsorBasket, setShowSponsorBasket] = useState(false);
+  const originalContent = clampOriginalContent(featured.original_content);
 
   // 🟢 埋点 1：记录大厅曝光
   useEffect(() => {
@@ -143,91 +163,145 @@ export default function V2HomePage() {
           </div>
         </div>
 
-        <section className="flex shrink-0 flex-col items-center pt-6 text-center">
+        <section className="relative min-h-0 flex-1 py-4">
           <motion.p
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.75, ease: 'easeOut' }}
-            className="max-w-[18em] text-[16px] font-light leading-[1.7] tracking-[0.06em] text-zinc-300"
+            className="pointer-events-none absolute inset-x-0 top-5 z-0 mx-auto max-w-[18em] text-center text-[15px] font-light leading-[1.65] tracking-[0.06em] text-zinc-600/55"
           >
             这里不解答人生的意义。
             <br />
             只保管人生的体验。
           </motion.p>
-        </section>
 
-        <section className="flex flex-1 flex-col items-center justify-center py-6">
-          <motion.article
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.85, ease: 'easeOut', delay: 0.1 }}
-            className="w-full max-w-[320px]"
-          >
-            <div className="mb-4 flex items-center justify-between text-[10px] tracking-[0.2em] text-zinc-700">
-              <span>今日展柜</span>
-            </div>
+          <div className="relative z-10 h-full overflow-y-auto overscroll-contain px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-h-full flex-col pb-5 pt-[92px]">
+              <motion.article
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.85, ease: 'easeOut', delay: 0.1 }}
+                className="my-auto w-full max-w-[320px] self-center"
+              >
+                <div className="mb-4 flex items-center justify-between text-[10px] tracking-[0.2em] text-zinc-700">
 
-            <div className="relative border border-zinc-900/90 bg-zinc-950/30 px-6 py-6 shadow-[0_28px_80px_rgba(0,0,0,0.42)]">
-              <div className="pointer-events-none absolute inset-x-6 top-4 h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
-              <h1 className="text-[19px] font-light leading-8 tracking-[0.06em] text-zinc-100">
-                {featured.title}
-              </h1>
-              <p className="mt-4 whitespace-pre-wrap text-[13px] font-light leading-7 tracking-[0.05em] text-zinc-400">
-                {featured.original_content}
-              </p>
-              {featured.narration_content && (
-                <p className="mt-5 border-l border-zinc-800 pl-4 text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-600">
-                  {featured.narration_content}
-                </p>
-              )}
-              {featured.shopkeeper_comment && (
-                <div className="mt-5 rounded-sm border border-zinc-800/50 bg-zinc-900/40 px-4 py-3">
-                  <p className="mb-2 font-mono text-[9px] tracking-[0.18em] text-zinc-600">SHOPKEEPER</p>
-                  <p className="whitespace-pre-wrap text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-400">
-                    {featured.shopkeeper_comment}
-                  </p>
+                  {originalContent.isClamped && (
+                    <span className="font-mono tracking-[0.12em] text-zinc-800">350 MAX</span>
+                  )}
                 </div>
-              )}
-            </div>
-          </motion.article>
 
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: 'easeOut', delay: 0.22 }}
-            className="mt-6 flex flex-col items-center text-center"
-          >
-            <p className="text-[12px] leading-6 tracking-[0.08em] text-zinc-600">
-              这块碎片，
-              <br />
-              是否让你想起了什么？
-            </p>
-            <Link
-              href="/v2/fragments/new"
-              // 🟢 埋点 3：留碎片点击（核心转化率漏斗起点）
-              onClick={() => track('v2_leave_fragment_tap')}
-              className="mt-5 text-[16px] tracking-[0.1em] text-zinc-100 transition-colors duration-500 hover:text-white"
-            >
-              [ 留下一块碎片 ]
-            </Link>
-          </motion.div>
+                <div className="relative border border-zinc-900/90 bg-zinc-950/80 px-6 py-6 shadow-[0_28px_80px_rgba(0,0,0,0.48)] backdrop-blur-sm">
+                  <div className="pointer-events-none absolute inset-x-6 top-4 h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
+                  <h1 className="text-[19px] font-light leading-8 tracking-[0.06em] text-zinc-100">
+                    {featured.title}
+                  </h1>
+                  <p className="mt-4 whitespace-pre-wrap text-[13px] font-light leading-7 tracking-[0.05em] text-zinc-400">
+                    {originalContent.text}
+                  </p>
+                  {featured.narration_content && (
+                    <p className="mt-5 border-l border-zinc-800 pl-4 text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-600">
+                      {featured.narration_content}
+                    </p>
+                  )}
+                  {featured.shopkeeper_comment && (
+                    <div className="mt-5 rounded-sm border border-zinc-800/50 bg-zinc-900/40 px-4 py-3">
+                      <p className="mb-2 font-mono text-[9px] tracking-[0.18em] text-zinc-600">店长</p>
+                      <p className="whitespace-pre-wrap text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-400">
+                        {featured.shopkeeper_comment}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[12px] leading-6 tracking-[0.08em] text-zinc-600 mt-6 w-full text-center opacity-80">
+                  这块碎片，
+                  <br />
+                  是否让你想起了什么？
+                </p>
+              </motion.article>
+            </div>
+          </div>
         </section>
 
-        <nav className="shrink-0 px-1 pb-6">
-          <div className="mx-auto flex w-full max-w-[280px] items-center justify-between border-t border-zinc-900 pt-6 text-[11px] tracking-[0.1em] text-zinc-600">
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: 'easeOut', delay: 0.22 }}
+          className="shrink-0 pb-5 text-center"
+        >
+
+          <Link
+            href="/v2/fragments/new"
+            // 🟢 埋点 3：留碎片点击（核心转化率漏斗起点）
+            onClick={() => track('v2_leave_fragment_tap')}
+            className="mt-4 inline-flex items-center justify-center text-[16px] tracking-[0.1em] text-zinc-100 transition-colors duration-500 hover:text-white"
+          >
+            [ 留下一块碎片 ]
+          </Link>
+        </motion.section>
+
+        <nav className="relative shrink-0 px-1 pb-6">
+          <AnimatePresence>
+            {showSponsorBasket && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                transition={{ duration: 0.28, ease: 'easeOut' }}
+                className="absolute bottom-[86px] left-1/2 z-20 flex w-[178px] -translate-x-1/2 flex-col items-center border border-zinc-800 bg-zinc-950/95 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur"
+              >
+                <div className="h-[150px] w-[150px] border border-zinc-800 bg-zinc-900 p-2">
+                  <Image
+                    src="/pay_code.png"
+                    alt="打赏码"
+                    width={150}
+                    height={150}
+                    className="h-full w-full object-contain opacity-90 grayscale"
+                  />
+                </div>
+                <p className="mt-3 text-center text-[9px] leading-5 tracking-[0.16em] text-zinc-600">
+                  不提供特权，只让这里多亮一会儿。
+                </p>
+                <a
+                  href="/pay_code.png"
+                  download="endhere-pay-code.png"
+                  onClick={() => track('v2_sponsor_code_save_tap')}
+                  className="mt-3 border-t border-zinc-900 px-3 pt-3 text-[10px] tracking-[0.16em] text-zinc-500 transition-colors duration-500 hover:text-zinc-300 outline-none"
+                >
+                  保存图片
+                </a>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="mx-auto grid w-full max-w-[280px] grid-cols-3 items-center border-t border-zinc-900 pt-6 text-[11px] tracking-[0.1em] text-zinc-600">
             <Link 
               href="/v2/nostalgia" 
               // 🟢 埋点 4：底部导航分流 (流向痕迹)
               onClick={() => track('v2_nav_tap', { target: 'nostalgia' })}
-              className="transition-colors duration-500 hover:text-zinc-300 outline-none"
+              className="justify-self-start transition-colors duration-500 hover:text-zinc-300 outline-none"
             >
               我的痕迹
             </Link>
+            <button
+              type="button"
+              aria-label="装着零钱的铁筐"
+              title="装着零钱的铁筐"
+              onClick={() => {
+                const nextValue = !showSponsorBasket;
+                setShowSponsorBasket(nextValue);
+                track('v2_sponsor_basket_tap', { open: nextValue });
+              }}
+              className="group relative flex h-8 w-8 items-center justify-center justify-self-center text-zinc-700 transition-colors duration-500 hover:text-zinc-300 outline-none"
+            >
+              <span className="absolute top-2 h-1 w-3 rounded-full border border-current opacity-60" />
+              <span className="absolute bottom-2 h-3 w-5 border border-current bg-zinc-950/80 transition-colors duration-500 group-hover:bg-zinc-900/80" />
+              <span className="absolute bottom-[13px] left-[9px] h-1.5 w-1.5 rounded-full bg-yellow-500/65 shadow-[5px_1px_0_rgba(234,179,8,0.35)]" />
+            </button>
             <Link 
               href="/v2/resting" 
               // 🟢 埋点 4：底部导航分流 (流向发呆)
               onClick={() => track('v2_nav_tap', { target: 'resting' })}
-              className="transition-colors duration-500 hover:text-zinc-300 outline-none"
+              className="justify-self-end transition-colors duration-500 hover:text-zinc-300 outline-none"
             >
               我想坐会儿
             </Link>

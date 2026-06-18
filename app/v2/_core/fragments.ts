@@ -9,9 +9,10 @@ export type Fragment = {
   narration_content: string;
   visibility: FragmentVisibility;
   allow_shopkeeper_review: boolean;
+  is_featured: boolean;
   shopkeeper_comment: string | null;
   meta: {
-    source: 'manual' | 'seed';
+    source: 'manual' | 'seed' | 'system';
     ai_persona?: FragmentPersonaId;
     featured?: boolean;
     quality_score?: number;
@@ -41,6 +42,7 @@ export const FEATURED_SEED_FRAGMENTS: Fragment[] = [
     narration_content: '它已经不再发声，但仍然保留着某段时间留下的形状。',
     visibility: 'public',
     allow_shopkeeper_review: false,
+    is_featured: true,
     shopkeeper_comment: null,
     meta: {
       source: 'seed',
@@ -58,6 +60,7 @@ export const FEATURED_SEED_FRAGMENTS: Fragment[] = [
     narration_content: '出发时间被折痕压住，目的地也变得不那么重要。',
     visibility: 'public',
     allow_shopkeeper_review: false,
+    is_featured: true,
     shopkeeper_comment: null,
     meta: {
       source: 'seed',

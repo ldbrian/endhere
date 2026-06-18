@@ -18,7 +18,7 @@ const PERSPECTIVES = [
   "【视角C：无意义的荒诞瞬间】专注捕捉生活中毫无意义但极具画面感的瞬间。例如：一个人在路边盯着下水道看、一只停在共享单车座垫上的鸽子。不需要解释为什么，只需要白描。"
 ];
 
-export async function GET(req: Request) {
+export async function GET() {
   // 为了防止被恶意调用，可以加一个简单的秘钥校验 (Cron Secret)
   // const { searchParams } = new URL(req.url);
   // if (searchParams.get('key') !== process.env.CRON_SECRET) return new Response('Unauthorized', { status: 401 });
@@ -64,10 +64,10 @@ ${perspective}
       narration_content: '（店长观察日志）',
       visibility: 'public', // 直接进入公海
       allow_shopkeeper_review: false,
+      is_featured: true, // 独立精选列：首页展柜从这里捞取
       shopkeeper_comment: null,
       meta: {
         source: 'system',
-        featured: true, // 核心：打上精选标记，首页才能拉取到
         quality_score: 100
       },
       created_at: now,

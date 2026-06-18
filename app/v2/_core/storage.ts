@@ -48,6 +48,7 @@ export const useFragmentStore = create<FragmentState>()(
           narration_content: draft.narration_content,
           visibility: draft.visibility,
           allow_shopkeeper_review: draft.allow_shopkeeper_review,
+          is_featured: false,
           shopkeeper_comment: null,
           meta: { source: 'manual', ai_persona: draft.ai_persona },
           created_at: now,
@@ -120,12 +121,12 @@ export async function getFeaturedExhibit(): Promise<Fragment> {
       .from('fragments')
       .select('*')
       .eq('visibility', 'public')
-      .contains('meta', '{"featured": true}')
-      .order('updated_at', { ascending: false })
-      .limit(10);
+      .eq('is_featured', true)
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     if (!error && data && data.length > 0) {
-      // 在精选池中随机捞取，避免每次刷新都是同一条
+      // 只保留最新 50 条精选公开碎片，老碎片会被 limit 自动挤出首页奖池。
       return data[Math.floor(Math.random() * data.length)] as Fragment;
     }
   } catch (err) {
