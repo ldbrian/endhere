@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useFragmentStore } from '../_core/storage';
 import type { Fragment } from '../_core/fragments';
+import {
+  getLatestShopkeeperReplyAt,
+  markShopkeeperRepliesRead,
+} from '../_core/shopkeeperUnread';
 import { supabase } from '../../lib/supabase';
 
 const getFuzzyTime = (timestamp: string): string => {
@@ -37,7 +41,7 @@ export default function V2NostalgiaPage() {
       try {
         const { data, error } = await supabase
           .from('fragments')
-          .select('id, shopkeeper_comment')
+          .select('id, shopkeeper_comment, updated_at')
           .in('id', fragmentIds);
 
         if (error || !data) return;
@@ -50,6 +54,7 @@ export default function V2NostalgiaPage() {
         }, {});
 
         mergeShopkeeperComments(comments);
+        markShopkeeperRepliesRead(getLatestShopkeeperReplyAt(data));
       } catch (error) {
         console.error('[Nostalgia] sync shopkeeper comments failed:', error);
       }

@@ -7,7 +7,12 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Fragment } from './_core/fragments';
 import { FEATURED_SEED_FRAGMENTS } from './_core/fragments';
-import { getFeaturedExhibit } from './_core/storage';
+import { getFeaturedExhibit, useFragmentStore } from './_core/storage';
+import {
+  getLatestShopkeeperReplyAt,
+  getReadShopkeeperReplyAt,
+  hasUnreadShopkeeperReply,
+} from './_core/shopkeeperUnread';
 import { supabase } from '../lib/supabase';
 import PlasticBag from '../components/PlasticBag';
 import { useMigrationProbe } from './_core/useMigrationProbe';
@@ -47,10 +52,15 @@ function clampOriginalContent(content: string) {
 export default function V2HomePage() {
   useMigrationProbe(); 
   const router = useRouter();
+  const localFragments = useFragmentStore((state) => state.localFragments);
+  const hasHydrated = useFragmentStore((state) => state._hasHydrated);
   const [featured, setFeatured] = useState<Fragment>(FEATURED_SEED_FRAGMENTS[0]);
   const [worldStatusCapsules, setWorldStatusCapsules] = useState<WorldStatusCapsule[]>([FALLBACK_CAPSULE]);
   const [showSponsorBasket, setShowSponsorBasket] = useState(false);
+  const [hasUnreadReply, setHasUnreadReply] = useState(false);
   const originalContent = clampOriginalContent(featured.original_content);
+  const fragmentIdKey = localFragments.map((fragment) => fragment.id).join('|');
+  const shouldCheckUnreadReplies = hasHydrated && fragmentIdKey.length > 0;
 
   // 🟢 埋点 1：记录大厅曝光
   useEffect(() => {
@@ -83,6 +93,29 @@ export default function V2HomePage() {
     };
     fetchWorldStatusCapsules();
   }, []);
+
+  useEffect(() => {
+    const fragmentIds = fragmentIdKey.split('|').filter(Boolean);
+    if (!hasHydrated || fragmentIds.length === 0) return;
+
+    const fetchUnreadReplies = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('fragments')
+          .select('shopkeeper_comment, updated_at')
+          .in('id', fragmentIds);
+
+        if (error || !data) return;
+
+        const latestReplyAt = getLatestShopkeeperReplyAt(data);
+        setHasUnreadReply(hasUnreadShopkeeperReply(latestReplyAt, getReadShopkeeperReplyAt()));
+      } catch (error) {
+        console.error('[Home] fetch unread shopkeeper replies failed:', error);
+      }
+    };
+
+    fetchUnreadReplies();
+  }, [hasHydrated, fragmentIdKey]);
 
   
 
@@ -241,9 +274,12 @@ export default function V2HomePage() {
               href="/v2/nostalgia" 
               // 🟢 埋点 4：底部导航分流 (流向痕迹)
               onClick={() => track('v2_nav_tap', { target: 'nostalgia' })}
-              className="justify-self-start transition-colors duration-500 hover:text-zinc-300 outline-none"
+              className="relative justify-self-start transition-colors duration-500 hover:text-zinc-300 outline-none"
             >
               我的痕迹
+              {shouldCheckUnreadReplies && hasUnreadReply && (
+                <span className="absolute -right-3 -top-1 h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.75)]" />
+              )}
             </Link>
             <button
               type="button"
