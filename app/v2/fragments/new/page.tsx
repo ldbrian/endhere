@@ -45,10 +45,12 @@ function playReceiptClick() {
   if (typeof window === 'undefined') return;
 
   try {
-    const AudioContext = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContext) return;
+    const audioContextCtor: typeof window.AudioContext | undefined =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
+    if (!audioContextCtor) return;
 
-    const context = new AudioContext();
+    const context = new audioContextCtor();
     const oscillator = context.createOscillator();
     const gain = context.createGain();
 
