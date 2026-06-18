@@ -18,6 +18,7 @@ type WorldStatusCapsule = {
   id?: string;
   key: string;
   value: string;
+  created_at?: string;
   sort_order?: number | null;
   is_active?: boolean | null;
 };
@@ -67,52 +68,43 @@ export default function V2HomePage() {
   }, []);
 
   useEffect(() => {
-    // 首页胶囊状态拉取：由 world_status 表手动维护
+    // 首页胶囊只展示 world_status 时间线上最新的一条。
     const fetchWorldStatusCapsules = async () => {
       try {
-        const richResult = await supabase
+        const latestActiveResult = await supabase
           .from('world_status')
-          .select('key, value, sort_order, is_active')
-          .order('sort_order', { ascending: true });
+          .select('key, value, created_at, is_active')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1);
 
-        let data = richResult.data;
-        let error = richResult.error;
+        let data = latestActiveResult.data;
+        let error = latestActiveResult.error;
 
-        if (error) {
-          const basicResult = await supabase
+        if (error || !data || data.length === 0) {
+          const latestResult = await supabase
             .from('world_status')
-            .select('key, value');
+            .select('key, value, created_at')
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-          data = basicResult.data?.map((item) => ({
+          data = latestResult.data?.map((item) => ({
             ...item,
-            sort_order: null,
             is_active: null,
           })) || null;
-          error = basicResult.error;
+          error = latestResult.error;
         }
 
         if (!error && data && data.length > 0) {
           setWorldStatusCapsules(
             data
-              .filter((item) => item.is_active !== false)
               .filter((item) => typeof item.value === 'string' && item.value.trim())
-              .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))
               .map((item) => ({
                 ...item,
                 value: item.value.trim(),
               }))
           );
           return;
-        }
-
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('world_status')
-          .select('key, value')
-          .eq('key', 'shopkeeper_status')
-          .single();
-
-        if (!fallbackError && fallbackData?.value) {
-          setWorldStatusCapsules([{ ...FALLBACK_CAPSULE, ...fallbackData, value: fallbackData.value.trim() }]);
         }
       } catch (err) {
         console.error('获取世界状态失败:', err);
@@ -259,7 +251,7 @@ export default function V2HomePage() {
                   />
                 </div>
                 <p className="mt-3 text-center text-[9px] leading-5 tracking-[0.16em] text-zinc-600">
-                  不提供特权，只让这里多亮一会儿。
+                  往铁筐投入一点零钱，让这里能继续亮着。
                 </p>
                 <a
                   href="/pay_code.png"
