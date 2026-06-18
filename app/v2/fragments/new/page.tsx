@@ -156,8 +156,7 @@ export default function V2NewFragmentPage() {
     try {
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(node, {
-        backgroundColor: '#050505',
-        scale: 2,
+        background: '#050505',
         useCORS: true,
       });
       const url = canvas.toDataURL('image/png');
