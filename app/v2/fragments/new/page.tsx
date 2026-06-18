@@ -145,7 +145,27 @@ export default function V2NewFragmentPage() {
     playReceiptClick();
 
     setStep('saved');
-    window.setTimeout(() => router.push('/v2'), 2200);
+  };
+
+  const saveReceiptImage = async () => {
+    const node = document.getElementById('v2-fragment-receipt');
+    if (!node) return;
+
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(node, {
+        backgroundColor: '#050505',
+        scale: 2,
+        useCORS: true,
+      });
+      const url = canvas.toDataURL('image/png');
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${receiptId.replace('#', '')}.png`;
+      anchor.click();
+    } catch (error) {
+      console.error('[Fragment Receipt] save image failed:', error);
+    }
   };
 
   return (
@@ -353,9 +373,10 @@ export default function V2NewFragmentPage() {
                 key="saved"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex min-h-[420px] items-center justify-center text-center"
+                className="flex min-h-[420px] flex-col items-center justify-center text-center"
               >
                 <motion.div
+                  id="v2-fragment-receipt"
                   initial={{ opacity: 0, y: 12, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 1.1, ease: 'easeOut', delay: 0.25 }}
@@ -371,6 +392,25 @@ export default function V2NewFragmentPage() {
                   </p>
                   <div className="mt-8 h-px bg-gradient-to-r from-transparent via-zinc-900 to-transparent" />
                   <p className="mt-5 font-mono text-[9px] tracking-[0.24em] text-zinc-800">END HERE ARCHIVE</p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 1.1 }}
+                  className="mt-8 flex items-center justify-center gap-8"
+                >
+                  <button
+                    onClick={() => router.push('/v2')}
+                    className="text-[12px] tracking-[0.16em] text-zinc-600 transition-colors duration-500 hover:text-zinc-300 outline-none"
+                  >
+                    关闭
+                  </button>
+                  <button
+                    onClick={saveReceiptImage}
+                    className="text-[12px] tracking-[0.16em] text-zinc-300 transition-colors duration-500 hover:text-white outline-none"
+                  >
+                    保存小票
+                  </button>
                 </motion.div>
               </motion.div>
             )}

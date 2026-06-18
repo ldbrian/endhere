@@ -205,13 +205,13 @@ export default function V2NostalgiaPage() {
                         </div>
                       )}
 
-                      <div className="mt-8 flex items-center justify-between border-t border-zinc-900/50 pt-5">
+                      <div className="mt-8 flex flex-col gap-3 border-t border-zinc-900/50 pt-5">
                         <span className="text-[9px] tracking-[0.15em] text-zinc-700 font-mono">
                           {new Date(fragment.created_at).toLocaleDateString().replace(/\//g, '.')}
                         </span>
                         {featuredFragmentIds.has(fragment.id) && (
-                          <span className="max-w-[11rem] text-right text-[9px] leading-4 tracking-[0.12em] text-zinc-700">
-                            今天有人在这块碎片前安静地站了一会儿。
+                          <span className="self-end whitespace-nowrap text-right text-[9px] leading-4 tracking-[0.12em] text-zinc-500">
+                            有人在这块碎片前停留过。
                           </span>
                         )}
                       </div>
