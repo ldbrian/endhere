@@ -14,8 +14,6 @@ type StatusLog = {
   value: string;
   created_at?: string;
   updated_at?: string;
-  sort_order?: number | null;
-  is_active?: boolean | null;
 };
 
 const VIEW_OPTIONS: { id: ShopkeeperView; label: string }[] = [
@@ -50,32 +48,13 @@ export default function V2ShopkeeperPage() {
     const fetchStatusLogs = async () => {
       try {
         const { data, error } = await supabase
-          .from('world_status')
-          .select('id, key, value, created_at, updated_at, sort_order, is_active')
-          .order('created_at', { ascending: false });
-
-        const normalizedWorldStatus = !error && data
-          ? data
-            .filter((item) => typeof item.value === 'string' && item.value.trim())
-            .map((item) => ({
-              ...item,
-              value: item.value.trim(),
-            }))
-          : [];
-
-        if (normalizedWorldStatus.length > 0) {
-          setStatusLogs(normalizedWorldStatus);
-          return;
-        }
-
-        const legacyResult = await supabase
           .from('shopkeeper_logs')
           .select('id, content, created_at')
           .order('created_at', { ascending: false });
 
-        if (!legacyResult.error && legacyResult.data) {
+        if (!error && data) {
           setStatusLogs(
-            legacyResult.data
+            data
               .filter((item) => typeof item.content === 'string' && item.content.trim())
               .map((item) => ({
                 id: item.id,

@@ -18,9 +18,6 @@ type WorldStatusCapsule = {
   id?: string;
   key: string;
   value: string;
-  created_at?: string;
-  sort_order?: number | null;
-  is_active?: boolean | null;
 };
 
 const ORIGINAL_CONTENT_LIMIT = 350;
@@ -68,43 +65,17 @@ export default function V2HomePage() {
   }, []);
 
   useEffect(() => {
-    // 首页胶囊只展示 world_status 时间线上最新的一条。
+    // 首页胶囊读取当前店长短动态。历史列表在 /v2/shopkeeper 里展开。
     const fetchWorldStatusCapsules = async () => {
       try {
-        const latestActiveResult = await supabase
+        const { data, error } = await supabase
           .from('world_status')
-          .select('key, value, created_at, is_active')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(1);
+          .select('key, value')
+          .eq('key', 'shopkeeper_status')
+          .maybeSingle();
 
-        let data = latestActiveResult.data;
-        let error = latestActiveResult.error;
-
-        if (error || !data || data.length === 0) {
-          const latestResult = await supabase
-            .from('world_status')
-            .select('key, value, created_at')
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          data = latestResult.data?.map((item) => ({
-            ...item,
-            is_active: null,
-          })) || null;
-          error = latestResult.error;
-        }
-
-        if (!error && data && data.length > 0) {
-          setWorldStatusCapsules(
-            data
-              .filter((item) => typeof item.value === 'string' && item.value.trim())
-              .map((item) => ({
-                ...item,
-                value: item.value.trim(),
-              }))
-          );
-          return;
+        if (!error && data?.value?.trim()) {
+          setWorldStatusCapsules([{ ...data, value: data.value.trim() }]);
         }
       } catch (err) {
         console.error('获取世界状态失败:', err);
