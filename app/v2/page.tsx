@@ -26,6 +26,7 @@ type WorldStatusCapsule = {
 };
 
 const ORIGINAL_CONTENT_LIMIT = 350;
+const EXHIBIT_QUOTE_LIMIT = 48;
 
 const FALLBACK_CAPSULE: WorldStatusCapsule = {
   id: 'fallback-shopkeeper-status',
@@ -49,6 +50,14 @@ function clampOriginalContent(content: string) {
   };
 }
 
+function createExhibitQuote(content: string) {
+  const firstLine = content.trim().split(/\n+/)[0] || content;
+  const characters = Array.from(firstLine.trim());
+
+  if (characters.length <= EXHIBIT_QUOTE_LIMIT) return firstLine.trim();
+  return `${characters.slice(0, EXHIBIT_QUOTE_LIMIT).join('').trimEnd()}...`;
+}
+
 export default function V2HomePage() {
   useMigrationProbe(); 
   const router = useRouter();
@@ -60,7 +69,10 @@ export default function V2HomePage() {
   const [worldStatusCapsules, setWorldStatusCapsules] = useState<WorldStatusCapsule[]>([FALLBACK_CAPSULE]);
   const [showSponsorBasket, setShowSponsorBasket] = useState(false);
   const [hasUnreadReply, setHasUnreadReply] = useState(false);
+  const [echoedFragmentId, setEchoedFragmentId] = useState<string | null>(null);
   const originalContent = clampOriginalContent(featured.original_content);
+  const exhibitQuote = createExhibitQuote(featured.original_content);
+  const awakenHref = `/v2/fragments/new?from=exhibit&quote=${encodeURIComponent(exhibitQuote)}`;
   const fragmentIdKey = localFragments.map((fragment) => fragment.id).join('|');
   const shouldCheckUnreadReplies = hasHydrated && fragmentIdKey.length > 0;
 
@@ -96,6 +108,23 @@ export default function V2HomePage() {
       pool_size: featuredPool.length,
     });
   };
+
+  const leaveResonance = () => {
+    setEchoedFragmentId(featured.id);
+    track('v2_featured_resonance_tap', {
+      fragment_id: featured.id,
+    });
+  };
+
+  useEffect(() => {
+    if (!echoedFragmentId) return;
+
+    const timer = window.setTimeout(() => {
+      setEchoedFragmentId(null);
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [echoedFragmentId]);
 
   useEffect(() => {
     // 首页胶囊读取当前店长短动态。历史列表在 /v2/shopkeeper 里展开。
@@ -235,16 +264,56 @@ export default function V2HomePage() {
                   <button
                     type="button"
                     onClick={showAnotherFeatured}
-                    className="mt-4 block w-full text-right text-[10px] tracking-[0.16em] text-zinc-500 transition-colors duration-500 hover:text-zinc-300 outline-none"
+                    className="mt-4 block w-full text-center text-[10px] tracking-[0.16em] text-zinc-600 transition-colors duration-500 hover:text-zinc-300 outline-none"
                   >
-                    换一张
+                    ⟳ 换一张
                   </button>
                 )}
-                <p className="text-[12px] leading-6 tracking-[0.08em] text-zinc-500 mt-6 w-full text-center opacity-90">
+                <p className="hidden text-[12px] leading-6 tracking-[0.08em] text-zinc-500 mt-6 w-full text-center opacity-90">
                   这块碎片，
                   <br />
                   是否让你想起了什么？
                 </p>
+                <div className="mt-6 flex items-center justify-center gap-5">
+                  <button
+                    type="button"
+                    onClick={leaveResonance}
+                    className="relative border-b border-dashed border-zinc-600 pb-0.5 text-[12px] tracking-[0.14em] text-zinc-400 transition-colors duration-500 hover:border-zinc-300 hover:text-zinc-100 outline-none"
+                  >
+                    产生共鸣
+                    <AnimatePresence>
+                      {echoedFragmentId === featured.id && (
+                        <motion.span
+                          initial={{ opacity: 0, scale: 0.88 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.98 }}
+                          transition={{ duration: 0.45, ease: 'easeOut' }}
+                          className="pointer-events-none absolute -inset-x-3 -inset-y-2 border border-zinc-500/50 shadow-[0_0_24px_rgba(212,212,216,0.22)]"
+                        />
+                      )}
+                    </AnimatePresence>
+                  </button>
+                  <Link
+                    href={awakenHref}
+                    onClick={() => track('v2_featured_awaken_tap', { fragment_id: featured.id })}
+                    className="border-b border-dashed border-zinc-500 pb-0.5 text-[12px] tracking-[0.14em] text-zinc-200 transition-colors duration-500 hover:border-zinc-100 hover:text-white outline-none"
+                  >
+                    这让我想起...
+                  </Link>
+                </div>
+                <AnimatePresence>
+                  {echoedFragmentId === featured.id && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -2 }}
+                      transition={{ duration: 0.45, ease: 'easeOut' }}
+                      className="mt-4 text-center text-[10px] tracking-[0.18em] text-zinc-500"
+                    >
+                      已留下回声
+                    </motion.p>
+                  )}
+                </AnimatePresence>
               </motion.article>
             </div>
           </div>

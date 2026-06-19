@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   clampNarrationToOriginal,
@@ -70,8 +70,9 @@ function playReceiptClick() {
   }
 }
 
-export default function V2NewFragmentPage() {
+function V2NewFragmentContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const addLocalFragment = useFragmentStore((state) => state.addLocalFragment);
   const [step, setStep] = useState<Step>('input');
   const [originalContent, setOriginalContent] = useState('');
@@ -80,8 +81,15 @@ export default function V2NewFragmentPage() {
   const [allowShopkeeperReview, setAllowShopkeeperReview] = useState(false);
   const [aiPersona, setAiPersona] = useState<FragmentPersonaId>('Rin');
   const [error, setError] = useState('');
+  const awakenQuote = useMemo(() => {
+    const from = searchParams.get('from');
+    const quote = searchParams.get('quote')?.trim() || '';
+    return from === 'exhibit' && quote ? quote : '';
+  }, [searchParams]);
   const [placeholder] = useState(() => ENTRY_PLACEHOLDERS[Math.floor(Math.random() * ENTRY_PLACEHOLDERS.length)]);
   const [receiptId, setReceiptId] = useState(() => createReceiptId());
+  const activePlaceholder = awakenQuote ? '它让你想起了哪一刻？' : placeholder;
+  const isAwakenedFromExhibit = awakenQuote.length > 0;
 
   const original = normalizeFragmentText(originalContent);
   const lastSubmitTime = useFragmentStore((state) => state.lastSubmitTime);
@@ -200,10 +208,21 @@ export default function V2NewFragmentPage() {
                 <p className="mt-8 text-[13px] tracking-[0.08em] text-zinc-500">所有体验都值得被记录。</p>
 
                 {/* 🟢 CDO 修复：移除所有 border，增加聚焦时的微弱文字发光效应，强调空间感 */}
+                {isAwakenedFromExhibit && (
+                  <div className="mt-10 border-l border-zinc-800 pl-5">
+                    <p className="text-[11px] leading-6 tracking-[0.14em] text-zinc-500">
+                      刚才那块碎片让你想起：
+                    </p>
+                    <p className="mt-4 text-[13px] font-light leading-7 tracking-[0.06em] text-zinc-400">
+                      {awakenQuote}
+                    </p>
+                  </div>
+                )}
+
                 <textarea
                   value={originalContent}
                   onChange={(event) => setOriginalContent(event.target.value)}
-                  placeholder={placeholder}
+                  placeholder={activePlaceholder}
                   className="mt-12 h-32 w-full resize-none border-none bg-transparent pb-4 text-[15px] font-light leading-8 tracking-[0.08em] text-zinc-100 outline-none placeholder:text-zinc-600 focus:ring-0 focus:drop-shadow-[0_0_8px_rgba(255,255,255,0.12)]"
                   maxLength={ORIGINAL_CONTENT_LIMIT}
                   autoFocus
@@ -392,7 +411,9 @@ export default function V2NewFragmentPage() {
                     {organized?.narration_content || '它被安静地留在这里。'}
                   </p>
                   <div className="mt-8 h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
-                  <p className="mt-5 font-mono text-[9px] tracking-[0.24em] text-zinc-600">END HERE ARCHIVE</p>
+                  <p className="mt-5 font-mono text-[9px] tracking-[0.24em] text-zinc-600">
+                    {isAwakenedFromExhibit ? 'AWAKENED BY A STRANGER FRAGMENT' : 'END HERE ARCHIVE'}
+                  </p>
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
@@ -419,5 +440,13 @@ export default function V2NewFragmentPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function V2NewFragmentPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-[#101010]" />}>
+      <V2NewFragmentContent />
+    </Suspense>
   );
 }
