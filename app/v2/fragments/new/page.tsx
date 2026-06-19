@@ -156,7 +156,7 @@ export default function V2NewFragmentPage() {
     try {
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(node, {
-        background: '#050505',
+        background: '#101010',
         useCORS: true,
       });
       const url = canvas.toDataURL('image/png');
@@ -170,15 +170,15 @@ export default function V2NewFragmentPage() {
   };
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#080808] text-zinc-200 selection:bg-zinc-800 selection:text-zinc-100">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.03),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.014)_0%,transparent_40%,rgba(255,255,255,0.008)_100%)]" />
+    <main className="relative min-h-dvh overflow-hidden bg-[#101010] text-zinc-100 selection:bg-zinc-700 selection:text-zinc-50">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.045),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.024)_0%,transparent_40%,rgba(255,255,255,0.014)_100%)]" />
 
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-7 pb-10 pt-9">
         <header className="flex shrink-0 items-center justify-between">
-          <Link href="/v2" className="text-[11px] tracking-[0.18em] text-zinc-600 transition-colors duration-500 hover:text-zinc-300">
+          <Link href="/v2" className="text-[11px] tracking-[0.18em] text-zinc-500 transition-colors duration-500 hover:text-zinc-200">
             返回
           </Link>
-          <span className="text-[10px] tracking-[0.24em] text-zinc-700">NEW FRAGMENT</span>
+          <span className="text-[10px] tracking-[0.24em] text-zinc-500">NEW FRAGMENT</span>
         </header>
 
         <section className="flex flex-1 flex-col justify-center py-10">
@@ -191,20 +191,20 @@ export default function V2NewFragmentPage() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.45 }}
               >
-                <p className="text-[13px] leading-8 tracking-[0.1em] text-zinc-500">你可以留下：</p>
-                <div className="mt-5 flex flex-wrap gap-x-5 gap-y-3 text-[13px] tracking-[0.1em] text-zinc-400">
+                <p className="text-[13px] leading-8 tracking-[0.1em] text-zinc-400">你可以留下：</p>
+                <div className="mt-5 flex flex-wrap gap-x-5 gap-y-3 text-[13px] tracking-[0.1em] text-zinc-300">
                   {INSPIRATION.map((item) => (
                     <span key={item}>{item}</span>
                   ))}
                 </div>
-                <p className="mt-8 text-[13px] tracking-[0.08em] text-zinc-600">所有体验都值得被记录。</p>
+                <p className="mt-8 text-[13px] tracking-[0.08em] text-zinc-500">所有体验都值得被记录。</p>
 
                 {/* 🟢 CDO 修复：移除所有 border，增加聚焦时的微弱文字发光效应，强调空间感 */}
                 <textarea
                   value={originalContent}
                   onChange={(event) => setOriginalContent(event.target.value)}
                   placeholder={placeholder}
-                  className="mt-12 h-32 w-full resize-none border-none bg-transparent pb-4 text-[15px] font-light leading-8 tracking-[0.08em] text-zinc-200 outline-none placeholder:text-zinc-800 focus:ring-0 focus:drop-shadow-[0_0_8px_rgba(255,255,255,0.1)]"
+                  className="mt-12 h-32 w-full resize-none border-none bg-transparent pb-4 text-[15px] font-light leading-8 tracking-[0.08em] text-zinc-100 outline-none placeholder:text-zinc-600 focus:ring-0 focus:drop-shadow-[0_0_8px_rgba(255,255,255,0.12)]"
                   maxLength={ORIGINAL_CONTENT_LIMIT}
                   autoFocus
                 />
@@ -220,7 +220,7 @@ export default function V2NewFragmentPage() {
                         className={`min-h-16 border px-2 py-3 text-center transition-colors duration-300 outline-none ${
                           active
                             ? 'border-zinc-500 bg-zinc-900/70 text-zinc-100'
-                            : 'border-zinc-900 bg-transparent text-zinc-600 hover:border-zinc-700 hover:text-zinc-300'
+                            : 'border-zinc-800 bg-transparent text-zinc-500 hover:border-zinc-600 hover:text-zinc-200'
                         }`}
                       >
                         <span className="block text-[12px] leading-5 tracking-[0.08em]">{persona.name}</span>
@@ -231,11 +231,11 @@ export default function V2NewFragmentPage() {
                 </div>
 
                 <div className="mt-7 flex items-center justify-between">
-                  <span className="text-[10px] tracking-[0.14em] text-zinc-700">{original.length}/{ORIGINAL_CONTENT_LIMIT}</span>
+                  <span className="text-[10px] tracking-[0.14em] text-zinc-500">{original.length}/{ORIGINAL_CONTENT_LIMIT}</span>
                   <button
                     onClick={organize}
                     disabled={!original}
-                    className="text-[13px] tracking-[0.18em] text-zinc-300 transition-colors duration-500 hover:text-white disabled:text-zinc-800"
+                    className="text-[13px] tracking-[0.18em] text-zinc-200 transition-colors duration-500 hover:text-white disabled:text-zinc-600"
                   >
                     交给 {AI_PERSONAS.find((persona) => persona.id === aiPersona)?.name}
                   </button>
@@ -246,9 +246,9 @@ export default function V2NewFragmentPage() {
 
             {step === 'organizing' && (
               <motion.div key="organizing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
-                <div className="mx-auto mb-8 h-2 w-2 rounded-full bg-zinc-600 animate-pulse" />
-                <p className="text-[14px] tracking-[0.16em] text-zinc-500">{AI_PERSONAS.find((persona) => persona.id === aiPersona)?.name} 正在看这块碎片</p>
-                <p className="mt-6 text-[11px] tracking-[0.12em] text-zinc-700">不会改写你的原文。</p>
+                <div className="mx-auto mb-8 h-2 w-2 rounded-full bg-zinc-500 animate-pulse" />
+                <p className="text-[14px] tracking-[0.16em] text-zinc-400">{AI_PERSONAS.find((persona) => persona.id === aiPersona)?.name} 正在看这块碎片</p>
+                <p className="mt-6 text-[11px] tracking-[0.12em] text-zinc-500">不会改写你的原文。</p>
               </motion.div>
             )}
 
@@ -261,29 +261,29 @@ export default function V2NewFragmentPage() {
                 transition={{ duration: 0.45 }}
                 className="max-h-[calc(100dvh-96px)] overflow-y-auto py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
-                <span className="text-[10px] tracking-[0.24em] text-zinc-700">归档确认</span>
+                <span className="text-[10px] tracking-[0.24em] text-zinc-500">归档确认</span>
                 <h1 className="mt-6 text-[24px] font-light leading-10 tracking-[0.08em] text-zinc-100">
                   {organized.title}
                 </h1>
 
                 <div className="mt-10 border-l border-zinc-800 pl-5">
-                  <p className="text-[11px] tracking-[0.2em] text-zinc-700">用户原文</p>
+                  <p className="text-[11px] tracking-[0.2em] text-zinc-500">用户原文</p>
                   <p className="mt-5 whitespace-pre-wrap text-[15px] font-light leading-8 tracking-[0.06em] text-zinc-300">
                     {original}
                   </p>
                 </div>
 
-                <div className="mt-10 border-l border-zinc-900 pl-5">
-                  <p className="text-[11px] tracking-[0.2em] text-zinc-700">
+                <div className="mt-10 border-l border-zinc-800 pl-5">
+                  <p className="text-[11px] tracking-[0.2em] text-zinc-500">
                     {AI_PERSONAS.find((persona) => persona.id === aiPersona)?.name} 留下的一句
                   </p>
-                  <p className="mt-5 whitespace-pre-wrap text-[13px] font-light leading-7 tracking-[0.06em] text-zinc-500">
+                  <p className="mt-5 whitespace-pre-wrap text-[13px] font-light leading-7 tracking-[0.06em] text-zinc-400">
                     {organized.narration_content || '这块碎片暂时不需要旁白。'}
                   </p>
                 </div>
 
                 <div className="mt-12 flex items-center justify-between">
-                  <button onClick={() => setStep('input')} className="text-[12px] tracking-[0.16em] text-zinc-700 transition-colors duration-500 hover:text-zinc-400">
+                  <button onClick={() => setStep('input')} className="text-[12px] tracking-[0.16em] text-zinc-500 transition-colors duration-500 hover:text-zinc-300">
                     重新书写
                   </button>
                   <button onClick={() => setStep('permissions')} className="text-[13px] tracking-[0.18em] text-zinc-300 transition-colors duration-500 hover:text-white">
@@ -314,7 +314,7 @@ export default function V2NewFragmentPage() {
                   >
                     <span>
                       <span className="block text-[15px] tracking-[0.12em] text-zinc-200">允许公开这个碎片</span>
-                      <span className="mt-3 block text-[12px] leading-6 tracking-[0.08em] text-zinc-600">
+                      <span className="mt-3 block text-[12px] leading-6 tracking-[0.08em] text-zinc-500">
                         {visibility === 'public'
                           ? '进入公共陈列架，未来可能出现在首页展柜。'
                           : '默认锁入个人抽屉，仅本地保存。'}
@@ -322,11 +322,11 @@ export default function V2NewFragmentPage() {
                     </span>
                     <span
                       className={`relative mt-1 h-6 w-11 shrink-0 rounded-full transition-colors duration-300 ${
-                        visibility === 'public' ? 'bg-zinc-400' : 'bg-zinc-800'
+                        visibility === 'public' ? 'bg-zinc-300' : 'bg-zinc-700'
                       }`}
                     >
                       <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-[#080808] transition-transform duration-300 ${
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-[#101010] transition-transform duration-300 ${
                           visibility === 'public' ? 'translate-x-[22px]' : 'translate-x-0.5'
                         }`}
                       />
@@ -340,17 +340,17 @@ export default function V2NewFragmentPage() {
                   >
                     <span>
                       <span className="block text-[15px] tracking-[0.12em] text-zinc-200">允许店长鉴赏</span>
-                      <span className="mt-3 block text-[12px] leading-6 tracking-[0.08em] text-zinc-600">
+                      <span className="mt-3 block text-[12px] leading-6 tracking-[0.08em] text-zinc-500">
                         未来可能收到店长留言。不是一定收到，也不是即时收到。
                       </span>
                     </span>
                     <span
                       className={`relative mt-1 h-6 w-11 shrink-0 rounded-full transition-colors duration-300 ${
-                        allowShopkeeperReview ? 'bg-zinc-400' : 'bg-zinc-800'
+                        allowShopkeeperReview ? 'bg-zinc-300' : 'bg-zinc-700'
                       }`}
                     >
                       <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-[#080808] transition-transform duration-300 ${
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-[#101010] transition-transform duration-300 ${
                           allowShopkeeperReview ? 'translate-x-[22px]' : 'translate-x-0.5'
                         }`}
                       />
@@ -359,7 +359,7 @@ export default function V2NewFragmentPage() {
                 </div>
 
                 <div className="mt-12 flex items-center justify-between">
-                  <button onClick={() => setStep('confirm')} className="text-[12px] tracking-[0.16em] text-zinc-700 transition-colors duration-500 hover:text-zinc-400">
+                  <button onClick={() => setStep('confirm')} className="text-[12px] tracking-[0.16em] text-zinc-500 transition-colors duration-500 hover:text-zinc-300">
                     返回确认
                   </button>
                   <button onClick={save} className="text-[13px] tracking-[0.18em] text-zinc-300 transition-colors duration-500 hover:text-white">
@@ -381,18 +381,18 @@ export default function V2NewFragmentPage() {
                   initial={{ opacity: 0, y: 12, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 1.1, ease: 'easeOut', delay: 0.25 }}
-                  className="w-full max-w-[286px] border border-zinc-800/80 bg-zinc-950/80 px-7 py-8 shadow-[0_28px_90px_rgba(0,0,0,0.5)]"
+                  className="w-full max-w-[286px] border border-zinc-700/80 bg-zinc-950/85 px-7 py-8 shadow-[0_28px_90px_rgba(0,0,0,0.5)]"
                 >
-                  <p className="font-mono text-[9px] tracking-[0.26em] text-zinc-700">DIGITAL RECEIPT</p>
-                  <div className="my-6 h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
-                  <p className="text-[15px] tracking-[0.16em] text-zinc-300">
+                  <p className="font-mono text-[9px] tracking-[0.26em] text-zinc-500">DIGITAL RECEIPT</p>
+                  <div className="my-6 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+                  <p className="text-[15px] tracking-[0.16em] text-zinc-200">
                     [ {receiptId} 已封存。]
                   </p>
-                  <p className="mt-7 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-500">
+                  <p className="mt-7 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-400">
                     {organized?.narration_content || '它被安静地留在这里。'}
                   </p>
-                  <div className="mt-8 h-px bg-gradient-to-r from-transparent via-zinc-900 to-transparent" />
-                  <p className="mt-5 font-mono text-[9px] tracking-[0.24em] text-zinc-800">END HERE ARCHIVE</p>
+                  <div className="mt-8 h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
+                  <p className="mt-5 font-mono text-[9px] tracking-[0.24em] text-zinc-600">END HERE ARCHIVE</p>
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
@@ -402,7 +402,7 @@ export default function V2NewFragmentPage() {
                 >
                   <button
                     onClick={() => router.push('/v2')}
-                    className="text-[12px] tracking-[0.16em] text-zinc-600 transition-colors duration-500 hover:text-zinc-300 outline-none"
+                    className="text-[12px] tracking-[0.16em] text-zinc-500 transition-colors duration-500 hover:text-zinc-300 outline-none"
                   >
                     关闭
                   </button>

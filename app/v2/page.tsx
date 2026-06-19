@@ -143,16 +143,16 @@ export default function V2HomePage() {
   
 
   return (
-    <main className="relative h-dvh overflow-hidden bg-[#080808] text-zinc-200 selection:bg-zinc-800 selection:text-zinc-100">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.035),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.018)_0%,transparent_34%,rgba(255,255,255,0.012)_100%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/70 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/80 to-transparent" />
+    <main className="relative h-dvh overflow-hidden bg-[#101010] text-zinc-100 selection:bg-zinc-700 selection:text-zinc-50">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.05),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.026)_0%,transparent_34%,rgba(255,255,255,0.018)_100%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#101010]/90 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#101010]/90 to-transparent" />
 
       <div className="relative z-10 mx-auto flex h-full w-full max-w-[430px] flex-col px-8 pb-6 pt-6">
         <header className="flex shrink-0 items-center justify-between">
-          <div className="flex min-w-0 items-center gap-3 opacity-60">
+          <div className="flex min-w-0 items-center gap-3 opacity-80">
             <Image src="/logo.png" alt="End Here Logo" width={20} height={20} className="shrink-0 object-contain" />
-            <span className="truncate text-[11px] tracking-[0.24em] text-zinc-500">END HERE</span>
+            <span className="truncate text-[11px] tracking-[0.24em] text-zinc-400">END HERE</span>
           </div>
           <PlasticBag />
         </header>
@@ -171,7 +171,7 @@ export default function V2HomePage() {
                   router.push('/v2/shopkeeper');
                 }}
                 style={{ paddingLeft: '12px', paddingRight: '12px', paddingTop: '7px', paddingBottom: '7px' }}
-                className="flex items-center gap-3 rounded-full border border-zinc-800 bg-zinc-900/50 transition-colors hover:bg-zinc-800/80 outline-none cursor-pointer"
+                className="flex items-center gap-3 rounded-full border border-zinc-700/80 bg-zinc-900/70 transition-colors hover:bg-zinc-800/90 outline-none cursor-pointer"
               >
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-yellow-500 animate-pulse" />
                 <span className="whitespace-nowrap text-[13px] tracking-[0.15em] text-zinc-300 font-mono leading-relaxed">
@@ -187,7 +187,7 @@ export default function V2HomePage() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.75, ease: 'easeOut' }}
-            className="pointer-events-none absolute inset-x-0 top-5 z-0 mx-auto max-w-[18em] text-center text-[15px] font-light leading-[1.65] tracking-[0.06em] text-zinc-600/55"
+            className="pointer-events-none absolute inset-x-0 top-5 z-0 mx-auto max-w-[18em] text-center text-[15px] font-light leading-[1.65] tracking-[0.06em] text-zinc-500/50"
           >
             这里不解答人生的意义。
             <br />
@@ -202,30 +202,30 @@ export default function V2HomePage() {
                 transition={{ duration: 0.85, ease: 'easeOut', delay: 0.1 }}
                 className="my-auto w-full max-w-[320px] self-center"
               >
-                <div className="mb-4 flex items-center justify-between text-[10px] tracking-[0.2em] text-zinc-700">
+                <div className="mb-4 flex items-center justify-between text-[10px] tracking-[0.2em] text-zinc-500">
 
                   {originalContent.isClamped && (
-                    <span className="font-mono tracking-[0.12em] text-zinc-800">350 MAX</span>
+                    <span className="font-mono tracking-[0.12em] text-zinc-600">350 MAX</span>
                   )}
                 </div>
 
-                <div className="relative border border-zinc-900/90 bg-zinc-950/80 px-6 py-6 shadow-[0_28px_80px_rgba(0,0,0,0.48)] backdrop-blur-sm">
-                  <div className="pointer-events-none absolute inset-x-6 top-4 h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
+                <div className="relative border border-zinc-800/80 bg-zinc-950/85 px-6 py-6 shadow-[0_28px_80px_rgba(0,0,0,0.48)] backdrop-blur-sm">
+                  <div className="pointer-events-none absolute inset-x-6 top-4 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
                   <h1 className="text-[19px] font-light leading-8 tracking-[0.06em] text-zinc-100">
                     {featured.title}
                   </h1>
-                  <p className="mt-4 whitespace-pre-wrap text-[13px] font-light leading-7 tracking-[0.05em] text-zinc-400">
+                  <p className="mt-4 whitespace-pre-wrap text-[13px] font-light leading-7 tracking-[0.05em] text-zinc-300">
                     {originalContent.text}
                   </p>
                   {featured.narration_content && (
-                    <p className="mt-5 border-l border-zinc-800 pl-4 text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-600">
+                    <p className="mt-5 border-l border-zinc-700 pl-4 text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-500">
                       {featured.narration_content}
                     </p>
                   )}
                   {featured.shopkeeper_comment && (
-                    <div className="mt-5 rounded-sm border border-zinc-800/50 bg-zinc-900/40 px-4 py-3">
+                    <div className="mt-5 rounded-sm border border-zinc-700/60 bg-zinc-900/55 px-4 py-3">
                       <p className="mb-2 font-mono text-[9px] tracking-[0.18em] text-zinc-600">店长</p>
-                      <p className="whitespace-pre-wrap text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-400">
+                      <p className="whitespace-pre-wrap text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-300">
                         {featured.shopkeeper_comment}
                       </p>
                     </div>
@@ -235,12 +235,12 @@ export default function V2HomePage() {
                   <button
                     type="button"
                     onClick={showAnotherFeatured}
-                    className="mt-4 block w-full text-right text-[10px] tracking-[0.16em] text-zinc-700 transition-colors duration-500 hover:text-zinc-400 outline-none"
+                    className="mt-4 block w-full text-right text-[10px] tracking-[0.16em] text-zinc-500 transition-colors duration-500 hover:text-zinc-300 outline-none"
                   >
                     换一张
                   </button>
                 )}
-                <p className="text-[12px] leading-6 tracking-[0.08em] text-zinc-600 mt-6 w-full text-center opacity-80">
+                <p className="text-[12px] leading-6 tracking-[0.08em] text-zinc-500 mt-6 w-full text-center opacity-90">
                   这块碎片，
                   <br />
                   是否让你想起了什么？
@@ -275,9 +275,9 @@ export default function V2HomePage() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.98 }}
                 transition={{ duration: 0.28, ease: 'easeOut' }}
-                className="absolute bottom-[86px] left-1/2 z-20 flex w-[178px] -translate-x-1/2 flex-col items-center border border-zinc-800 bg-zinc-950/95 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur"
+                className="absolute bottom-[86px] left-1/2 z-20 flex w-[178px] -translate-x-1/2 flex-col items-center border border-zinc-700/80 bg-zinc-950/95 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur"
               >
-                <div className="h-[150px] w-[150px] border border-zinc-800 bg-zinc-900 p-2">
+                <div className="h-[150px] w-[150px] border border-zinc-700/80 bg-zinc-900 p-2">
                   <Image
                     src="/pay_code.png"
                     alt="打赏码"
@@ -286,14 +286,14 @@ export default function V2HomePage() {
                     className="h-full w-full object-contain opacity-90 grayscale"
                   />
                 </div>
-                <p className="mt-3 text-center text-[9px] leading-5 tracking-[0.16em] text-zinc-600">
+                <p className="mt-3 text-center text-[9px] leading-5 tracking-[0.16em] text-zinc-500">
                   往铁筐投入一点零钱，让这里能继续亮着。
                 </p>
                 <a
                   href="/pay_code.png"
                   download="endhere-pay-code.png"
                   onClick={() => track('v2_sponsor_code_save_tap')}
-                  className="mt-3 border-t border-zinc-900 px-3 pt-3 text-[10px] tracking-[0.16em] text-zinc-500 transition-colors duration-500 hover:text-zinc-300 outline-none"
+                  className="mt-3 border-t border-zinc-800 px-3 pt-3 text-[10px] tracking-[0.16em] text-zinc-400 transition-colors duration-500 hover:text-zinc-200 outline-none"
                 >
                   保存图片
                 </a>
@@ -301,7 +301,7 @@ export default function V2HomePage() {
             )}
           </AnimatePresence>
 
-          <div className="mx-auto grid w-full max-w-[280px] grid-cols-3 items-center border-t border-zinc-900 pt-6 text-[11px] tracking-[0.1em] text-zinc-600">
+          <div className="mx-auto grid w-full max-w-[280px] grid-cols-3 items-center border-t border-zinc-800/80 pt-6 text-[11px] tracking-[0.1em] text-zinc-500">
             <Link 
               href="/v2/nostalgia" 
               // 🟢 埋点 4：底部导航分流 (流向痕迹)
@@ -322,10 +322,10 @@ export default function V2HomePage() {
                 setShowSponsorBasket(nextValue);
                 track('v2_sponsor_basket_tap', { open: nextValue });
               }}
-              className="group relative flex h-8 w-8 items-center justify-center justify-self-center text-zinc-700 transition-colors duration-500 hover:text-zinc-300 outline-none"
+              className="group relative flex h-8 w-8 items-center justify-center justify-self-center text-zinc-500 transition-colors duration-500 hover:text-zinc-300 outline-none"
             >
               <span className="absolute top-2 h-1 w-3 rounded-full border border-current opacity-60" />
-              <span className="absolute bottom-2 h-3 w-5 border border-current bg-zinc-950/80 transition-colors duration-500 group-hover:bg-zinc-900/80" />
+              <span className="absolute bottom-2 h-3 w-5 border border-current bg-zinc-950/90 transition-colors duration-500 group-hover:bg-zinc-900/90" />
               <span className="absolute bottom-[13px] left-[9px] h-1.5 w-1.5 rounded-full bg-yellow-500/65 shadow-[5px_1px_0_rgba(234,179,8,0.35)]" />
             </button>
             <Link 

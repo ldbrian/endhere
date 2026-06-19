@@ -105,21 +105,21 @@ export default function V2NostalgiaPage() {
     return order.map((label) => ({ label, items: bucketMap.get(label)! }));
   }, [localFragments]);
 
-  if (!hasHydrated) return <div className="fixed inset-0 bg-[#080808]" />;
+  if (!hasHydrated) return <div className="fixed inset-0 bg-[#101010]" />;
 
   return (
     // 🟢 绝对视口弹性架构：fixed inset-0 阻断一切外部布局污染
-    <main className="fixed inset-0 z-50 flex flex-col items-center bg-[#080808] text-zinc-200 selection:bg-zinc-800 selection:text-zinc-100">
+    <main className="fixed inset-0 z-50 flex flex-col items-center bg-[#101010] text-zinc-100 selection:bg-zinc-700 selection:text-zinc-50">
       
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.025),transparent_40%)]" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.04),transparent_40%)]" />
 
       {/* 悬浮顶部导航栏 */}
-      <header className="absolute left-0 right-0 top-0 z-30 flex h-24 items-center justify-center bg-gradient-to-b from-[#080808] via-[#080808]/80 to-transparent">
+      <header className="absolute left-0 right-0 top-0 z-30 flex h-24 items-center justify-center bg-gradient-to-b from-[#101010] via-[#101010]/85 to-transparent">
         <div className="flex w-full max-w-[430px] items-center justify-between px-8">
-          <Link href="/v2" className="text-[11px] tracking-[0.18em] text-zinc-600 transition-colors duration-500 hover:text-zinc-300 outline-none">
+          <Link href="/v2" className="text-[11px] tracking-[0.18em] text-zinc-500 transition-colors duration-500 hover:text-zinc-200 outline-none">
             返回
           </Link>
-          <span className="text-[10px] tracking-[0.24em] text-zinc-700 font-mono">TIMELINE</span>
+          <span className="text-[10px] tracking-[0.24em] text-zinc-500 font-mono">TIMELINE</span>
         </div>
       </header>
 
@@ -134,10 +134,10 @@ export default function V2NostalgiaPage() {
           >
             <Link 
               href="/v2/mirror" 
-              className="group relative flex items-center justify-center overflow-hidden border border-zinc-800/80 bg-zinc-900/30 px-6 py-3 transition-colors hover:border-zinc-600 hover:bg-zinc-900/50"
+              className="group relative flex items-center justify-center overflow-hidden border border-zinc-700/80 bg-zinc-900/45 px-6 py-3 transition-colors hover:border-zinc-500 hover:bg-zinc-900/65"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-              <span className="text-[11px] tracking-[0.2em] text-zinc-400 group-hover:text-zinc-200 transition-colors">
+              <span className="text-[11px] tracking-[0.2em] text-zinc-300 group-hover:text-zinc-100 transition-colors">
                 [ 照照镜子：与过去的自己共鸣 ]
               </span>
             </Link>
@@ -146,14 +146,14 @@ export default function V2NostalgiaPage() {
 
         {buckets.length === 0 ? (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-[12px] tracking-[0.2em] text-zinc-700">抽屉里空空如也。</p>
+            <p className="text-[12px] tracking-[0.2em] text-zinc-500">抽屉里空空如也。</p>
           </div>
         ) : (
           <div className="flex flex-col gap-14">
             {buckets.map((bucket) => (
               <div key={bucket.label} className="flex flex-col items-center">
                 
-                <span className="mb-10 text-[11px] tracking-[0.2em] text-zinc-600 font-mono">
+                <span className="mb-10 text-[11px] tracking-[0.2em] text-zinc-500 font-mono">
                   [ {bucket.label} ]
                 </span>
 
@@ -164,9 +164,9 @@ export default function V2NostalgiaPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: fIndex * 0.05 }}
-                      className="group relative flex flex-col bg-zinc-950/30 px-7 py-8 border border-zinc-900/60 shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-colors hover:border-zinc-800/80"
+                      className="group relative flex flex-col bg-zinc-950/55 px-7 py-8 border border-zinc-800/70 shadow-[0_8px_30px_rgba(0,0,0,0.18)] transition-colors hover:border-zinc-700/90"
                     >
-                      <div className="absolute right-6 top-6 text-zinc-700">
+                      <div className="absolute right-6 top-6 text-zinc-500">
                         {fragment.visibility === 'public' ? (
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <circle cx="12" cy="12" r="10" />
@@ -184,33 +184,33 @@ export default function V2NostalgiaPage() {
                         {fragment.title}
                       </h2>
                       
-                      <p className="mt-6 whitespace-pre-wrap text-[14px] font-light leading-[1.8] tracking-[0.06em] text-zinc-400">
+                      <p className="mt-6 whitespace-pre-wrap text-[14px] font-light leading-[1.8] tracking-[0.06em] text-zinc-300">
                         {fragment.original_content}
                       </p>
 
                       {fragment.narration_content && (
-                        <div className="mt-8 border-l border-zinc-800/80 pl-4">
-                          <p className="text-[12px] font-light leading-7 tracking-[0.06em] text-zinc-500 italic">
+                        <div className="mt-8 border-l border-zinc-700/80 pl-4">
+                          <p className="text-[12px] font-light leading-7 tracking-[0.06em] text-zinc-400 italic">
                             {fragment.narration_content}
                           </p>
                         </div>
                       )}
 
                       {fragment.shopkeeper_comment && (
-                        <div className="mt-8 rounded-sm bg-zinc-900/40 px-5 py-4 border border-zinc-800/50">
-                          <p className="text-[10px] tracking-[0.15em] text-zinc-600 font-mono mb-3">SHOPKEEPER</p>
-                          <p className="text-[12px] font-light leading-relaxed tracking-[0.06em] text-zinc-400">
+                        <div className="mt-8 rounded-sm bg-zinc-900/55 px-5 py-4 border border-zinc-700/60">
+                          <p className="text-[10px] tracking-[0.15em] text-zinc-500 font-mono mb-3">SHOPKEEPER</p>
+                          <p className="text-[12px] font-light leading-relaxed tracking-[0.06em] text-zinc-300">
                             {fragment.shopkeeper_comment}
                           </p>
                         </div>
                       )}
 
-                      <div className="mt-8 flex flex-col gap-3 border-t border-zinc-900/50 pt-5">
-                        <span className="text-[9px] tracking-[0.15em] text-zinc-700 font-mono">
+                      <div className="mt-8 flex flex-col gap-3 border-t border-zinc-800/60 pt-5">
+                        <span className="text-[9px] tracking-[0.15em] text-zinc-500 font-mono">
                           {new Date(fragment.created_at).toLocaleDateString().replace(/\//g, '.')}
                         </span>
                         {featuredFragmentIds.has(fragment.id) && (
-                          <span className="self-end whitespace-nowrap text-right text-[9px] leading-4 tracking-[0.12em] text-zinc-500">
+                          <span className="self-end whitespace-nowrap text-right text-[9px] leading-4 tracking-[0.12em] text-zinc-400">
                             有人在这块碎片前停留过。
                           </span>
                         )}
@@ -221,7 +221,7 @@ export default function V2NostalgiaPage() {
               </div>
             ))}
             
-            <div className="mt-12 text-center text-[10px] tracking-[0.4em] text-zinc-800 font-mono opacity-60">
+            <div className="mt-12 text-center text-[10px] tracking-[0.4em] text-zinc-600 font-mono opacity-70">
               END HERE
             </div>
           </div>
