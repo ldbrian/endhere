@@ -35,7 +35,11 @@ function unauthorized(status = 401) {
   return Response.json({ error: 'UNAUTHORIZED' }, { status });
 }
 
-function checkAdminToken(request: Request) {
+type AdminAuthResult =
+  | { ok: true }
+  | { ok: false; response: Response };
+
+function checkAdminToken(request: Request): AdminAuthResult {
   if (!adminToken) {
     return {
       ok: false,
@@ -52,7 +56,7 @@ function checkAdminToken(request: Request) {
     return { ok: false, response: unauthorized() };
   }
 
-  return { ok: true, response: null };
+  return { ok: true };
 }
 
 function getStatus(value: string | null): FeaturedStatus {
