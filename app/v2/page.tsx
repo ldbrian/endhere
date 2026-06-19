@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { Fragment } from './_core/fragments';
 import { FEATURED_SEED_FRAGMENTS } from './_core/fragments';
-import { getFeaturedExhibit, useFragmentStore } from './_core/storage';
+import { getFeaturedExhibitPool, useFragmentStore } from './_core/storage';
 import {
   getLatestShopkeeperReplyAt,
   getReadShopkeeperReplyAt,
@@ -55,6 +55,8 @@ export default function V2HomePage() {
   const localFragments = useFragmentStore((state) => state.localFragments);
   const hasHydrated = useFragmentStore((state) => state._hasHydrated);
   const [featured, setFeatured] = useState<Fragment>(FEATURED_SEED_FRAGMENTS[0]);
+  const [featuredPool, setFeaturedPool] = useState<Fragment[]>(FEATURED_SEED_FRAGMENTS);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
   const [worldStatusCapsules, setWorldStatusCapsules] = useState<WorldStatusCapsule[]>([FALLBACK_CAPSULE]);
   const [showSponsorBasket, setShowSponsorBasket] = useState(false);
   const [hasUnreadReply, setHasUnreadReply] = useState(false);
@@ -68,11 +70,32 @@ export default function V2HomePage() {
   }, []);
 
   useEffect(() => {
-    // 今日展柜：异步从云端拉取
-    getFeaturedExhibit().then((exhibit) => {
-      setFeatured(exhibit);
+    // 今日展柜：拉取精选奖池，首页只展示其中一张，可少量换看。
+    getFeaturedExhibitPool().then((pool) => {
+      const safePool = pool.length > 0 ? pool : FEATURED_SEED_FRAGMENTS;
+      const initialIndex = Math.floor(Math.random() * safePool.length);
+
+      setFeaturedPool(safePool);
+      setFeaturedIndex(initialIndex);
+      setFeatured(safePool[initialIndex]);
     });
   }, []);
+
+  const showAnotherFeatured = () => {
+    if (featuredPool.length <= 1) return;
+
+    let nextIndex = Math.floor(Math.random() * featuredPool.length);
+    if (nextIndex === featuredIndex) {
+      nextIndex = (nextIndex + 1) % featuredPool.length;
+    }
+
+    setFeaturedIndex(nextIndex);
+    setFeatured(featuredPool[nextIndex]);
+    track('v2_featured_shuffle_tap', {
+      fragment_id: featuredPool[nextIndex].id,
+      pool_size: featuredPool.length,
+    });
+  };
 
   useEffect(() => {
     // 首页胶囊读取当前店长短动态。历史列表在 /v2/shopkeeper 里展开。
@@ -208,6 +231,15 @@ export default function V2HomePage() {
                     </div>
                   )}
                 </div>
+                {featuredPool.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={showAnotherFeatured}
+                    className="mt-4 block w-full text-right text-[10px] tracking-[0.16em] text-zinc-700 transition-colors duration-500 hover:text-zinc-400 outline-none"
+                  >
+                    换一张
+                  </button>
+                )}
                 <p className="text-[12px] leading-6 tracking-[0.08em] text-zinc-600 mt-6 w-full text-center opacity-80">
                   这块碎片，
                   <br />

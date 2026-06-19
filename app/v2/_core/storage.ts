@@ -115,7 +115,7 @@ async function syncFragmentToCloud(fragment: Fragment) {
 // 🟢 今日展柜拉取逻辑 (Featured Exhibit)
 // ============================================================
 
-export async function getFeaturedExhibit(): Promise<Fragment> {
+export async function getFeaturedExhibitPool(): Promise<Fragment[]> {
   try {
     const { data, error } = await supabase
       .from('fragments')
@@ -127,12 +127,17 @@ export async function getFeaturedExhibit(): Promise<Fragment> {
 
     if (!error && data && data.length > 0) {
       // 只保留最新 50 条精选公开碎片，老碎片会被 limit 自动挤出首页奖池。
-      return data[Math.floor(Math.random() * data.length)] as Fragment;
+      return data as Fragment[];
     }
   } catch (err) {
     console.error('[Featured Exhibit] Fetch error:', err);
   }
 
   // 兜底机制：数据库无数据或断网时，使用本地种子
-  return FEATURED_SEED_FRAGMENTS[Math.floor(Math.random() * FEATURED_SEED_FRAGMENTS.length)];
+  return FEATURED_SEED_FRAGMENTS;
+}
+
+export async function getFeaturedExhibit(): Promise<Fragment> {
+  const pool = await getFeaturedExhibitPool();
+  return pool[Math.floor(Math.random() * pool.length)];
 }
