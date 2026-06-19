@@ -164,7 +164,7 @@ function V2NewFragmentContent() {
     try {
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(node, {
-        background: '#101010',
+        background: '#f2f0e7',
         useCORS: true,
       });
       const url = canvas.toDataURL('image/png');
@@ -400,20 +400,23 @@ function V2NewFragmentContent() {
                   initial={{ opacity: 0, y: 12, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 1.1, ease: 'easeOut', delay: 0.25 }}
-                  className="w-full max-w-[286px] border border-zinc-700/80 bg-zinc-950/85 px-7 py-8 shadow-[0_28px_90px_rgba(0,0,0,0.5)]"
+                  className="relative w-full max-w-[286px] overflow-hidden bg-[#f2f0e7] px-7 py-9 text-zinc-950 shadow-[0_28px_90px_rgba(0,0,0,0.55)] before:absolute before:inset-x-0 before:top-0 before:h-3 before:bg-[linear-gradient(135deg,#101010_25%,transparent_25%),linear-gradient(225deg,#101010_25%,transparent_25%)] before:bg-[length:12px_12px] after:absolute after:inset-x-0 after:bottom-0 after:h-3 after:bg-[linear-gradient(45deg,#101010_25%,transparent_25%),linear-gradient(315deg,#101010_25%,transparent_25%)] after:bg-[length:12px_12px]"
                 >
-                  <p className="font-mono text-[9px] tracking-[0.26em] text-zinc-500">DIGITAL RECEIPT</p>
-                  <div className="my-6 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
-                  <p className="text-[15px] tracking-[0.16em] text-zinc-200">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,0,0,0.08)_0_0.6px,transparent_0.8px),linear-gradient(90deg,rgba(0,0,0,0.035)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.45),rgba(0,0,0,0.035))] bg-[length:5px_5px,18px_100%,100%_100%] opacity-70" />
+                  <div className="relative z-10">
+                  <p className="font-mono text-[9px] tracking-[0.26em] text-zinc-600">DIGITAL RECEIPT</p>
+                  <div className="my-6 h-px bg-[repeating-linear-gradient(90deg,rgba(24,24,27,0.55)_0_8px,transparent_8px_13px)]" />
+                  <p className="font-mono text-[15px] tracking-[0.08em] text-zinc-950">
                     [ {receiptId} 已封存。]
                   </p>
-                  <p className="mt-7 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-400">
+                  <p className="mt-7 text-[12px] font-light leading-7 tracking-[0.06em] text-zinc-700">
                     {organized?.narration_content || '它被安静地留在这里。'}
                   </p>
-                  <div className="mt-8 h-px bg-gradient-to-r from-transparent via-zinc-800 to-transparent" />
-                  <p className="mt-5 font-mono text-[9px] tracking-[0.24em] text-zinc-600">
+                  <div className="mt-8 h-px bg-[repeating-linear-gradient(90deg,rgba(24,24,27,0.4)_0_6px,transparent_6px_11px)]" />
+                  <p className="mt-5 font-mono text-[9px] tracking-[0.18em] text-zinc-600">
                     {isAwakenedFromExhibit ? 'AWAKENED BY A STRANGER FRAGMENT' : 'END HERE ARCHIVE'}
                   </p>
+                  </div>
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
