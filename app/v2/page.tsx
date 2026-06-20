@@ -27,6 +27,19 @@ type WorldStatusCapsule = {
 
 const ORIGINAL_CONTENT_LIMIT = 350;
 const EXHIBIT_QUOTE_LIMIT = 48;
+const IDLE_TOAST_DELAY_MS = 20000;
+const IDLE_TOAST_VISIBLE_MS = 10200;
+
+const IDLE_TOAST_PROMPTS = [
+  '今天有没有一个瞬间，让你顿了一下。',
+  '有没有什么东西，让你有点舍不得。',
+  '今天有没有一句话，后来又在心里响了一遍。',
+  '有没有一个人，你差点就想起他的名字。',
+  '今天有没有一秒钟，你突然不知道该往哪里去。',
+  '有没有什么小事，明明过去了，却还留着。',
+  '今天有没有一种情绪，没有找到合适的出口。',
+  '有没有一个画面，你不想解释，只想留下来。',
+];
 
 const FALLBACK_CAPSULE: WorldStatusCapsule = {
   id: 'fallback-shopkeeper-status',
@@ -70,6 +83,8 @@ export default function V2HomePage() {
   const [showSponsorBasket, setShowSponsorBasket] = useState(false);
   const [hasUnreadReply, setHasUnreadReply] = useState(false);
   const [echoedFragmentId, setEchoedFragmentId] = useState<string | null>(null);
+  const [idleToastPrompt, setIdleToastPrompt] = useState<string | null>(null);
+  const [hasShownIdleToast, setHasShownIdleToast] = useState(false);
   const originalContent = clampOriginalContent(featured.original_content);
   const exhibitQuote = createExhibitQuote(featured.original_content);
   const awakenHref = `/v2/fragments/new?from=exhibit&quote=${encodeURIComponent(exhibitQuote)}`;
@@ -125,6 +140,39 @@ export default function V2HomePage() {
 
     return () => window.clearTimeout(timer);
   }, [echoedFragmentId]);
+
+  useEffect(() => {
+    if (hasShownIdleToast) return;
+
+    let promptTimer: number | undefined;
+    let hideTimer: number | undefined;
+
+    const clearTimers = () => {
+      if (promptTimer) window.clearTimeout(promptTimer);
+      if (hideTimer) window.clearTimeout(hideTimer);
+    };
+
+    const schedulePrompt = () => {
+      clearTimers();
+      promptTimer = window.setTimeout(() => {
+        const prompt = IDLE_TOAST_PROMPTS[Math.floor(Math.random() * IDLE_TOAST_PROMPTS.length)];
+        setIdleToastPrompt(prompt);
+        setHasShownIdleToast(true);
+        hideTimer = window.setTimeout(() => {
+          setIdleToastPrompt(null);
+        }, IDLE_TOAST_VISIBLE_MS + 400);
+      }, IDLE_TOAST_DELAY_MS);
+    };
+
+    const activityEvents: (keyof WindowEventMap)[] = ['pointerdown', 'touchstart', 'keydown', 'wheel', 'scroll'];
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, schedulePrompt, { passive: true }));
+    schedulePrompt();
+
+    return () => {
+      clearTimers();
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, schedulePrompt));
+    };
+  }, [hasShownIdleToast]);
 
   useEffect(() => {
     // 首页胶囊读取当前店长短动态。历史列表在 /v2/shopkeeper 里展开。
@@ -318,6 +366,28 @@ export default function V2HomePage() {
             </div>
           </div>
         </section>
+
+        <AnimatePresence>
+          {idleToastPrompt && (
+            <motion.div
+              initial={{ opacity: 0, y: 2 }}
+              animate={{ opacity: [0, 1, 1, 0], y: [8, 0, 0, -3] }}
+              exit={{ opacity: 0, y: -3 }}
+              transition={{
+                duration: IDLE_TOAST_VISIBLE_MS / 1000,
+                ease: 'easeOut',
+                times: [0, 0.13, 0.87, 1],
+              }}
+              className="pointer-events-none absolute inset-x-7 bottom-[154px] z-20 text-center"
+            >
+              <div className="mx-auto max-w-[292px] rounded-full border border-zinc-600/35 bg-zinc-950/58 px-5 py-3 shadow-[0_16px_44px_rgba(0,0,0,0.26),inset_0_1px_0_rgba(255,255,255,0.08),inset_0_0_18px_rgba(255,255,255,0.025)] backdrop-blur-md">
+                <p className="text-[12px] font-light leading-6 tracking-[0.1em] text-zinc-300/95 drop-shadow-[0_0_12px_rgba(212,212,216,0.16)]">
+                  {idleToastPrompt}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <motion.section
           initial={{ opacity: 0, y: 8 }}
