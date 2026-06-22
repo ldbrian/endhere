@@ -12,6 +12,7 @@ import {
   type FragmentVisibility,
 } from '../../_core/fragments';
 import { useFragmentStore } from '../../_core/storage';
+import { track } from '../../../lib/track';
 
 type Step = 'input' | 'organizing' | 'confirm' | 'permissions' | 'saved';
 
@@ -74,6 +75,7 @@ function V2NewFragmentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const addLocalFragment = useFragmentStore((state) => state.addLocalFragment);
+  const localFragmentCount = useFragmentStore((state) => state.localFragments.length);
   const [step, setStep] = useState<Step>('input');
   const [originalContent, setOriginalContent] = useState('');
   const [organized, setOrganized] = useState<OrganizedFragment | null>(null);
@@ -88,8 +90,10 @@ function V2NewFragmentContent() {
   }, [searchParams]);
   const [placeholder] = useState(() => ENTRY_PLACEHOLDERS[Math.floor(Math.random() * ENTRY_PLACEHOLDERS.length)]);
   const [receiptId, setReceiptId] = useState(() => createReceiptId());
+  const [savedFragmentCount, setSavedFragmentCount] = useState<number | null>(null);
   const activePlaceholder = awakenQuote ? '它让你想起了哪一刻？' : placeholder;
   const isAwakenedFromExhibit = awakenQuote.length > 0;
+  const isFirstSavedFragment = savedFragmentCount === 1;
 
   const original = normalizeFragmentText(originalContent);
   const lastSubmitTime = useFragmentStore((state) => state.lastSubmitTime);
@@ -140,6 +144,8 @@ function V2NewFragmentContent() {
       narration_content: '',
     };
 
+    const nextFragmentCount = localFragmentCount + 1;
+
     addLocalFragment({
       title: safeOrganized.title,
       original_content: original,
@@ -148,6 +154,17 @@ function V2NewFragmentContent() {
       allow_shopkeeper_review: allowShopkeeperReview,
       ai_persona: aiPersona,
     });
+
+    if (visibility === 'private') {
+      track('v2_private_fragment_saved', {
+        source: isAwakenedFromExhibit ? 'featured_awaken' : 'direct',
+        ai_persona: aiPersona,
+        allow_shopkeeper_review: allowShopkeeperReview,
+        original_length: Array.from(original).length,
+      });
+    }
+
+    setSavedFragmentCount(nextFragmentCount);
 
     // 🟢 CTO 修复：在这里加锁！记录最后一次成功提交的时间
     setLastSubmitTime(Date.now());
@@ -418,6 +435,27 @@ function V2NewFragmentContent() {
                   </p>
                   </div>
                 </motion.div>
+                {isFirstSavedFragment && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.85, ease: 'easeOut', delay: 1.15 }}
+                    className="mt-8 max-w-[292px] text-center"
+                  >
+                    <p className="text-[13px] font-light leading-7 tracking-[0.08em] text-zinc-200">
+                      第 1 块人生碎片已归档
+                    </p>
+                    <p className="mt-5 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-500">
+                      当你留下第 10 块碎片时
+                      <br />
+                      这里会开始出现属于你的轨迹
+                    </p>
+                    <p className="mt-6 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-400">
+                      你正在给未来的自己留下一份证据。
+                    </p>
+                  </motion.div>
+                )}
+
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}

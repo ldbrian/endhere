@@ -33,12 +33,12 @@ const IDLE_TOAST_VISIBLE_MS = 10200;
 const IDLE_TOAST_PROMPTS = [
   '今天有没有一个瞬间，让你顿了一下。',
   '有没有什么东西，让你有点舍不得。',
-  '今天有没有一句话，后来又在心里响了一遍。',
-  '有没有一个人，你差点就想起他的名字。',
-  '今天有没有一秒钟，你突然不知道该往哪里去。',
-  '有没有什么小事，明明过去了，却还留着。',
-  '今天有没有一种情绪，没有找到合适的出口。',
-  '有没有一个画面，你不想解释，只想留下来。',
+  '有没有一句话，后来又在心里响了一遍。',
+  '有没有一个人，你差点就想起名字。',
+  '有没有一秒钟，你突然不知道该往哪里去。',
+  '有没有什么小事，明明过去了却还留着。',
+  '有没有一种情绪，没有找到合适的出口。',
+  '有没有一个画面，你不想解释只想留下。',
 ];
 
 const FALLBACK_CAPSULE: WorldStatusCapsule = {
@@ -270,6 +270,9 @@ export default function V2HomePage() {
             <br />
             只保管人生的体验。
           </motion.p>
+
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-8 bg-gradient-to-b from-[#101010]/55 via-[#101010]/20 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-12 bg-gradient-to-t from-[#101010]/65 via-[#101010]/24 to-transparent" />
 
           <div className="relative z-10 h-full overflow-y-auto overscroll-contain px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex min-h-full flex-col pb-5 pt-[92px]">
