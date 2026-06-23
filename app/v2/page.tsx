@@ -17,7 +17,7 @@ import { supabase } from '../lib/supabase';
 import PlasticBag from '../components/PlasticBag';
 import { useMigrationProbe } from './_core/useMigrationProbe';
 // 🟢 新增：引入埋点工具
-import { track } from '../lib/track'; 
+import { track } from './_core/analytics'; 
 
 type WorldStatusCapsule = {
   id?: string;
@@ -402,7 +402,7 @@ export default function V2HomePage() {
           <Link
             href="/v2/fragments/new"
             // 🟢 埋点 3：留碎片点击（核心转化率漏斗起点）
-            onClick={() => track('v2_leave_fragment_tap')}
+            onClick={() => track('v2_leave_fragment_tap', { button: 'leave_fragment', route_to: '/v2/fragments/new' })}
             className="mt-4 inline-flex items-center justify-center text-[16px] tracking-[0.1em] text-zinc-100 transition-colors duration-500 hover:text-white"
           >
             [ 留下一块碎片 ]
