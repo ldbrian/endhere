@@ -16,6 +16,10 @@ type MirrorAnalysis = { source: 'ai' | 'fallback' | 'local'; topTopics: { label:
 type ApiAnalysis = { source?: 'ai' | 'fallback'; summary?: { top_topics?: { label?: string; count?: number }[]; sustained_positive_topic?: { label?: string; count?: number } | null; least_seen_topic?: { label?: string; count?: number } | null }; topics?: { id?: string; label?: string; current_count?: number; previous_count?: number; dominant_sentiment?: string; evidence_ids?: string[]; latest_fragment_id?: string | null }[]; findings?: { label?: string; count?: number; evidence_ids?: string[] }[]; words?: { label?: string; count?: number }[] };
 
 const MIN_ANALYSIS_FRAGMENTS = 10;
+const MAX_TOPIC_LABEL_CHARS = 8;
+const MAX_SUMMARY_LABEL_CHARS = 6;
+const MAX_FINDING_LABEL_CHARS = 12;
+const MAX_WORD_LABEL_CHARS = 6;
 
 const TIME_FRAMES: { value: TimeFrame; label: string }[] = [
   { value: 7, label: '7 天' },
@@ -65,6 +69,16 @@ function compactText(text: string, length = 48) {
   return clean.length > length ? clean.slice(0, length) + '...' : clean;
 }
 
+function compactLabel(value: string, length = MAX_TOPIC_LABEL_CHARS) {
+  const clean = value.replace(/[\s\n\r]+/g, '').replace(/[，。！？、,.!?]/g, '').trim();
+  return clean.length > length ? clean.slice(0, length) + '...' : clean;
+}
+
+function formatSummaryTopics(topics: { label: string; count: number }[]) {
+  const labels = topics.slice(0, 2).map((topic) => compactLabel(topic.label, MAX_SUMMARY_LABEL_CHARS));
+  return labels.length > 0 ? labels.join(' / ') : '暂无';
+}
+
 function normalizeApiAnalysis(data: ApiAnalysis, currentFragments: MirrorFragment[]): MirrorAnalysis {
   const fragmentMap = new Map(currentFragments.map((fragment) => [fragment.id, fragment]));
   const topics = (data.topics || []).map((topic, index) => {
@@ -73,37 +87,37 @@ function normalizeApiAnalysis(data: ApiAnalysis, currentFragments: MirrorFragmen
     const latest = topic.latest_fragment_id ? fragmentMap.get(topic.latest_fragment_id) || evidence[0] || null : evidence[0] || null;
     const currentCount = Number(topic.current_count) || evidence.length;
     const previousCount = Number(topic.previous_count) || 0;
-    return { id: topic.id || 'topic-' + index, label: String(topic.label || '').trim(), currentCount, previousCount, deltaPercent: percentDelta(currentCount, previousCount), dominantSentiment: String(topic.dominant_sentiment || '未标注').trim(), latestFragment: latest, fragments: evidence };
-  }).filter((topic) => topic.label && topic.currentCount > 0).sort((a, b) => b.currentCount - a.currentCount).slice(0, 8);
+    return { id: topic.id || 'topic-' + index, label: compactLabel(String(topic.label || '').trim(), MAX_TOPIC_LABEL_CHARS), currentCount, previousCount, deltaPercent: percentDelta(currentCount, previousCount), dominantSentiment: compactLabel(String(topic.dominant_sentiment || '未标注').trim(), 5), latestFragment: latest, fragments: evidence };
+  }).filter((topic) => topic.label && topic.currentCount > 0).sort((a, b) => b.currentCount - a.currentCount).slice(0, 6);
 
   const findings = (data.findings || []).map((finding) => {
     const evidenceIds = Array.isArray(finding.evidence_ids) ? finding.evidence_ids : [];
     const evidence = evidenceIds.map((id) => fragmentMap.get(id)).filter((item): item is MirrorFragment => Boolean(item));
-    return { label: String(finding.label || '').trim(), count: Number(finding.count) || evidence.length, fragments: evidence };
-  }).filter((finding) => finding.label && finding.count > 0).slice(0, 6);
+    return { label: compactLabel(String(finding.label || '').trim(), MAX_FINDING_LABEL_CHARS), count: Number(finding.count) || evidence.length, fragments: evidence };
+  }).filter((finding) => finding.label && finding.count > 0).slice(0, 4);
 
-  const words = (data.words || []).map((word) => ({ label: String(word.label || '').trim(), count: Number(word.count) || 1 })).filter((word) => word.label).slice(0, 10);
+  const words = (data.words || []).map((word) => ({ label: compactLabel(String(word.label || '').trim(), MAX_WORD_LABEL_CHARS), count: Number(word.count) || 1 })).filter((word) => word.label).slice(0, 6);
   const summary = data.summary || {};
-  const topTopics = (summary.top_topics || []).map((topic) => ({ label: String(topic.label || '').trim(), count: Number(topic.count) || 0 })).filter((topic) => topic.label && topic.count > 0).slice(0, 3);
+  const topTopics = (summary.top_topics || []).map((topic) => ({ label: compactLabel(String(topic.label || '').trim(), MAX_SUMMARY_LABEL_CHARS), count: Number(topic.count) || 0 })).filter((topic) => topic.label && topic.count > 0).slice(0, 3);
   const positive = summary.sustained_positive_topic;
   const least = summary.least_seen_topic;
 
   return {
     source: data.source || 'ai',
-    topTopics: topTopics.length > 0 ? topTopics : topics.slice(0, 3).map((topic) => ({ label: topic.label, count: topic.currentCount })),
-    positiveTopic: positive?.label ? { label: String(positive.label), count: Number(positive.count) || 0 } : null,
-    leastTopic: least?.label ? { label: String(least.label), count: Number(least.count) || 0 } : topics.length > 0 ? { label: topics[topics.length - 1].label, count: topics[topics.length - 1].currentCount } : null,
+    topTopics: topTopics.length > 0 ? topTopics.slice(0, 2) : topics.slice(0, 2).map((topic) => ({ label: topic.label, count: topic.currentCount })),
+    positiveTopic: positive?.label ? { label: compactLabel(String(positive.label), MAX_TOPIC_LABEL_CHARS), count: Number(positive.count) || 0 } : null,
+    leastTopic: least?.label ? { label: compactLabel(String(least.label), MAX_TOPIC_LABEL_CHARS), count: Number(least.count) || 0 } : topics.length > 0 ? { label: topics[topics.length - 1].label, count: topics[topics.length - 1].currentCount } : null,
     topics, findings, words,
   };
 }
 
 function localFallbackAnalysis(currentFragments: MirrorFragment[], previousFragments: MirrorFragment[]): MirrorAnalysis {
   const rows = currentFragments.slice(0, 8).map((fragment, index) => {
-    const label = compactText(fragment.title || fragment.text, 10) || '碎片 ' + (index + 1);
+    const label = compactLabel(compactText(fragment.title || fragment.text, 10) || '碎片 ' + (index + 1), MAX_TOPIC_LABEL_CHARS);
     const previousCount = previousFragments.filter((item) => item.title === fragment.title).length;
     return { id: 'local-' + fragment.id, label, currentCount: 1, previousCount, deltaPercent: percentDelta(1, previousCount), dominantSentiment: '未标注', latestFragment: fragment, fragments: [fragment] };
   });
-  return { source: 'local', topTopics: rows.slice(0, 3).map((row) => ({ label: row.label, count: row.currentCount })), positiveTopic: null, leastTopic: rows.length > 0 ? { label: rows[rows.length - 1].label, count: rows[rows.length - 1].currentCount } : null, topics: rows, findings: rows.slice(0, 4).map((row) => ({ label: row.label, count: row.currentCount, fragments: row.fragments })), words: rows.slice(0, 8).map((row) => ({ label: row.label, count: row.currentCount })) };
+  return { source: 'local', topTopics: rows.slice(0, 2).map((row) => ({ label: compactLabel(row.label, MAX_SUMMARY_LABEL_CHARS), count: row.currentCount })), positiveTopic: null, leastTopic: rows.length > 0 ? { label: rows[rows.length - 1].label, count: rows[rows.length - 1].currentCount } : null, topics: rows, findings: rows.slice(0, 3).map((row) => ({ label: row.label, count: row.currentCount, fragments: row.fragments })), words: rows.slice(0, 6).map((row) => ({ label: row.label, count: row.currentCount })) };
 }
 
 export function MirrorTopicPanel({ embedded = false }: { embedded?: boolean }) {
@@ -161,9 +175,9 @@ export function MirrorTopicPanel({ embedded = false }: { embedded?: boolean }) {
         <p className="mt-4 text-[13px] tracking-[0.12em] text-zinc-400">{frame === 'all' ? '全部时间' : '过去' + frameLabel}</p>
         <div className="mt-5 grid gap-4 text-[13px] font-light leading-7 tracking-[0.06em] text-zinc-300">
           <ObservationLine label="共留下" value={currentFragments.length + ' 条碎片'} />
-          <ObservationLine label="最常出现的话题" value={displayAnalysis.topTopics.length > 0 ? displayAnalysis.topTopics.map((topic) => topic.label).join(' / ') : '暂无'} />
-          <ObservationLine label="持续带来积极情绪的话题" value={displayAnalysis.positiveTopic ? displayAnalysis.positiveTopic.label + '（' + displayAnalysis.positiveTopic.count + ' 次）' : '暂无'} />
-          <ObservationLine label="最少被关注的话题" value={displayAnalysis.leastTopic ? displayAnalysis.leastTopic.label + '（' + displayAnalysis.leastTopic.count + ' 次）' : '暂无'} />
+          <ObservationLine label="最常出现的话题" value={formatSummaryTopics(displayAnalysis.topTopics)} />
+          <ObservationLine label="持续带来积极情绪的话题" value={displayAnalysis.positiveTopic ? compactLabel(displayAnalysis.positiveTopic.label, MAX_SUMMARY_LABEL_CHARS) + '（' + displayAnalysis.positiveTopic.count + ' 次）' : '暂无'} />
+          <ObservationLine label="最少被关注的话题" value={displayAnalysis.leastTopic ? compactLabel(displayAnalysis.leastTopic.label, MAX_SUMMARY_LABEL_CHARS) + '（' + displayAnalysis.leastTopic.count + ' 次）' : '暂无'} />
         </div>
       </section>
 
@@ -182,5 +196,5 @@ function MirrorInsufficientState({ embedded, count, missing }: { embedded: boole
   return <div className={embedded ? 'flex h-full flex-col justify-center' : 'min-h-dvh bg-[#101010] px-7 py-12 text-zinc-100'}><div className="border-b border-zinc-900/80 pb-5"><div className="flex items-center justify-between gap-4"><p className="font-mono text-[10px] tracking-[0.24em] text-zinc-600">MIRROR SUMMARY</p><Link href="/v2/nostalgia" onClick={() => track('v3_mirror_history_tap')} className="border-b border-dashed border-zinc-700 pb-1 text-[10px] tracking-[0.12em] text-zinc-600 transition-colors duration-500 hover:border-zinc-400 hover:text-zinc-300">历史碎片</Link></div><p className="mt-5 text-[15px] leading-8 tracking-[0.1em] text-zinc-300">碎片数不足，暂时无法进行镜子分析。</p><p className="mt-4 text-[12px] leading-7 tracking-[0.08em] text-zinc-500">当前共有 {count} 块碎片。至少需要 {MIN_ANALYSIS_FRAGMENTS} 块，还差 {missing} 块。</p></div></div>;
 }
 function ObservationLine({ label, value }: { label: string; value: string }) {
-  return <div className="grid grid-cols-[1fr_auto] items-baseline gap-5 border-b border-zinc-900/60 pb-3 last:border-b-0"><span className="text-zinc-500">{label}</span><span className="text-right text-zinc-100">{value}</span></div>;
+  return <div className="flex min-w-0 items-baseline justify-between gap-4 border-b border-zinc-900/60 pb-3 last:border-b-0"><span className="shrink-0 whitespace-nowrap text-zinc-500">{label}</span><span className="min-w-0 max-w-[62%] truncate text-right text-zinc-100" title={value}>{value}</span></div>;
 }
