@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { track } from './analytics';
+import type { Fragment } from './fragments';
+import { useFragmentStore } from './storage';
 
 type TimeFrame = 7 | 30 | 90 | 'all';
 type TopicKey = 'ride_hailing' | 'product' | 'code' | 'family' | 'money' | 'body' | 'child' | 'self';
@@ -121,18 +123,69 @@ function buildMockFragments(): MirrorFragment[] {
 
 const MOCK_FRAGMENTS = buildMockFragments();
 
-function filterByFrame(frame: TimeFrame, offsetWindows = 0) {
-  if (frame === 'all' && offsetWindows > 0) return [];
-  const newest = new Date(MOCK_FRAGMENTS[0].createdAt).getTime();
-  const days = frame === 'all' ? 90 : frame;
-  const end = newest - offsetWindows * days * 24 * 60 * 60 * 1000;
-  const start = end - days * 24 * 60 * 60 * 1000;
-  return MOCK_FRAGMENTS.filter((fragment) => {
-    const time = new Date(fragment.createdAt).getTime();
-    return time <= end && time > start;
-  });
+const SENTIMENT_KEYWORDS: Record<Sentiment, string[]> = {
+  annoyed: ['\u70e6', '\u70e6\u8e81', '\u9ebb\u70e6', '\u7cdf\u5fc3', '\u53d7\u591f', '\u538c', '\u6076\u5fc3'],
+  excited: ['\u5f00\u5fc3', '\u5174\u594b', '\u671f\u5f85', '\u559c\u6b22', '\u987a\u5229', '\u6ee1\u8db3'],
+  tired: ['\u7d2f', '\u75b2\u60eb', '\u56f0', '\u6491\u4e0d\u4f4f', '\u6ca1\u529b\u6c14', '\u8017\u5c3d', '\u8170\u75db'],
+  calm: ['\u5e73\u9759', '\u5b89\u9759', '\u8212\u670d', '\u8f7b\u677e', '\u6162\u4e0b\u6765'],
+  angry: ['\u751f\u6c14', '\u6124\u6012', '\u706b\u5927', '\u8001\u767b', '\u963b\u788d', '\u50bb\u903c', '\u8ba8\u538c'],
+  blank: ['\u7a7a', '\u9ebb\u6728', '\u6ca1\u611f\u89c9', '\u4e0d\u77e5\u9053', '\u8bf4\u4e0d\u4e0a\u6765'],
+  hurried: ['\u8d76', '\u6765\u4e0d\u53ca', '\u6ca1\u65f6\u95f4', '\u5306\u5fd9', '\u50ac', '\u6025'],
+};
+
+function textIncludes(text: string, keyword: string) {
+  return text.toLowerCase().includes(keyword.toLowerCase());
 }
 
+function detectSentiment(text: string): Sentiment {
+  const rows = (Object.entries(SENTIMENT_KEYWORDS) as [Sentiment, string[]][])
+    .map(([sentiment, words]) => ({
+      sentiment,
+      count: words.filter((word) => textIncludes(text, word)).length,
+    }))
+    .filter((row) => row.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  return rows[0]?.sentiment || 'blank';
+}
+
+function buildLocalMirrorFragments(fragments: Fragment[]): MirrorFragment[] {
+  return fragments
+    .map((fragment) => {
+      const combinedText = fragment.title + '\n' + fragment.original_content + '\n' + (fragment.narration_content || '');
+      const sentiment = detectSentiment(combinedText);
+      const matchedTopics = TOPICS.filter((topic) =>
+        [topic.label, ...topic.keywords].some((keyword) => textIncludes(combinedText, keyword))
+      ).slice(0, 3);
+      const fallbackTopic = TOPICS.find((topic) => topic.key === 'self') || TOPICS[0];
+      const topics = matchedTopics.length > 0 ? matchedTopics : [fallbackTopic];
+      const rawKeywords = [
+        ...TOPICS.flatMap((topic) => [topic.label, ...topic.keywords]).filter((keyword) => textIncludes(combinedText, keyword)),
+        ...FINDING_WORDS.filter((word) => textIncludes(combinedText, word)),
+        ...Object.values(SENTIMENT_KEYWORDS).flat().filter((word) => textIncludes(combinedText, word)),
+      ];
+
+      return {
+        id: fragment.id,
+        createdAt: fragment.created_at || fragment.updated_at || new Date(0).toISOString(),
+        text: fragment.original_content,
+        hits: topics.map((topic) => ({ topic: topic.key, sentiment })),
+        rawKeywords: Array.from(new Set(rawKeywords)),
+      };
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+function filterByFrame(fragments: MirrorFragment[], frame: TimeFrame, offsetWindows = 0) {
+  if (frame === 'all') return offsetWindows === 0 ? fragments : [];
+  const days = frame;
+  const end = Date.now() - offsetWindows * days * 24 * 60 * 60 * 1000;
+  const start = end - days * 24 * 60 * 60 * 1000;
+  return fragments.filter((fragment) => {
+    const time = new Date(fragment.createdAt).getTime();
+    return Number.isFinite(time) && time <= end && time > start;
+  });
+}
 function percentDelta(current: number, previous: number) {
   if (previous === 0 && current === 0) return 0;
   if (previous === 0) return 100;
@@ -224,8 +277,11 @@ function formatTrend(value: number) {
 export function MirrorTopicPanel({ embedded = false }: { embedded?: boolean }) {
   const [frame, setFrame] = useState<TimeFrame>(30);
   const [activeTopic, setActiveTopic] = useState<TopicKey | null>(null);
-  const currentFragments = useMemo(() => filterByFrame(frame, 0), [frame]);
-  const previousFragments = useMemo(() => filterByFrame(frame, 1), [frame]);
+  const localFragments = useFragmentStore((state) => state.localFragments);
+  const hasHydrated = useFragmentStore((state) => state._hasHydrated);
+  const mirrorFragments = useMemo(() => buildLocalMirrorFragments(localFragments), [localFragments]);
+  const currentFragments = useMemo(() => filterByFrame(mirrorFragments, frame, 0), [mirrorFragments, frame]);
+  const previousFragments = useMemo(() => filterByFrame(mirrorFragments, frame, 1), [mirrorFragments, frame]);
   const summaries = useMemo(() => summarizeTopics(currentFragments, previousFragments), [currentFragments, previousFragments]);
   const topicCounts = useMemo(() => getTopicCounts(currentFragments), [currentFragments]);
   const positiveTopic = useMemo(() => getSustainedPositiveTopic(currentFragments, previousFragments), [currentFragments, previousFragments]);
@@ -234,6 +290,24 @@ export function MirrorTopicPanel({ embedded = false }: { embedded?: boolean }) {
   const frameLabel = TIME_FRAMES.find((item) => item.value === frame)?.label || '30 \u5929';
   const topThreeTopics = topicCounts.filter((row) => row.count > 0).slice(0, 3);
   const leastTopic = [...topicCounts].reverse().find((row) => row.count > 0) || null;
+
+  if (!hasHydrated) {
+    return (
+      <div className={embedded ? 'flex h-full items-center justify-center' : 'min-h-dvh bg-[#101010] px-7 py-12 text-zinc-100'}>
+        <p className="text-[11px] tracking-[0.18em] text-zinc-600">正在读取本地碎片</p>
+      </div>
+    );
+  }
+
+  if (mirrorFragments.length === 0) {
+    return (
+      <div className={embedded ? 'flex h-full flex-col justify-center' : 'min-h-dvh bg-[#101010] px-7 py-12 text-zinc-100'}>
+        <p className="font-mono text-[10px] tracking-[0.24em] text-zinc-600">MIRROR SUMMARY</p>
+        <p className="mt-5 text-[15px] leading-8 tracking-[0.1em] text-zinc-300">这里还没有你的本地碎片。</p>
+        <p className="mt-4 text-[12px] leading-7 tracking-[0.08em] text-zinc-500">留下第一块碎片后，镜子会从这个浏览器的 localStorage 里读取它。</p>
+      </div>
+    );
+  }
 
   return (
     <div className={embedded ? 'h-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : ''}>
