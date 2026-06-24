@@ -10,8 +10,13 @@ import { getFeaturedExhibitPool } from './_core/storage';
 import { track } from './_core/analytics';
 import { MirrorTopicPanel } from './_core/MirrorTopicPanel';
 import V2PlasticBag from './_core/V2PlasticBag';
+import { supabase } from '../lib/supabase';
 
 type HomeTab = 'world' | 'mirror';
+type ShopkeeperCapsule = {
+  id?: string;
+  content: string;
+};
 
 const ORIGINAL_CONTENT_LIMIT = 350;
 const EXHIBIT_QUOTE_LIMIT = 48;
@@ -31,6 +36,32 @@ function createExhibitQuote(content: string) {
 
 export default function V2HomePage() {
   const [tab, setTab] = useState<HomeTab>('world');
+  const [shopkeeperCapsule, setShopkeeperCapsule] = useState<ShopkeeperCapsule | null>(null);
+  const [isShopkeeperCapsuleDismissed, setIsShopkeeperCapsuleDismissed] = useState(false);
+
+  useEffect(() => {
+    const fetchShopkeeperCapsule = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('shopkeeper_logs')
+          .select('id, content, created_at')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!error && typeof data?.content === 'string' && data.content.trim()) {
+          setShopkeeperCapsule({
+            id: data.id,
+            content: data.content.trim(),
+          });
+        }
+      } catch (error) {
+        console.error('[V2HomePage] fetch shopkeeper capsule failed:', error);
+      }
+    };
+
+    fetchShopkeeperCapsule();
+  }, []);
 
   return (
     <main className="relative h-dvh overflow-hidden bg-[#101010] text-zinc-100 selection:bg-zinc-700 selection:text-zinc-50">
@@ -63,6 +94,41 @@ export default function V2HomePage() {
               <V2PlasticBag />
             </div>
           </div>
+          {shopkeeperCapsule && !isShopkeeperCapsuleDismissed && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: 'easeOut' }}
+              className="mt-4"
+            >
+              <div className="flex max-w-full items-center gap-2 overflow-hidden rounded-full border border-zinc-700/70 bg-zinc-950/45 px-3 py-2 text-zinc-400 shadow-[0_10px_28px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-colors duration-500 hover:border-zinc-600">
+                <Link
+                  href="/v2/shopkeeper"
+                  onClick={() => track('v3_shopkeeper_capsule_tap', { id: shopkeeperCapsule.id })}
+                  className="flex min-w-0 flex-1 items-center gap-3 transition-colors duration-500 hover:text-zinc-200 outline-none"
+                >
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400/80 shadow-[0_0_10px_rgba(212,212,216,0.38)]" />
+                  <span className="truncate text-[11px] font-light tracking-[0.12em]">
+                    {shopkeeperCapsule.content}
+                  </span>
+                </Link>
+                <button
+                  type="button"
+                  aria-label={'\u5173\u95ed\u5e97\u957f\u80f6\u56ca'}
+                  title={'\u5173\u95ed'}
+                  onClick={() => {
+                    setIsShopkeeperCapsuleDismissed(true);
+                    track('v3_shopkeeper_capsule_close_tap', { id: shopkeeperCapsule.id });
+                  }}
+                  className="ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors duration-500 hover:bg-zinc-800/70 hover:text-zinc-300 outline-none"
+                >
+                  <span className="text-[13px] leading-none" aria-hidden="true">
+                    ×
+                  </span>
+                </button>
+              </div>
+            </motion.div>
+          )}
           <div className="mt-6 flex items-end gap-8">
             {([
               { id: 'world', label: '\u770b\u522b\u4eba', sub: 'THE WORLD' },
