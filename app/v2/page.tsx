@@ -315,42 +315,74 @@ function WritePanel() {
 }
 
 // ============================================================
-// WorldPanel — 看别人
+// WorldPanel — 看别人（展馆模式）
 // ============================================================
 
+type WorldObservation = {
+  id: string;
+  title: string;
+  body: string;
+};
+
+type SystemFragment = {
+  id: string;
+  content: string;
+};
+
+function pickSystemFragment(fragments: SystemFragment[], anchorId: string): SystemFragment | null {
+  if (fragments.length === 0) return null;
+  const seed = anchorId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return fragments[seed % fragments.length];
+}
+
 function WorldPanel() {
-  const [featured, setFeatured] = useState<Fragment>(FEATURED_SEED_FRAGMENTS[0]);
-  const [featuredPool, setFeaturedPool] = useState<Fragment[]>(FEATURED_SEED_FRAGMENTS);
-  const [featuredIndex, setFeaturedIndex] = useState(0);
-  const [echoedFragmentId, setEchoedFragmentId] = useState<string | null>(null);
-  const originalContent = clampOriginalContent(featured.original_content);
-  const exhibitQuote = createExhibitQuote(featured.original_content);
-  const awakenHref = `/v2/fragments/new?from=exhibit&quote=${encodeURIComponent(exhibitQuote)}`;
+  const [observation, setObservation] = useState<WorldObservation | null>(null);
+  const [systemFragment, setSystemFragment] = useState<SystemFragment | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getFeaturedExhibitPool().then((pool) => {
-      const safePool = pool.length > 0 ? pool : FEATURED_SEED_FRAGMENTS;
-      const initialIndex = Math.floor(Math.random() * safePool.length);
-      setFeaturedPool(safePool);
-      setFeaturedIndex(initialIndex);
-      setFeatured(safePool[initialIndex]);
-    });
+    const fetchWorld = async () => {
+      try {
+        const { data: logs, error: logsError } = await supabase
+          .from('shopkeeper_logs')
+          .select('id, title, content, created_at')
+          .not('title', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!logsError && logs && typeof logs.title === 'string' && logs.title.trim()) {
+          setObservation({
+            id: String(logs.id),
+            title: logs.title.trim(),
+            body: typeof logs.content === 'string' ? logs.content.trim() : '',
+          });
+
+          const { data: sysFragments, error: sysError } = await supabase
+            .from('fragments')
+            .select('id, original_content')
+            .eq('is_featured', true)
+            .filter('meta->>source', 'eq', 'system')
+            .limit(20);
+
+          if (!sysError && sysFragments && sysFragments.length > 0) {
+            const pool: SystemFragment[] = sysFragments
+              .map((f) => ({ id: String(f.id), content: String(f.original_content || '').trim() }))
+              .filter((f) => f.content.length > 0);
+            const picked = pickSystemFragment(pool, String(logs.id));
+            if (picked) setSystemFragment(picked);
+          }
+        }
+      } catch (err) {
+        console.error('[WorldPanel] fetch failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWorld();
+    track('v3_world_view');
   }, []);
-
-  useEffect(() => {
-    if (!echoedFragmentId) return;
-    const timer = window.setTimeout(() => setEchoedFragmentId(null), 1800);
-    return () => window.clearTimeout(timer);
-  }, [echoedFragmentId]);
-
-  const showAnotherFeatured = () => {
-    if (featuredPool.length <= 1) return;
-    let nextIndex = Math.floor(Math.random() * featuredPool.length);
-    if (nextIndex === featuredIndex) nextIndex = (nextIndex + 1) % featuredPool.length;
-    setFeaturedIndex(nextIndex);
-    setFeatured(featuredPool[nextIndex]);
-    track('v3_world_shuffle_tap', { fragment_id: featuredPool[nextIndex].id, pool_size: featuredPool.length });
-  };
 
   return (
     <motion.div
@@ -360,54 +392,74 @@ function WorldPanel() {
       transition={{ duration: 0.32, ease: 'easeOut' }}
       className="relative h-full overflow-y-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      <div className="flex min-h-full flex-col pb-6 pt-10">
-        <article className="my-auto w-full max-w-[320px] self-center">
-          <div className="mb-4 flex items-center justify-between text-[10px] tracking-[0.2em] text-zinc-500">
-            <span>FEATURED</span>
-            {originalContent.isClamped && <span className="font-mono tracking-[0.12em] text-zinc-600">350 MAX</span>}
+      <div className="flex flex-col pb-10 pt-4 w-full max-w-[320px] mx-auto">
+
+        {loading ? (
+          <p className="text-[11px] tracking-[0.18em] text-zinc-700 mt-6">正在打开展馆…</p>
+        ) : !observation ? (
+          <div className="mt-10 flex flex-col gap-4">
+            <p className="text-[13px] font-light leading-8 tracking-[0.1em] text-zinc-500">
+              展馆尚未开放。
+            </p>
+            <p className="text-[11px] tracking-[0.16em] text-zinc-700">
+              值得被看见的观察，需要时间。
+            </p>
           </div>
-          <div className="relative border border-zinc-800/80 bg-zinc-950/85 px-6 py-6 shadow-[0_28px_80px_rgba(0,0,0,0.48)] backdrop-blur-sm">
-            <div className="pointer-events-none absolute inset-x-6 top-4 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
-            <h2 className="text-[19px] font-light leading-8 tracking-[0.06em] text-zinc-100">{featured.title}</h2>
-            <p className="mt-4 whitespace-pre-wrap text-[13px] font-light leading-7 tracking-[0.05em] text-zinc-300">{originalContent.text}</p>
-            {featured.narration_content && (
-              <p className="mt-5 border-l border-zinc-700 pl-4 text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-500">
-                {featured.narration_content}
+        ) : (
+          <div className="flex flex-col gap-10">
+
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+            >
+              <p className="font-mono text-[9px] tracking-[0.26em] text-zinc-700 mb-5">
+                世界留下了……
               </p>
+              <h2 className="text-[20px] font-light leading-9 tracking-[0.08em] text-zinc-100">
+                {observation.title}
+              </h2>
+            </motion.div>
+
+            <div className="h-px bg-zinc-800/80" />
+
+            {observation.body && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: 'easeOut', delay: 0.1 }}
+                className="flex flex-col gap-4"
+              >
+                <span className="font-mono text-[9px] tracking-[0.22em] text-zinc-600">
+                  店主
+                </span>
+                <p className="text-[13px] font-light leading-8 tracking-[0.06em] text-zinc-300 whitespace-pre-wrap">
+                  {observation.body}
+                </p>
+              </motion.div>
             )}
-          </div>
-          {featuredPool.length > 1 && (
-            <button type="button" onClick={showAnotherFeatured} className="mt-4 block w-full text-center text-[10px] tracking-[0.16em] text-zinc-600 transition-colors duration-500 hover:text-zinc-300 outline-none">
-              ↻ 换一张
-            </button>
-          )}
-          <div className="mt-6 flex items-center justify-center gap-5">
-            <button
-              type="button"
-              onClick={() => {
-                setEchoedFragmentId(featured.id);
-                track('v3_world_resonance_tap', { fragment_id: featured.id });
-              }}
-              className="relative border-b border-dashed border-zinc-600 pb-0.5 text-[12px] tracking-[0.14em] text-zinc-400 transition-colors duration-500 hover:border-zinc-300 hover:text-zinc-100 outline-none"
-            >
-              产生共鸣
-            </button>
-            <Link
-              href={awakenHref}
-              onClick={() => track('v3_world_awaken_tap', { fragment_id: featured.id })}
-              className="border-b border-dashed border-zinc-500 pb-0.5 text-[12px] tracking-[0.14em] text-zinc-200 transition-colors duration-500 hover:border-zinc-100 hover:text-white outline-none"
-            >
-              这让我想起...
-            </Link>
-          </div>
-          <AnimatePresence>
-            {echoedFragmentId === featured.id && (
-              <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -2 }} className="mt-4 text-center text-[10px] tracking-[0.18em] text-zinc-500">
-                已留下回声
-              </motion.p>
+
+            {systemFragment && <div className="h-px bg-zinc-800/80" />}
+
+            {systemFragment && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: 'easeOut', delay: 0.2 }}
+                className="flex flex-col gap-4"
+              >
+                <span className="font-mono text-[9px] tracking-[0.22em] text-zinc-600">
+                  END HERE
+                </span>
+                <p className="text-[13px] font-light leading-8 tracking-[0.1em] text-zinc-400 whitespace-pre-wrap">
+                  {systemFragment.content}
+                </p>
+              </motion.div>
             )}
-          </AnimatePresence>
-        </article>
+
+          </div>
+        )}
+
       </div>
     </motion.div>
   );
