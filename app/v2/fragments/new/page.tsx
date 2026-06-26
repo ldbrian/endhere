@@ -93,8 +93,10 @@ function V2NewFragmentContent() {
   const [savedFragmentCount, setSavedFragmentCount] = useState<number | null>(null);
   const activePlaceholder = awakenQuote ? '它让你想起了哪一刻？' : placeholder;
   const isAwakenedFromExhibit = awakenQuote.length > 0;
-  const isFirstSavedFragment = savedFragmentCount === 1;
-
+  const mirrorUnlockCount = 10;
+  const savedCount = savedFragmentCount ?? 0;
+  const remainingMirrorFragments = Math.max(0, mirrorUnlockCount - savedCount);
+  const hasUnlockedMirror = savedCount >= mirrorUnlockCount;
   const original = normalizeFragmentText(originalContent);
   const lastSubmitTime = useFragmentStore((state) => state.lastSubmitTime);
   const setLastSubmitTime = useFragmentStore((state) => state.setLastSubmitTime);
@@ -435,7 +437,7 @@ function V2NewFragmentContent() {
                   </p>
                   </div>
                 </motion.div>
-                {isFirstSavedFragment && (
+                {savedFragmentCount !== null && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -443,16 +445,21 @@ function V2NewFragmentContent() {
                     className="mt-8 max-w-[292px] text-center"
                   >
                     <p className="text-[13px] font-light leading-7 tracking-[0.08em] text-zinc-200">
-                      第 1 块人生碎片已归档
+                      第 {savedCount} 块碎片已归档
                     </p>
-                    <p className="mt-5 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-500">
-                      当你留下第 10 块碎片时
-                      <br />
-                      这里会开始出现属于你的轨迹
-                    </p>
-                    <p className="mt-6 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-400">
-                      你正在给未来的自己留下一份证据。
-                    </p>
+                    {hasUnlockedMirror ? (
+                      <p className="mt-5 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-500">
+                        镜子现在可以开始工作了
+                        <br />
+                        你留下的碎片会被整理成重复模式
+                      </p>
+                    ) : (
+                      <p className="mt-5 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-500">
+                        还差 {remainingMirrorFragments} 块
+                        <br />
+                        镜子就能开始观察你的轨迹
+                      </p>
+                    )}
                   </motion.div>
                 )}
 
