@@ -1,5 +1,6 @@
 export type FragmentVisibility = 'private' | 'public';
 export type FragmentPersonaId = 'Ash' | 'Rin' | 'Child';
+export type FragmentConsentLevel = 1 | 2 | 3;
 
 export type Fragment = {
   id: string;
@@ -14,6 +15,7 @@ export type Fragment = {
   meta: {
     source: 'manual' | 'seed' | 'system';
     ai_persona?: FragmentPersonaId;
+    consent_level?: FragmentConsentLevel;
     featured?: boolean;
     quality_score?: number;
   };
@@ -28,6 +30,7 @@ export type FragmentDraft = {
   visibility: FragmentVisibility;
   allow_shopkeeper_review: boolean;
   ai_persona?: FragmentPersonaId;
+  consent_level?: FragmentConsentLevel;
 };
 
 export const V2_OWNER_KEY = 'endhere_v2_owner_id';

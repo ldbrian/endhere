@@ -50,7 +50,7 @@ export const useFragmentStore = create<FragmentState>()(
           allow_shopkeeper_review: draft.allow_shopkeeper_review,
           is_featured: false,
           shopkeeper_comment: null,
-          meta: { source: 'manual', ai_persona: draft.ai_persona },
+          meta: { source: 'manual', ai_persona: draft.ai_persona, consent_level: draft.consent_level ?? 1 },
           created_at: now,
           updated_at: now,
         };

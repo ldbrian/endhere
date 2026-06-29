@@ -9,7 +9,7 @@ import {
   fallbackFragmentTitle,
   normalizeFragmentText,
   type FragmentPersonaId,
-  type FragmentVisibility,
+  type FragmentConsentLevel,
 } from '../../_core/fragments';
 import { useFragmentStore } from '../../_core/storage';
 import { track } from '../../../lib/track';
@@ -79,7 +79,7 @@ function V2NewFragmentContent() {
   const [step, setStep] = useState<Step>('input');
   const [originalContent, setOriginalContent] = useState('');
   const [organized, setOrganized] = useState<OrganizedFragment | null>(null);
-  const [visibility, setVisibility] = useState<FragmentVisibility>('private');
+  const [consentLevel, setConsentLevel] = useState<FragmentConsentLevel>(1);
   const [allowShopkeeperReview, setAllowShopkeeperReview] = useState(false);
   const [aiPersona, setAiPersona] = useState<FragmentPersonaId>('Rin');
   const [error, setError] = useState('');
@@ -147,6 +147,7 @@ function V2NewFragmentContent() {
     };
 
     const nextFragmentCount = localFragmentCount + 1;
+    const visibility = consentLevel === 3 ? 'public' : 'private';
 
     addLocalFragment({
       title: safeOrganized.title,
@@ -155,6 +156,7 @@ function V2NewFragmentContent() {
       visibility,
       allow_shopkeeper_review: allowShopkeeperReview,
       ai_persona: aiPersona,
+      consent_level: consentLevel,
     });
 
     if (visibility === 'private') {
@@ -163,6 +165,7 @@ function V2NewFragmentContent() {
         ai_persona: aiPersona,
         allow_shopkeeper_review: allowShopkeeperReview,
         original_length: Array.from(original).length,
+        consent_level: consentLevel,
       });
     }
 
