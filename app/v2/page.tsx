@@ -169,11 +169,16 @@ function Cover({ hasContent, onOpen }: { hasContent: boolean; onOpen: () => void
         <div className="pointer-events-none absolute inset-x-[28px] top-[38px] h-px bg-gradient-to-r from-transparent via-[#a78860]/20 to-transparent" />
         <div className="pointer-events-none absolute inset-x-[28px] bottom-[38px] h-px bg-gradient-to-r from-transparent via-[#a78860]/16 to-transparent" />
         <div className="flex-1" />
+        
+        {/* 👇 修改了这部分 👇 */}
         <div className="relative z-10 text-center">
           <p className="mb-10 text-[10px] tracking-[0.42em] text-stone-500/60">THE LIVING BOOK</p>
           <h1 className="text-[36px] font-light tracking-[0.18em] text-stone-100">ENDHERE</h1>
           <p className="mt-9 text-[15px] font-light tracking-[0.08em] text-stone-300/88">这是一本属于你的书</p>
+          <p className="mt-3 text-[12px] font-light tracking-[0.06em] text-stone-500/70">它会随着你留下的页面，慢慢拥有自己的模样</p>
         </div>
+        {/* 👆 修改了这部分 👆 */}
+
         <div className="flex-1" />
         <div className="relative z-10 flex flex-col items-center text-center">
           <div className="pointer-events-none absolute -inset-x-16 -inset-y-8 bg-[radial-gradient(ellipse_at_center,rgba(237,202,148,0.32),transparent_64%)] blur-xl" />
