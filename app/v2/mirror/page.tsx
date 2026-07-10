@@ -11,7 +11,7 @@ const MIRROR_LEVELS = [5, 10, 20, 40, 60] as const;
 
 function getMirrorLevel(completedPages: number) {
   let level = 0;
-  let nextThreshold = MIRROR_LEVELS[0];
+  let nextThreshold: number = MIRROR_LEVELS[0];
   for (let i = 0; i < MIRROR_LEVELS.length; i++) {
     if (completedPages >= MIRROR_LEVELS[i]) {
       level = i + 1;
