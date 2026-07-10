@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ExtractedEntityKind {
+  OBJECT
+  LOCATION
+  ACTION
+  TIME
+}
+
+enum EchoStatus {
+  CANDIDATE
+  ACTIVE
+  ARCHIVED
+}
+
+model User {
+  id        String     @id @map("id")
+|   createdAt DateTime   @default(now()) @map("created_at")
+|   updatedAt DateTime   @updatedAt @map("updated_at")
+|   fragments Fragment[]
+
+  @@map("users")
+}
+
+model Fragment {
+  id                    String                    @id @map("id")
+  ownerId               String                    @map("owner_id")
+  title                 String                    @map("title")
+  originalContent       String                    @map("original_content")
+  narrationContent      String?                   @map("narration_content")
+  visibility            String                    @default("private") @map("visibility")
+  allowShopkeeperReview Boolean                   @default(false) @map("allow_shopkeeper_review")
+  isFeatured            Boolean                   @default(false) @map("is_featured")
+  shopkeeperComment     String?                   @map("shopkeeper_comment")
+  meta                  Json?                     @map("meta")
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
+  owner                 User?                     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  extractedEntities     FragmentExtractedEntity[]
+
+  @@index([ownerId, createdAt])
+  @@map("fragments")
+}
+
+model ExtractedEntity {
+  id             String                    @id @default(uuid()) @map("id")
+  kind           ExtractedEntityKind       @map("kind")
+  value          String                    @map("value")
+  normalizedValue String                   @map("normalized_value")
+  source         String                    @default("reality_extractor") @map("source")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  updatedAt      DateTime                  @updatedAt @map("updated_at")
+  fragments      FragmentExtractedEntity[]
+  echoes         EchoExtractedEntity[]
+
+  @@unique([kind, normalizedValue])
+  @@index([kind])
+  @@map("extracted_entities")
+}
+
+model FragmentExtractedEntity {
+  fragmentId        String          @map("fragment_id")
+  extractedEntityId String          @map("extracted_entity_id")
+  confidence        Float           @default(1.0) @map("confidence")
+  evidence          String?         @map("evidence")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  fragment          Fragment        @relation(fields: [fragmentId], references: [id], onDelete: Cascade)
+  entity            ExtractedEntity @relation(fields: [extractedEntityId], references: [id], onDelete: Cascade)
+
+  @@id([fragmentId, extractedEntityId])
+  @@index([extractedEntityId])
+  @@map("fragment_extracted_entities")
+}
+
+model Echo {
+  id            String                @id @default(uuid()) @map("id")
+  ownerId       String                @map("owner_id")
+  label         String                @map("label")
+  status        EchoStatus            @default(CANDIDATE) @map("status")
+  evidenceCount Int                   @default(0) @map("evidence_count")
+  firstSeenAt   DateTime?             @map("first_seen_at")
+  lastSeenAt    DateTime?             @map("last_seen_at")
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+  entities      EchoExtractedEntity[]
+
+  @@index([ownerId, status, lastSeenAt])
+  @@map("echoes")
+}
+
+model EchoExtractedEntity {
+  echoId            String          @map("echo_id")
+  extractedEntityId String          @map("extracted_entity_id")
+  weight            Float           @default(1.0) @map("weight")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  echo              Echo            @relation(fields: [echoId], references: [id], onDelete: Cascade)
+  entity            ExtractedEntity @relation(fields: [extractedEntityId], references: [id], onDelete: Cascade)
+
+  @@id([echoId, extractedEntityId])
+  @@index([extractedEntityId])
+  @@map("echo_extracted_entities")
+}

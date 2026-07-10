@@ -1,16 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  /* 废弃 #1a1612，强制全面切换为 V3 暗黑基调 */
-  --bg-main: #0C0C0C;
+  /* V3.2 暖黑基调：旧木 / 博物馆灯光 / 旧纸气质 */
+  --bg-main: #1B1614;
+  --bg-panel: #221C19;
   --warm-yellow: #f5c842;
-  --text-main: #e8e0d5;
-  --text-muted: #9a8f85;
+  --text-main: #E8DFD2;
+  --text-muted: #9C8E80;
   --ash-color: #d4956a;
   --rin-color: #c9a0b4;
   --sol-color: #e8834a;
   --glass: rgba(255, 255, 255, 0.04);
-  --border: rgba(255, 255, 255, 0.08);
+  --border: rgba(232, 223, 210, 0.08);
 }
 
 * {
@@ -18,15 +19,15 @@
 }
 
 body {
-  /* 强制兜底，绝不留任何渲染缝隙 */
-  background-color: #0C0C0C !important;
+  /* V3.2 暖黑底色，绝不留冷感渲染缝隙 */
+  background-color: #1B1614 !important;
   color: var(--text-main);
   font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
 }
 
-/* 噪点纹理叠加 */
+/* 噪点纹理叠加：保留旧纸/生活质感 */
 body::before {
   content: '';
   position: fixed;
@@ -34,7 +35,7 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 999;
-  opacity: 0.4;
+  opacity: 0.35;
 }
 
 textarea {

@@ -7,6 +7,7 @@ import type { Fragment } from '../_core/fragments';
 import { FEATURED_SEED_FRAGMENTS } from '../_core/fragments';
 import { getFeaturedExhibitPool } from '../_core/storage';
 import { track } from '../_core/analytics';
+import { pickArtifactLineArt } from '../_core/artifacts';
 
 const ORIGINAL_CONTENT_LIMIT = 350;
 const EXHIBIT_QUOTE_LIMIT = 48;
@@ -70,14 +71,14 @@ export default function V2WorldPage() {
   };
 
   return (
-    <main className="relative h-dvh overflow-hidden bg-[#101010] text-zinc-100 selection:bg-zinc-700 selection:text-zinc-50">
+    <main className="relative h-dvh overflow-hidden bg-[#1B1614] text-stone-100 selection:bg-stone-700 selection:text-stone-50">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.055),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.026)_0%,transparent_38%,rgba(255,255,255,0.018)_100%)]" />
       <div className="relative z-10 mx-auto flex h-full w-full max-w-[430px] flex-col px-8 pb-7 pt-7">
-        <header className="flex shrink-0 items-center justify-between border-b border-zinc-800/70 pb-5">
-          <Link href="/v2" className="text-[11px] tracking-[0.18em] text-zinc-500 transition-colors hover:text-zinc-200">
+        <header className="flex shrink-0 items-center justify-between border-b border-stone-800/70 pb-5">
+          <Link href="/v2" className="text-[11px] tracking-[0.18em] text-stone-500 transition-colors hover:text-stone-200">
             返回
           </Link>
-          <span className="font-mono text-[10px] tracking-[0.26em] text-zinc-500">THE WORLD</span>
+          <span className="font-mono text-[10px] tracking-[0.26em] text-stone-500">THE WORLD</span>
         </header>
 
         <section className="relative min-h-0 flex-1 py-5">
@@ -85,15 +86,15 @@ export default function V2WorldPage() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.75, ease: 'easeOut' }}
-            className="pointer-events-none absolute inset-x-0 top-7 z-0 mx-auto max-w-[18em] text-center text-[15px] font-light leading-[1.65] tracking-[0.06em] text-zinc-500/45"
+            className="pointer-events-none absolute inset-x-0 top-7 z-0 mx-auto max-w-[18em] text-center text-[15px] font-light leading-[1.65] tracking-[0.06em] text-stone-500/45"
           >
             这里只陈列碎片。
             <br />
             不提供解释。
           </motion.p>
 
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-10 bg-gradient-to-b from-[#101010]/35 via-[#101010]/12 to-transparent" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-12 bg-gradient-to-t from-[#101010]/60 via-[#101010]/22 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-10 bg-gradient-to-b from-[#1B1614]/35 via-[#1B1614]/12 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-12 bg-gradient-to-t from-[#1B1614]/60 via-[#1B1614]/22 to-transparent" />
 
           <div className="relative z-10 h-full overflow-y-auto overscroll-contain px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex min-h-full flex-col pb-5 pt-[92px]">
@@ -104,26 +105,39 @@ export default function V2WorldPage() {
                 transition={{ duration: 0.75, ease: 'easeOut' }}
                 className="my-auto w-full max-w-[320px] self-center"
               >
-                <div className="mb-4 flex items-center justify-between text-[10px] tracking-[0.2em] text-zinc-500">
+                <div className="mb-4 flex items-center justify-between text-[10px] tracking-[0.2em] text-stone-500">
                   <span>FEATURED</span>
-                  {originalContent.isClamped && <span className="font-mono tracking-[0.12em] text-zinc-600">350 MAX</span>}
+                  {originalContent.isClamped && <span className="font-mono tracking-[0.12em] text-stone-600">350 MAX</span>}
                 </div>
 
-                <div className="relative border border-zinc-800/80 bg-zinc-950/85 px-6 py-6 shadow-[0_28px_80px_rgba(0,0,0,0.48)] backdrop-blur-sm">
-                  <div className="pointer-events-none absolute inset-x-6 top-4 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
-                  <h1 className="text-[19px] font-light leading-8 tracking-[0.06em] text-zinc-100">{featured.title}</h1>
-                  <p className="mt-4 whitespace-pre-wrap text-[13px] font-light leading-7 tracking-[0.05em] text-zinc-300">
+                <div className="relative rounded-lg border border-stone-800/60 bg-stone-950/80 px-7 py-7 shadow-[0_24px_60px_rgba(50,32,22,0.32)] backdrop-blur-sm">
+                  <div className="pointer-events-none absolute inset-x-7 top-4 h-px bg-gradient-to-r from-transparent via-stone-700/70 to-transparent" />
+                  <h1 className="text-[19px] font-light leading-9 tracking-[0.06em] text-stone-100">{featured.title}</h1>
+                  <p className="mt-4 whitespace-pre-wrap text-[13px] font-light leading-8 tracking-[0.05em] text-stone-300">
                     {originalContent.text}
                   </p>
                   {featured.narration_content && (
-                    <p className="mt-5 border-l border-zinc-700 pl-4 text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-500">
+                    <p className="mt-5 border-l border-stone-700 pl-4 text-[12px] font-light leading-6 tracking-[0.05em] text-stone-500">
                       {featured.narration_content}
                     </p>
                   )}
+                  {featured.meta?.artifact && (() => {
+                    const LineArt = pickArtifactLineArt(featured.meta.artifact);
+                    return (
+                      <div className="mt-5 flex items-center gap-3 border-l border-stone-700 pl-4">
+                        <LineArt className="h-7 w-7 shrink-0 text-stone-400" />
+                        <div className="min-w-0">
+                          <p className="mt-1 text-[12px] font-light leading-6 tracking-[0.05em] text-stone-400">
+                            {featured.meta.artifact.name}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {featured.shopkeeper_comment && (
-                    <div className="mt-5 rounded-sm border border-zinc-700/60 bg-zinc-900/55 px-4 py-3">
-                      <p className="mb-2 font-mono text-[9px] tracking-[0.18em] text-zinc-600">店长</p>
-                      <p className="whitespace-pre-wrap text-[12px] font-light leading-6 tracking-[0.05em] text-zinc-300">
+                    <div className="mt-5 rounded-md border border-stone-700/45 bg-stone-900/45 px-4 py-3">
+                      <p className="mb-2 font-mono text-[9px] tracking-[0.18em] text-stone-600">店长</p>
+                      <p className="whitespace-pre-wrap text-[12px] font-light leading-6 tracking-[0.05em] text-stone-300">
                         {featured.shopkeeper_comment}
                       </p>
                     </div>
@@ -134,7 +148,7 @@ export default function V2WorldPage() {
                   <button
                     type="button"
                     onClick={showAnotherFeatured}
-                    className="mt-4 block w-full text-center text-[10px] tracking-[0.16em] text-zinc-600 transition-colors duration-500 hover:text-zinc-300 outline-none"
+                    className="mt-4 block w-full text-center text-[10px] tracking-[0.16em] text-stone-600 transition-colors duration-500 hover:text-stone-300 outline-none"
                   >
                     ↻ 换一张
                   </button>
@@ -144,7 +158,7 @@ export default function V2WorldPage() {
                   <button
                     type="button"
                     onClick={leaveResonance}
-                    className="relative border-b border-dashed border-zinc-600 pb-0.5 text-[12px] tracking-[0.14em] text-zinc-400 transition-colors duration-500 hover:border-zinc-300 hover:text-zinc-100 outline-none"
+                    className="relative border-b border-dashed border-stone-600 pb-0.5 text-[12px] tracking-[0.14em] text-stone-400 transition-colors duration-500 hover:border-stone-300 hover:text-stone-100 outline-none"
                   >
                     产生共鸣
                     <AnimatePresence>
@@ -154,7 +168,7 @@ export default function V2WorldPage() {
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.98 }}
                           transition={{ duration: 0.45, ease: 'easeOut' }}
-                          className="pointer-events-none absolute -inset-x-3 -inset-y-2 border border-zinc-500/50 shadow-[0_0_24px_rgba(212,212,216,0.22)]"
+                          className="pointer-events-none absolute -inset-x-3 -inset-y-2 border border-stone-500/50 shadow-[0_0_24px_rgba(212,212,216,0.22)]"
                         />
                       )}
                     </AnimatePresence>
@@ -162,7 +176,7 @@ export default function V2WorldPage() {
                   <Link
                     href={awakenHref}
                     onClick={() => track('v3_world_awaken_tap', { fragment_id: featured.id })}
-                    className="border-b border-dashed border-zinc-500 pb-0.5 text-[12px] tracking-[0.14em] text-zinc-200 transition-colors duration-500 hover:border-zinc-100 hover:text-white outline-none"
+                    className="border-b border-dashed border-stone-500 pb-0.5 text-[12px] tracking-[0.14em] text-stone-200 transition-colors duration-500 hover:border-stone-100 hover:text-white outline-none"
                   >
                     这让我想起...
                   </Link>
@@ -175,7 +189,7 @@ export default function V2WorldPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -2 }}
                       transition={{ duration: 0.45, ease: 'easeOut' }}
-                      className="mt-4 text-center text-[10px] tracking-[0.18em] text-zinc-500"
+                      className="mt-4 text-center text-[10px] tracking-[0.18em] text-stone-500"
                     >
                       已留下回声
                     </motion.p>
@@ -186,11 +200,11 @@ export default function V2WorldPage() {
           </div>
         </section>
 
-        <footer className="shrink-0 border-t border-zinc-800/70 pt-5 text-center">
+        <footer className="shrink-0 border-t border-stone-800/70 pt-5 text-center">
           <Link
             href="/v2/fragments/new"
             onClick={() => track('v3_world_leave_fragment_tap', { button: 'leave_fragment', route_to: '/v2/fragments/new' })}
-            className="inline-flex items-center justify-center text-[15px] tracking-[0.1em] text-zinc-100 transition-colors duration-500 hover:text-white"
+            className="inline-flex items-center justify-center text-[15px] tracking-[0.1em] text-stone-100 transition-colors duration-500 hover:text-white"
           >
             [ 留下一块碎片 ]
           </Link>

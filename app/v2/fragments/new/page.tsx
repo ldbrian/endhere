@@ -9,482 +9,215 @@ import {
   fallbackFragmentTitle,
   normalizeFragmentText,
   type FragmentPersonaId,
-  type FragmentConsentLevel,
 } from '../../_core/fragments';
 import { useFragmentStore } from '../../_core/storage';
+import { pickArtifactLineArt } from '../../_core/artifacts';
+import { normalizePersonaId } from '../../_core/personas';
+import { findWindowByText, getWindowIndex, type WindowItem } from '../../_core/windows';
 import { track } from '../../../lib/track';
 
-type Step = 'input' | 'organizing' | 'confirm' | 'permissions' | 'saved';
+type Step = 'writing' | 'tracing' | 'saved';
 
-type OrganizedFragment = {
+type OrganizedPage = {
   title: string;
-  narration_content: string;
+  trace: string;
+  artifact: { emoji: string; name: string };
+  persona: FragmentPersonaId;
 };
 
-const INSPIRATION = ['一个情绪', '一段回忆', '一件旧物', '一句话'];
-const ORIGINAL_CONTENT_LIMIT = 350;
-const ENTRY_PLACEHOLDERS = [
-  '今天哪一瞬间，你觉得只剩自己一个人？',
-  '写下一个你再也见不到的人的名字，和那天发生的事。',
-  '凌晨三点，你在为什么醒着？',
-  '哪句话你一直没有机会说出口？',
-  '今天有什么东西，轻轻刺了你一下？',
-  '如果这一天只留下一帧画面，会是什么？',
-  '你最近一次假装没事，是因为什么？',
-];
-const AI_PERSONAS: { id: FragmentPersonaId; name: string; sub: string }[] = [
-  { id: 'Ash', name: 'Ash', sub: '冷一点' },
-  { id: 'Rin', name: 'Rin', sub: '轻一点' },
-  { id: 'Child', name: '8岁的自己', sub: '近一点' },
-];
+const ORIGINAL_CONTENT_LIMIT = 700;
 
-function createReceiptId() {
-  return `Fragment_#${Date.now().toString().slice(-4)}`;
+function createWindowTelemetry(windowItem: WindowItem | null) {
+  if (!windowItem) return { entry: 'free' };
+  return {
+    entry: 'window',
+    window_index: getWindowIndex(windowItem),
+    window_level: windowItem.level,
+    window_language: windowItem.language,
+  };
 }
 
-function playReceiptClick() {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const audioContextCtor: typeof window.AudioContext | undefined =
-      window.AudioContext ||
-      (window as Window & { webkitAudioContext?: typeof window.AudioContext }).webkitAudioContext;
-    if (!audioContextCtor) return;
-
-    const context = new audioContextCtor();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-
-    oscillator.type = 'square';
-    oscillator.frequency.setValueAtTime(520, context.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(180, context.currentTime + 0.06);
-    gain.gain.setValueAtTime(0.0001, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.045, context.currentTime + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.09);
-
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.1);
-  } catch {
-    // Audio is ornamental; ignore browser autoplay or context failures.
-  }
+function fallbackOrganizedPage(original: string): OrganizedPage {
+  return {
+    title: fallbackFragmentTitle(original),
+    trace: clampNarrationToOriginal('这一页被轻轻折了一角。', original),
+    artifact: { emoji: '📎', name: '一枚旧回形针' },
+    persona: 'Echo',
+  };
 }
 
 function V2NewFragmentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const requestedWindowText = searchParams.get('window')?.trim() || '';
+  const entryMode = searchParams.get('entry');
+  const entryWindow = useMemo(() => {
+    if (entryMode !== 'window' || !requestedWindowText) return null;
+    return findWindowByText(requestedWindowText);
+  }, [entryMode, requestedWindowText]);
   const addLocalFragment = useFragmentStore((state) => state.addLocalFragment);
-  const localFragmentCount = useFragmentStore((state) => state.localFragments.length);
-  const [step, setStep] = useState<Step>('input');
-  const [originalContent, setOriginalContent] = useState('');
-  const [organized, setOrganized] = useState<OrganizedFragment | null>(null);
-  const [consentLevel, setConsentLevel] = useState<FragmentConsentLevel>(1);
-  const [allowShopkeeperReview, setAllowShopkeeperReview] = useState(false);
-  const [aiPersona, setAiPersona] = useState<FragmentPersonaId>('Rin');
+  const [step, setStep] = useState<Step>('writing');
+  const [content, setContent] = useState('');
+  const [organized, setOrganized] = useState<OrganizedPage | null>(null);
   const [error, setError] = useState('');
-  const awakenQuote = useMemo(() => {
-    const from = searchParams.get('from');
-    const quote = searchParams.get('quote')?.trim() || '';
-    return from === 'exhibit' && quote ? quote : '';
-  }, [searchParams]);
-  const [placeholder] = useState(() => ENTRY_PLACEHOLDERS[Math.floor(Math.random() * ENTRY_PLACEHOLDERS.length)]);
-  const [receiptId, setReceiptId] = useState(() => createReceiptId());
-  const [savedFragmentCount, setSavedFragmentCount] = useState<number | null>(null);
-  const activePlaceholder = awakenQuote ? '它让你想起了哪一刻？' : placeholder;
-  const isAwakenedFromExhibit = awakenQuote.length > 0;
-  const mirrorUnlockCount = 10;
-  const savedCount = savedFragmentCount ?? 0;
-  const remainingMirrorFragments = Math.max(0, mirrorUnlockCount - savedCount);
-  const hasUnlockedMirror = savedCount >= mirrorUnlockCount;
-  const original = normalizeFragmentText(originalContent);
-  const lastSubmitTime = useFragmentStore((state) => state.lastSubmitTime);
-  const setLastSubmitTime = useFragmentStore((state) => state.setLastSubmitTime);
+  const original = normalizeFragmentText(content);
 
-  const organize = async () => {
+  const writePage = async () => {
     if (!original) {
-      setError('先留下一点内容。');
-      return;
-    }
-    // 🟢 CTO 防刷拦截：60秒冷却期
-    if (lastSubmitTime && Date.now() - lastSubmitTime < 60000) {
-      const remain = Math.ceil((60000 - (Date.now() - lastSubmitTime)) / 1000);
-      setError(`档案员正在整理案卷，请 ${remain} 秒后再来。`);
+      setError('这一页还没有字。');
       return;
     }
 
     setError('');
-    setStep('organizing');
+    if (entryWindow) track('v4_book_window_written', createWindowTelemetry(entryWindow));
+    setStep('tracing');
 
     try {
       const response = await fetch('/api/v2/fragments/organize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ original_content: original, persona: aiPersona }),
+        body: JSON.stringify({ original_content: original }),
       });
 
-      if (!response.ok) throw new Error('organize failed');
-
+      if (!response.ok) throw new Error('trace failed');
       const data = await response.json();
+      const artifact = data.artifact && typeof data.artifact.emoji === 'string' && typeof data.artifact.name === 'string'
+        ? { emoji: String(data.artifact.emoji).trim(), name: String(data.artifact.name).trim() }
+        : { emoji: '📎', name: '一枚旧回形针' };
+
       setOrganized({
         title: String(data.title || fallbackFragmentTitle(original)).trim(),
-        narration_content: clampNarrationToOriginal(String(data.narration_content || ''), original),
+        trace: clampNarrationToOriginal(String(data.narration_content || ''), original),
+        artifact,
+        persona: normalizePersonaId(data.persona),
       });
     } catch {
-      setOrganized({
-        title: fallbackFragmentTitle(original),
-        narration_content: clampNarrationToOriginal('它被安静地留在这里。', original),
-      });
-    } finally {
-      setStep('confirm');
+      setOrganized(fallbackOrganizedPage(original));
     }
   };
 
-  const save = () => {
-    const safeOrganized = organized || {
-      title: fallbackFragmentTitle(original),
-      narration_content: '',
-    };
-
-    const nextFragmentCount = localFragmentCount + 1;
-    const visibility = consentLevel === 3 ? 'public' : 'private';
-
+  const savePage = () => {
+    const safePage = organized || fallbackOrganizedPage(original);
     addLocalFragment({
-      title: safeOrganized.title,
+      title: safePage.title,
       original_content: original,
-      narration_content: safeOrganized.narration_content,
-      visibility,
-      allow_shopkeeper_review: allowShopkeeperReview,
-      ai_persona: aiPersona,
-      consent_level: consentLevel,
+      narration_content: safePage.trace,
+      visibility: 'private',
+      allow_shopkeeper_review: false,
+      ai_persona: safePage.persona,
+      consent_level: 1,
+      artifact: safePage.artifact,
     });
-
-    if (visibility === 'private') {
-      track('v2_private_fragment_saved', {
-        source: isAwakenedFromExhibit ? 'featured_awaken' : 'direct',
-        ai_persona: aiPersona,
-        allow_shopkeeper_review: allowShopkeeperReview,
-        original_length: Array.from(original).length,
-        consent_level: consentLevel,
-      });
-    }
-
-    setSavedFragmentCount(nextFragmentCount);
-
-    // 🟢 CTO 修复：在这里加锁！记录最后一次成功提交的时间
-    setLastSubmitTime(Date.now());
-    setReceiptId(createReceiptId());
-    playReceiptClick();
-
+    track('v4_book_page_saved', createWindowTelemetry(entryWindow));
     setStep('saved');
   };
 
-  const saveReceiptImage = async () => {
-    const node = document.getElementById('v2-fragment-receipt');
-    if (!node) return;
-
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(node, {
-        background: '#f2f0e7',
-        useCORS: true,
-      });
-      const url = canvas.toDataURL('image/png');
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `${receiptId.replace('#', '')}.png`;
-      anchor.click();
-    } catch (error) {
-      console.error('[Fragment Receipt] save image failed:', error);
-    }
-  };
-
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#101010] text-zinc-100 selection:bg-zinc-700 selection:text-zinc-50">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.045),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.024)_0%,transparent_40%,rgba(255,255,255,0.014)_100%)]" />
-
-      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-7 pb-10 pt-9">
+    <main className="relative min-h-dvh overflow-hidden bg-[#1B1614] text-stone-100 selection:bg-stone-700 selection:text-stone-50">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_8%,rgba(255,255,255,0.035),transparent_34%)]" />
+      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-7 pb-9 pt-7">
         <header className="flex shrink-0 items-center justify-between">
-          <Link href="/v2" className="text-[11px] tracking-[0.18em] text-zinc-500 transition-colors duration-500 hover:text-zinc-200">
-            返回
+          <Link href="/v2" className="border-b border-transparent pb-1 text-[11px] tracking-[0.16em] text-stone-500 transition-colors duration-500 hover:border-stone-700 hover:text-stone-300">
+            合上
           </Link>
-          <span className="text-[10px] tracking-[0.24em] text-zinc-500">NEW FRAGMENT</span>
+          <span className="font-mono text-[10px] tracking-[0.24em] text-stone-600">TODAY PAGE</span>
         </header>
 
-        <section className="flex flex-1 flex-col justify-center py-10">
+        <section className="flex flex-1 flex-col justify-center py-8">
           <AnimatePresence mode="wait">
-            {step === 'input' && (
+            {step === 'writing' && (
               <motion.div
-                key="input"
+                key="writing"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.45 }}
+                transition={{ duration: 0.42 }}
               >
-                <p className="text-[13px] leading-8 tracking-[0.1em] text-zinc-400">你可以留下：</p>
-                <div className="mt-5 flex flex-wrap gap-x-5 gap-y-3 text-[13px] tracking-[0.1em] text-zinc-300">
-                  {INSPIRATION.map((item) => (
-                    <span key={item}>{item}</span>
-                  ))}
-                </div>
-                <p className="mt-8 text-[13px] tracking-[0.08em] text-zinc-500">所有体验都值得被记录。</p>
+                <p className="font-mono text-[10px] tracking-[0.26em] text-stone-600">写下今天这一页</p>
 
-                {/* 🟢 CDO 修复：移除所有 border，增加聚焦时的微弱文字发光效应，强调空间感 */}
-                {isAwakenedFromExhibit && (
-                  <div className="mt-10 border-l border-zinc-800 pl-5">
-                    <p className="text-[11px] leading-6 tracking-[0.14em] text-zinc-500">
-                      刚才那块碎片让你想起：
-                    </p>
-                    <p className="mt-4 text-[13px] font-light leading-7 tracking-[0.06em] text-zinc-400">
-                      {awakenQuote}
+                {entryWindow && (
+                  <div className="mt-8 border-l border-stone-800/80 pl-4">
+                    <p className="text-[13px] font-light leading-8 tracking-[0.08em] text-stone-500">
+                      {entryWindow.text}
                     </p>
                   </div>
                 )}
 
                 <textarea
-                  value={originalContent}
-                  onChange={(event) => setOriginalContent(event.target.value)}
-                  placeholder={activePlaceholder}
-                  className="mt-12 h-32 w-full resize-none border-none bg-transparent pb-4 text-[15px] font-light leading-8 tracking-[0.08em] text-zinc-100 outline-none placeholder:text-zinc-600 focus:ring-0 focus:drop-shadow-[0_0_8px_rgba(255,255,255,0.12)]"
+                  value={content}
+                  onChange={(event) => setContent(event.target.value)}
+                  placeholder={entryWindow ? '从这一页往下写。' : '一句话，也是一页。'}
+                  className="mt-8 min-h-[220px] w-full resize-none border-y border-stone-800/70 bg-transparent py-8 text-[19px] font-light leading-10 tracking-[0.04em] text-stone-100 outline-none placeholder:text-stone-700 focus:ring-0"
                   maxLength={ORIGINAL_CONTENT_LIMIT}
                   autoFocus
                 />
-
-                <div className="mt-8 grid grid-cols-3 gap-2">
-                  {AI_PERSONAS.map((persona) => {
-                    const active = aiPersona === persona.id;
-                    return (
-                      <button
-                        key={persona.id}
-                        type="button"
-                        onClick={() => setAiPersona(persona.id)}
-                        className={`min-h-16 border px-2 py-3 text-center transition-colors duration-300 outline-none ${
-                          active
-                            ? 'border-zinc-500 bg-zinc-900/70 text-zinc-100'
-                            : 'border-zinc-800 bg-transparent text-zinc-500 hover:border-zinc-600 hover:text-zinc-200'
-                        }`}
-                      >
-                        <span className="block text-[12px] leading-5 tracking-[0.08em]">{persona.name}</span>
-                        <span className="mt-1 block text-[10px] leading-4 tracking-[0.1em] opacity-70">{persona.sub}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-7 flex items-center justify-between">
-                  <span className="text-[10px] tracking-[0.14em] text-zinc-500">{original.length}/{ORIGINAL_CONTENT_LIMIT}</span>
+                <div className="mt-7 flex items-center justify-between gap-6">
+                  <span className="font-mono text-[10px] tracking-[0.14em] text-stone-600">{original.length}/{ORIGINAL_CONTENT_LIMIT}</span>
                   <button
-                    onClick={organize}
+                    type="button"
+                    onClick={writePage}
                     disabled={!original}
-                    className="text-[13px] tracking-[0.18em] text-zinc-200 transition-colors duration-500 hover:text-white disabled:text-zinc-600"
+                    className="text-[13px] tracking-[0.18em] text-stone-200 transition-colors duration-500 hover:text-white disabled:text-stone-600"
                   >
-                    交给 {AI_PERSONAS.find((persona) => persona.id === aiPersona)?.name}
+                    留在这里
                   </button>
                 </div>
-                {error && <p className="mt-6 text-[11px] tracking-[0.12em] text-red-900/80">{error}</p>}
+                {error && <p className="mt-6 text-[12px] tracking-[0.1em] text-stone-500">{error}</p>}
               </motion.div>
             )}
 
-            {step === 'organizing' && (
-              <motion.div key="organizing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
-                <div className="mx-auto mb-8 h-2 w-2 rounded-full bg-zinc-500 animate-pulse" />
-                <p className="text-[14px] tracking-[0.16em] text-zinc-400">{AI_PERSONAS.find((persona) => persona.id === aiPersona)?.name} 正在看这块碎片</p>
-                <p className="mt-6 text-[11px] tracking-[0.12em] text-zinc-500">不会改写你的原文。</p>
+            {step === 'tracing' && organized === null && (
+              <motion.div key="tracing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
+                <div className="mx-auto mb-8 h-2 w-2 rounded-full bg-stone-500 animate-pulse" />
+                <p className="text-[14px] tracking-[0.16em] text-stone-400">这本书正在留下痕迹</p>
+                <p className="mt-6 text-[11px] tracking-[0.12em] text-stone-600">不会改写你的原文。</p>
               </motion.div>
             )}
 
-            {step === 'confirm' && organized && (
-              <motion.div
-                key="confirm"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.45 }}
-                className="max-h-[calc(100dvh-96px)] overflow-y-auto py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              >
-                <span className="text-[10px] tracking-[0.24em] text-zinc-500">归档确认</span>
-                <h1 className="mt-6 text-[24px] font-light leading-10 tracking-[0.08em] text-zinc-100">
-                  {organized.title}
-                </h1>
-
-                <div className="mt-10 border-l border-zinc-800 pl-5">
-                  <p className="text-[11px] tracking-[0.2em] text-zinc-500">用户原文</p>
-                  <p className="mt-5 whitespace-pre-wrap text-[15px] font-light leading-8 tracking-[0.06em] text-zinc-300">
-                    {original}
-                  </p>
+            {step === 'tracing' && organized && (
+              <motion.div key="confirm" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.42 }}>
+                <p className="font-mono text-[10px] tracking-[0.26em] text-stone-600">PAGE TRACE</p>
+                <div className="mt-8 border-y border-stone-800/80 py-8">
+                  <p className="whitespace-pre-wrap text-[19px] font-light leading-10 tracking-[0.05em] text-stone-100">{original}</p>
                 </div>
-
-                <div className="mt-10 border-l border-zinc-800 pl-5">
-                  <p className="text-[11px] tracking-[0.2em] text-zinc-500">
-                    {AI_PERSONAS.find((persona) => persona.id === aiPersona)?.name} 留下的一句
-                  </p>
-                  <p className="mt-5 whitespace-pre-wrap text-[13px] font-light leading-7 tracking-[0.06em] text-zinc-400">
-                    {organized.narration_content || '这块碎片暂时不需要旁白。'}
-                  </p>
-                </div>
-
+                {organized.trace && (
+                  <div className="mt-8 border-l border-stone-800 pl-4">
+                    <p className="text-[12px] font-light leading-7 tracking-[0.06em] text-stone-500">{organized.trace}</p>
+                  </div>
+                )}
+                {organized.artifact && (() => {
+                  const LineArt = pickArtifactLineArt(organized.artifact);
+                  return (
+                    <div className="mt-8 flex items-center gap-3 text-stone-500">
+                      <LineArt className="h-8 w-8 shrink-0 text-stone-500/80" />
+                      <span className="text-[12px] font-light tracking-[0.08em] text-stone-500">{organized.artifact.name}</span>
+                    </div>
+                  );
+                })()}
                 <div className="mt-12 flex items-center justify-between">
-                  <button onClick={() => setStep('input')} className="text-[12px] tracking-[0.16em] text-zinc-500 transition-colors duration-500 hover:text-zinc-300">
-                    重新书写
+                  <button type="button" onClick={() => setStep('writing')} className="text-[12px] tracking-[0.16em] text-stone-500 transition-colors duration-500 hover:text-stone-300">
+                    重新写
                   </button>
-                  <button onClick={() => setStep('permissions')} className="text-[13px] tracking-[0.18em] text-zinc-300 transition-colors duration-500 hover:text-white">
-                    确认归档
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {step === 'permissions' && organized && (
-              <motion.div
-                key="permissions"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.45 }}
-                className="max-h-[calc(100dvh-96px)] overflow-y-auto py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              >
-                <h1 className="text-[22px] font-light leading-10 tracking-[0.08em] text-zinc-100">
-                  这块碎片，要怎么留下？
-                </h1>
-
-                <div className="mt-12 flex flex-col gap-9">
-                  {/* 开关一：是否公开 */}
-                  <button
-                    onClick={() => setVisibility(visibility === 'public' ? 'private' : 'public')}
-                    className="flex items-start justify-between gap-4 text-left outline-none"
-                  >
-                    <span>
-                      <span className="block text-[15px] tracking-[0.12em] text-zinc-200">允许公开这个碎片</span>
-                      <span className="mt-3 block text-[12px] leading-6 tracking-[0.08em] text-zinc-500">
-                        {visibility === 'public'
-                          ? '进入公共陈列架，未来可能出现在首页展柜。'
-                          : '默认锁入个人抽屉，仅本地保存。'}
-                      </span>
-                    </span>
-                    <span
-                      className={`relative mt-1 h-6 w-11 shrink-0 rounded-full transition-colors duration-300 ${
-                        visibility === 'public' ? 'bg-zinc-300' : 'bg-zinc-700'
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-[#101010] transition-transform duration-300 ${
-                          visibility === 'public' ? 'translate-x-[22px]' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </span>
-                  </button>
-
-                  {/* 开关二：是否允许店长鉴赏 */}
-                  <button
-                    onClick={() => setAllowShopkeeperReview(!allowShopkeeperReview)}
-                    className="flex items-start justify-between gap-4 text-left outline-none"
-                  >
-                    <span>
-                      <span className="block text-[15px] tracking-[0.12em] text-zinc-200">允许店长鉴赏</span>
-                      <span className="mt-3 block text-[12px] leading-6 tracking-[0.08em] text-zinc-500">
-                        未来可能收到店长留言。不是一定收到，也不是即时收到。
-                      </span>
-                    </span>
-                    <span
-                      className={`relative mt-1 h-6 w-11 shrink-0 rounded-full transition-colors duration-300 ${
-                        allowShopkeeperReview ? 'bg-zinc-300' : 'bg-zinc-700'
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-[#101010] transition-transform duration-300 ${
-                          allowShopkeeperReview ? 'translate-x-[22px]' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </span>
-                  </button>
-                </div>
-
-                <div className="mt-12 flex items-center justify-between">
-                  <button onClick={() => setStep('confirm')} className="text-[12px] tracking-[0.16em] text-zinc-500 transition-colors duration-500 hover:text-zinc-300">
-                    返回确认
-                  </button>
-                  <button onClick={save} className="text-[13px] tracking-[0.18em] text-zinc-300 transition-colors duration-500 hover:text-white">
-                    保存
+                  <button type="button" onClick={savePage} className="text-[13px] tracking-[0.18em] text-stone-300 transition-colors duration-500 hover:text-white">
+                    放进书里
                   </button>
                 </div>
               </motion.div>
             )}
 
             {step === 'saved' && (
-              <motion.div
-                key="saved"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex min-h-[420px] flex-col items-center justify-center text-center"
-              >
-                <motion.div
-                  id="v2-fragment-receipt"
-                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 1.1, ease: 'easeOut', delay: 0.25 }}
-                  className="relative w-full max-w-[286px] overflow-hidden bg-[#f2f0e7] px-7 py-9 text-zinc-950 shadow-[0_28px_90px_rgba(0,0,0,0.55)] before:absolute before:inset-x-0 before:top-0 before:h-3 before:bg-[linear-gradient(135deg,#101010_25%,transparent_25%),linear-gradient(225deg,#101010_25%,transparent_25%)] before:bg-[length:12px_12px] after:absolute after:inset-x-0 after:bottom-0 after:h-3 after:bg-[linear-gradient(45deg,#101010_25%,transparent_25%),linear-gradient(315deg,#101010_25%,transparent_25%)] after:bg-[length:12px_12px]"
-                >
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,0,0,0.08)_0_0.6px,transparent_0.8px),linear-gradient(90deg,rgba(0,0,0,0.035)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.45),rgba(0,0,0,0.035))] bg-[length:5px_5px,18px_100%,100%_100%] opacity-70" />
-                  <div className="relative z-10">
-                  <p className="font-mono text-[9px] tracking-[0.26em] text-zinc-600">DIGITAL RECEIPT</p>
-                  <div className="my-6 h-px bg-[repeating-linear-gradient(90deg,rgba(24,24,27,0.55)_0_8px,transparent_8px_13px)]" />
-                  <p className="font-mono text-[15px] tracking-[0.08em] text-zinc-950">
-                    [ {receiptId} 已封存。]
-                  </p>
-                  <p className="mt-7 text-[12px] font-light leading-7 tracking-[0.06em] text-zinc-700">
-                    {organized?.narration_content || '它被安静地留在这里。'}
-                  </p>
-                  <div className="mt-8 h-px bg-[repeating-linear-gradient(90deg,rgba(24,24,27,0.4)_0_6px,transparent_6px_11px)]" />
-                  <p className="mt-5 font-mono text-[9px] tracking-[0.18em] text-zinc-600">
-                    {isAwakenedFromExhibit ? 'AWAKENED BY A STRANGER FRAGMENT' : 'END HERE ARCHIVE'}
-                  </p>
-                  </div>
-                </motion.div>
-                {savedFragmentCount !== null && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.85, ease: 'easeOut', delay: 1.15 }}
-                    className="mt-8 max-w-[292px] text-center"
-                  >
-                    <p className="text-[13px] font-light leading-7 tracking-[0.08em] text-zinc-200">
-                      第 {savedCount} 块碎片已归档
-                    </p>
-                    {hasUnlockedMirror ? (
-                      <p className="mt-5 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-500">
-                        镜子现在可以开始工作了
-                        <br />
-                        你留下的碎片会被整理成重复模式
-                      </p>
-                    ) : (
-                      <p className="mt-5 text-[12px] font-light leading-7 tracking-[0.08em] text-zinc-500">
-                        还差 {remainingMirrorFragments} 块
-                        <br />
-                        镜子就能开始观察你的轨迹
-                      </p>
-                    )}
-                  </motion.div>
-                )}
-
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 1.1 }}
-                  className="mt-8 flex items-center justify-center gap-8"
-                >
-                  <button
-                    onClick={() => router.push('/v2')}
-                    className="text-[12px] tracking-[0.16em] text-zinc-500 transition-colors duration-500 hover:text-zinc-300 outline-none"
-                  >
-                    关闭
+              <motion.div key="saved" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex min-h-[420px] flex-col items-center justify-center text-center">
+                <p className="font-mono text-[10px] tracking-[0.26em] text-stone-600">PAGE KEPT</p>
+                <p className="mt-8 max-w-[300px] whitespace-pre-wrap text-[20px] font-light leading-10 tracking-[0.05em] text-stone-100">{original}</p>
+                <p className="mt-8 text-[13px] font-light tracking-[0.1em] text-stone-500">这一页已经留在书里。</p>
+                <div className="mt-12 flex items-center justify-center gap-8">
+                  <button type="button" onClick={() => router.push('/v2')} className="text-[12px] tracking-[0.16em] text-stone-500 transition-colors duration-500 hover:text-stone-300">
+                    回到今天
                   </button>
-                  <button
-                    onClick={saveReceiptImage}
-                    className="text-[12px] tracking-[0.16em] text-zinc-300 transition-colors duration-500 hover:text-white outline-none"
-                  >
-                    保存小票
+                  <button type="button" onClick={() => router.push('/v2/nostalgia')} className="text-[12px] tracking-[0.16em] text-stone-300 transition-colors duration-500 hover:text-white">
+                    翻看书页
                   </button>
-                </motion.div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -496,7 +229,7 @@ function V2NewFragmentContent() {
 
 export default function V2NewFragmentPage() {
   return (
-    <Suspense fallback={<div className="min-h-dvh bg-[#101010]" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-[#1B1614]" />}>
       <V2NewFragmentContent />
     </Suspense>
   );

@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
-import WorldEngine from './components/WorldEngine'
 import DataMigrator from './components/DataMigrator'
 
 export const metadata: Metadata = {
@@ -18,9 +17,9 @@ export const metadata: Metadata = {
   },
 }
 
-// 核心修复：锁死 themeColor 为绝对暗黑，并禁止移动端缩放
+// V3.2：锁死暖深棕 themeColor，并禁止移动端缩放
 export const viewport: Viewport = {
-  themeColor: '#0C0C0C',
+  themeColor: '#1B1614',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -34,12 +33,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      {/* 核心修复：注入 V3 绝对暗黑底色与防溢出类名 */}
-      <body className="bg-[#0C0C0C] text-zinc-400 antialiased overflow-x-hidden">
-        <WorldEngine />
+      {/* V3.2：注入暖黑底色与防溢出类名 */}
+      <body className="bg-[#1B1614] text-stone-400 antialiased overflow-x-hidden">
         <DataMigrator />
-        
-        {/* 清理了旧版的 style 内联样式和重复挂载的 WorldEngine */}
         <main className="w-full">
           {children}
         </main>

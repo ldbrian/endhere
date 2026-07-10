@@ -1,6 +1,14 @@
+import type { FragmentPersonaId } from './personas';
+
 export type FragmentVisibility = 'private' | 'public';
-export type FragmentPersonaId = 'Ash' | 'Rin' | 'Child';
+export type { FragmentPersonaId };
 export type FragmentConsentLevel = 1 | 2 | 3;
+
+// Artifact（伴生物）：Fragment 保存后由 AI 生成的一件日常小物件
+export type FragmentArtifact = {
+  emoji: string;
+  name: string;
+};
 
 export type Fragment = {
   id: string;
@@ -18,6 +26,7 @@ export type Fragment = {
     consent_level?: FragmentConsentLevel;
     featured?: boolean;
     quality_score?: number;
+    artifact?: FragmentArtifact;
   };
   created_at: string;
   updated_at: string;
@@ -31,6 +40,7 @@ export type FragmentDraft = {
   allow_shopkeeper_review: boolean;
   ai_persona?: FragmentPersonaId;
   consent_level?: FragmentConsentLevel;
+  artifact?: FragmentArtifact;
 };
 
 export const V2_OWNER_KEY = 'endhere_v2_owner_id';
@@ -51,6 +61,7 @@ export const FEATURED_SEED_FRAGMENTS: Fragment[] = [
       source: 'seed',
       featured: true,
       quality_score: 92,
+      artifact: { emoji: '💿', name: '一张播不动了的旧CD' },
     },
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
@@ -69,6 +80,7 @@ export const FEATURED_SEED_FRAGMENTS: Fragment[] = [
       source: 'seed',
       featured: true,
       quality_score: 88,
+      artifact: { emoji: '🎫', name: '一张折痕压住时间的旧车票' },
     },
     created_at: '2026-01-02T00:00:00.000Z',
     updated_at: '2026-01-02T00:00:00.000Z',
@@ -90,7 +102,7 @@ export function normalizeFragmentText(text: string) {
 export function clampNarrationToOriginal(narration: string, original: string) {
   const compact = narration.trim();
   const hasOriginal = original.trim().length > 0;
-  const maxLength = 70;
+  const maxLength = 60;
 
   if (!hasOriginal) return '';
   return compact.length > maxLength ? compact.slice(0, maxLength) : compact;

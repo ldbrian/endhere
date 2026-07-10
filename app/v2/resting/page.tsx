@@ -93,12 +93,12 @@ export default function V2RestingPage() {
   }, []);
 
   return (
-    <main className="relative flex min-h-dvh w-full flex-col items-center justify-center overflow-hidden bg-[#000] selection:bg-zinc-800 selection:text-zinc-100">
+    <main className="relative flex min-h-dvh w-full flex-col items-center justify-center overflow-hidden bg-[#000] selection:bg-stone-800 selection:text-stone-100">
       
       {/* 视觉降权退出按钮：左上角，极暗 */}
       <Link
         href="/v2"
-        className="absolute left-8 top-10 z-20 text-[10px] tracking-[0.3em] text-zinc-800 uppercase outline-none transition-colors duration-1000 hover:text-zinc-500"
+        className="absolute left-8 top-10 z-20 text-[10px] tracking-[0.3em] text-stone-800 uppercase outline-none transition-colors duration-1000 hover:text-stone-500"
       >
         返回
       </Link>
@@ -113,7 +113,7 @@ export default function V2RestingPage() {
             transitionTimingFunction: 'ease-in-out',
           }}
         >
-          <span className="text-[13px] font-light leading-loose tracking-[0.2em] text-zinc-500">
+          <span className="text-[13px] font-light leading-loose tracking-[0.2em] text-stone-500">
             {currentText}
           </span>
         </div>

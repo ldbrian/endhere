@@ -38,14 +38,14 @@ export default function V2PlasticBag() {
               style={{ opacity: isFlipped ? 0 : 1, pointerEvents: isFlipped ? 'none' : 'auto', transition: 'opacity 0.4s ease-in-out' }}
             >
               <div className="mt-8 flex flex-1 flex-col items-center justify-center space-y-4">
-                <p className="pt-6 font-mono text-[24px] tracking-[0.3em] text-zinc-700">END HERE</p>
-                <p className="text-xl font-light tracking-[0.3em] text-zinc-300">{'\u574f\u60c5\u7eea'}</p>
-                <p className="text-sm font-light tracking-[0.4em] text-zinc-500">{'\u7981\u6b62\u5916\u5e26'}</p>
-                <p className="text-[10px] font-light tracking-[0.4em] text-zinc-500">{'\u65ad\u7f51\u888b 404 \u53f7'}</p>
+                <p className="pt-6 font-mono text-[24px] tracking-[0.3em] text-stone-700">END HERE</p>
+                <p className="text-xl font-light tracking-[0.3em] text-stone-300">{'\u574f\u60c5\u7eea'}</p>
+                <p className="text-sm font-light tracking-[0.4em] text-stone-500">{'\u7981\u6b62\u5916\u5e26'}</p>
+                <p className="text-[10px] font-light tracking-[0.4em] text-stone-500">{'\u65ad\u7f51\u888b 404 \u53f7'}</p>
               </div>
               <button
                 onClick={() => setIsFlipped(true)}
-                className="fixed bottom-8 left-1/2 -translate-x-1/2 text-[11px] tracking-widest text-zinc-600 transition-colors hover:text-zinc-300 outline-none"
+                className="fixed bottom-8 left-1/2 -translate-x-1/2 text-[11px] tracking-widest text-stone-600 transition-colors hover:text-stone-300 outline-none"
               >
                 {'[ \u7ffb\u9762\u67e5\u770b ]'}
               </button>
@@ -55,22 +55,22 @@ export default function V2PlasticBag() {
               className="absolute inset-0 flex flex-col items-center justify-center p-8"
               style={{ opacity: isFlipped ? 1 : 0, pointerEvents: isFlipped ? 'auto' : 'none', transform: 'rotateY(180deg)', transition: 'opacity 0.4s ease-in-out' }}
             >
-              <div className="mt-6 flex flex-1 flex-col justify-center space-y-6 text-center text-[11px] font-light leading-loose tracking-widest text-zinc-400">
-                <p className="inline-block border-b border-zinc-800 px-2 pb-2 text-zinc-300">/ {'\u79bb\u7ebf\u907f\u96be\u6240'} /</p>
+              <div className="mt-6 flex flex-1 flex-col justify-center space-y-6 text-center text-[11px] font-light leading-loose tracking-widest text-stone-400">
+                <p className="inline-block border-b border-stone-800 px-2 pb-2 text-stone-300">/ {'\u79bb\u7ebf\u907f\u96be\u6240'} /</p>
                 <div className="space-y-1">
-                  <p className="text-zinc-300">iOS</p>
-                  <p className="text-[10px] text-zinc-600">{'\u70b9\u51fb\u5e95\u90e8 [\u5206\u4eab] -> [\u6dfb\u52a0\u5230\u4e3b\u5c4f\u5e55]'}</p>
+                  <p className="text-stone-300">iOS</p>
+                  <p className="text-[10px] text-stone-600">{'\u70b9\u51fb\u5e95\u90e8 [\u5206\u4eab] -> [\u6dfb\u52a0\u5230\u4e3b\u5c4f\u5e55]'}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-zinc-300">Android</p>
-                  <p className="text-[10px] text-zinc-600">{'\u70b9\u51fb\u53f3\u4e0a\u89d2\u83dc\u5355 -> [\u5b89\u88c5\u5e94\u7528]'}</p>
+                  <p className="text-stone-300">Android</p>
+                  <p className="text-[10px] text-stone-600">{'\u70b9\u51fb\u53f3\u4e0a\u89d2\u83dc\u5355 -> [\u5b89\u88c5\u5e94\u7528]'}</p>
                 </div>
               </div>
               <div className="fixed bottom-8 flex w-full justify-center gap-12">
-                <button onClick={() => setIsFlipped(false)} className="text-[11px] tracking-widest text-zinc-600 transition-colors hover:text-zinc-300 outline-none">
+                <button onClick={() => setIsFlipped(false)} className="text-[11px] tracking-widest text-stone-600 transition-colors hover:text-stone-300 outline-none">
                   {'[ \u7ffb\u56de\u6b63\u9762 ]'}
                 </button>
-                <button onClick={handleClose} className="text-[11px] tracking-widest text-zinc-700 transition-colors hover:text-red-900/60 outline-none">
+                <button onClick={handleClose} className="text-[11px] tracking-widest text-stone-700 transition-colors hover:text-red-900/60 outline-none">
                   {'[ \u6536\u8d77\u6765 ]'}
                 </button>
               </div>
@@ -86,7 +86,7 @@ export default function V2PlasticBag() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="relative z-10 text-zinc-600 transition-colors duration-500 hover:text-zinc-300 outline-none"
+          className="relative z-10 text-stone-600 transition-colors duration-500 hover:text-stone-300 outline-none"
           aria-label="Open plastic bag"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">

@@ -138,17 +138,17 @@ export default function VisitLogsPage() {
   const visibleRoute = useMemo(() => route.trim() || 'ALL', [route]);
 
   return (
-    <main className="min-h-dvh bg-[#101010] text-zinc-100 selection:bg-zinc-700 selection:text-zinc-50">
+    <main className="min-h-dvh bg-[#1B1614] text-stone-100 selection:bg-stone-700 selection:text-stone-50">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.045),transparent_38%)]" />
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-5 py-6 sm:px-8">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800/80 pb-5">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-stone-800/80 pb-5">
           <div>
-            <Link href="/v2" className="text-[11px] tracking-[0.18em] text-zinc-500 transition-colors hover:text-zinc-200">
+            <Link href="/v2" className="text-[11px] tracking-[0.18em] text-stone-500 transition-colors hover:text-stone-200">
               返回首页
             </Link>
-            <h1 className="mt-4 text-[20px] font-light tracking-[0.12em] text-zinc-100">访问日志</h1>
+            <h1 className="mt-4 text-[20px] font-light tracking-[0.12em] text-stone-100">访问日志</h1>
           </div>
-          <div className="text-right font-mono text-[10px] leading-5 tracking-[0.16em] text-zinc-500">
+          <div className="text-right font-mono text-[10px] leading-5 tracking-[0.16em] text-stone-500">
             <p>TOTAL {total}</p>
             <p>ROUTE {visibleRoute}</p>
           </div>
@@ -156,8 +156,8 @@ export default function VisitLogsPage() {
 
         {!token ? (
           <section className="flex flex-1 items-center justify-center py-20">
-            <div className="w-full max-w-sm border border-zinc-800/80 bg-zinc-950/80 px-6 py-7 shadow-[0_22px_70px_rgba(0,0,0,0.36)]">
-              <p className="font-mono text-[10px] tracking-[0.24em] text-zinc-500">ADMIN ACCESS</p>
+            <div className="w-full max-w-sm border border-stone-800/80 bg-stone-950/80 px-6 py-7 shadow-[0_22px_70px_rgba(0,0,0,0.36)]">
+              <p className="font-mono text-[10px] tracking-[0.24em] text-stone-500">ADMIN ACCESS</p>
               <input
                 value={draftToken}
                 onChange={(event) => setDraftToken(event.target.value)}
@@ -166,12 +166,12 @@ export default function VisitLogsPage() {
                 }}
                 type="password"
                 placeholder="输入后台口令"
-                className="mt-8 w-full border-b border-zinc-800 bg-transparent pb-3 text-[14px] tracking-[0.08em] text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+                className="mt-8 w-full border-b border-stone-800 bg-transparent pb-3 text-[14px] tracking-[0.08em] text-stone-100 outline-none placeholder:text-stone-600 focus:border-stone-500"
               />
               <button
                 type="button"
                 onClick={saveToken}
-                className="mt-8 text-[13px] tracking-[0.18em] text-zinc-200 transition-colors hover:text-white"
+                className="mt-8 text-[13px] tracking-[0.18em] text-stone-200 transition-colors hover:text-white"
               >
                 进入
               </button>
@@ -179,30 +179,30 @@ export default function VisitLogsPage() {
           </section>
         ) : (
           <>
-            <section className="grid gap-4 border-b border-zinc-800/70 py-5 lg:grid-cols-[1fr_auto] lg:items-center">
+            <section className="grid gap-4 border-b border-stone-800/70 py-5 lg:grid-cols-[1fr_auto] lg:items-center">
               <div className="grid gap-3 sm:grid-cols-4">
                 <input
                   value={eventName}
                   onChange={(event) => setEventName(event.target.value)}
                   placeholder="event name"
-                  className="h-10 min-w-0 border border-zinc-800 bg-zinc-950/50 px-4 text-[13px] tracking-[0.08em] text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+                  className="h-10 min-w-0 border border-stone-800 bg-stone-950/50 px-4 text-[13px] tracking-[0.08em] text-stone-100 outline-none placeholder:text-stone-600 focus:border-stone-500"
                 />
                 <input
                   value={route}
                   onChange={(event) => setRoute(event.target.value)}
                   placeholder="route / path"
-                  className="h-10 min-w-0 border border-zinc-800 bg-zinc-950/50 px-4 text-[13px] tracking-[0.08em] text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+                  className="h-10 min-w-0 border border-stone-800 bg-stone-950/50 px-4 text-[13px] tracking-[0.08em] text-stone-100 outline-none placeholder:text-stone-600 focus:border-stone-500"
                 />
                 <input
                   value={date}
                   onChange={(event) => setDate(event.target.value)}
                   placeholder="YYYY-MM-DD"
-                  className="h-10 min-w-0 border border-zinc-800 bg-zinc-950/50 px-4 text-[13px] tracking-[0.08em] text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-zinc-500"
+                  className="h-10 min-w-0 border border-stone-800 bg-stone-950/50 px-4 text-[13px] tracking-[0.08em] text-stone-100 outline-none placeholder:text-stone-600 focus:border-stone-500"
                 />
                 <select
                   value={returning}
                   onChange={(event) => setReturning(event.target.value as typeof returning)}
-                  className="h-10 min-w-0 border border-zinc-800 bg-zinc-950/50 px-4 text-[13px] tracking-[0.08em] text-zinc-100 outline-none focus:border-zinc-500"
+                  className="h-10 min-w-0 border border-stone-800 bg-stone-950/50 px-4 text-[13px] tracking-[0.08em] text-stone-100 outline-none focus:border-stone-500"
                 >
                   <option value="all">all</option>
                   <option value="new">new</option>
@@ -213,14 +213,14 @@ export default function VisitLogsPage() {
                 <button
                   type="button"
                   onClick={() => fetchLogs()}
-                  className="text-[12px] tracking-[0.16em] text-zinc-300 transition-colors hover:text-white"
+                  className="text-[12px] tracking-[0.16em] text-stone-300 transition-colors hover:text-white"
                 >
                   刷新
                 </button>
                 <button
                   type="button"
                   onClick={clearToken}
-                  className="text-[12px] tracking-[0.16em] text-zinc-500 transition-colors hover:text-zinc-300"
+                  className="text-[12px] tracking-[0.16em] text-stone-500 transition-colors hover:text-stone-300"
                 >
                   退出
                 </button>
@@ -228,21 +228,21 @@ export default function VisitLogsPage() {
             </section>
 
             <section className="grid gap-4 py-5 sm:grid-cols-4">
-              <div className="border border-zinc-800/70 bg-zinc-950/50 p-4">
-                <p className="font-mono text-[9px] tracking-[0.22em] text-zinc-500">HOME VIEW</p>
-                <p className="mt-3 text-[22px] font-light text-zinc-100">{summary.homeViews}</p>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">HOME VIEW</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.homeViews}</p>
               </div>
-              <div className="border border-zinc-800/70 bg-zinc-950/50 p-4">
-                <p className="font-mono text-[9px] tracking-[0.22em] text-zinc-500">LEAVE FRAGMENT</p>
-                <p className="mt-3 text-[22px] font-light text-zinc-100">{summary.leaveFragmentTaps}</p>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">LEAVE FRAGMENT</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.leaveFragmentTaps}</p>
               </div>
-              <div className="border border-zinc-800/70 bg-zinc-950/50 p-4">
-                <p className="font-mono text-[9px] tracking-[0.22em] text-zinc-500">FRAGMENT NEW VIEW</p>
-                <p className="mt-3 text-[22px] font-light text-zinc-100">{summary.fragmentNewViews}</p>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">FRAGMENT NEW VIEW</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.fragmentNewViews}</p>
               </div>
-              <div className="border border-zinc-800/70 bg-zinc-950/50 p-4">
-                <p className="font-mono text-[9px] tracking-[0.22em] text-zinc-500">PRIVATE SAVES</p>
-                <p className="mt-3 text-[22px] font-light text-zinc-100">{summary.privateFragmentSaves}</p>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">PRIVATE SAVES</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.privateFragmentSaves}</p>
               </div>
             </section>
 
@@ -253,35 +253,35 @@ export default function VisitLogsPage() {
             )}
 
             {loading ? (
-              <div className="flex flex-1 items-center justify-center py-24 text-[12px] tracking-[0.2em] text-zinc-500">
+              <div className="flex flex-1 items-center justify-center py-24 text-[12px] tracking-[0.2em] text-stone-500">
                 加载中...
               </div>
             ) : logs.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center py-24 text-[12px] tracking-[0.2em] text-zinc-500">
+              <div className="flex flex-1 items-center justify-center py-24 text-[12px] tracking-[0.2em] text-stone-500">
                 没有匹配的日志。
               </div>
             ) : (
-              <section className="overflow-hidden border border-zinc-800/70">
-                <div className="grid grid-cols-[160px_170px_110px_110px_1fr] gap-0 border-b border-zinc-800/70 bg-zinc-950/70 px-4 py-3 text-[10px] tracking-[0.2em] text-zinc-500">
+              <section className="overflow-hidden border border-stone-800/70">
+                <div className="grid grid-cols-[160px_170px_110px_110px_1fr] gap-0 border-b border-stone-800/70 bg-stone-950/70 px-4 py-3 text-[10px] tracking-[0.2em] text-stone-500">
                   <span>TIME</span>
                   <span>EVENT</span>
                   <span>RETURNING</span>
                   <span>VISITS</span>
                   <span>DETAIL</span>
                 </div>
-                <div className="divide-y divide-zinc-900">
+                <div className="divide-y divide-stone-900">
                   {logs.map((log) => (
                     <div
                       key={log.id}
-                      className="grid grid-cols-[160px_170px_110px_110px_1fr] gap-0 px-4 py-3 text-[12px] leading-6 text-zinc-300"
+                      className="grid grid-cols-[160px_170px_110px_110px_1fr] gap-0 px-4 py-3 text-[12px] leading-6 text-stone-300"
                     >
-                      <span className="font-mono text-[10px] text-zinc-500">{formatDate(log.created_at)}</span>
-                      <span className="truncate font-mono text-[10px] tracking-[0.12em] text-zinc-200">{log.event_name}</span>
-                      <span className="font-mono text-[10px] tracking-[0.12em] text-zinc-500">
+                      <span className="font-mono text-[10px] text-stone-500">{formatDate(log.created_at)}</span>
+                      <span className="truncate font-mono text-[10px] tracking-[0.12em] text-stone-200">{log.event_name}</span>
+                      <span className="font-mono text-[10px] tracking-[0.12em] text-stone-500">
                         {log.is_returning ? 'YES' : 'NO'}
                       </span>
-                      <span className="font-mono text-[10px] tracking-[0.12em] text-zinc-500">{log.visit_count}</span>
-                      <span className="truncate text-[11px] tracking-[0.05em] text-zinc-400">
+                      <span className="font-mono text-[10px] tracking-[0.12em] text-stone-500">{log.visit_count}</span>
+                      <span className="truncate text-[11px] tracking-[0.05em] text-stone-400">
                         {shortPayload(log.payload)}
                       </span>
                     </div>
