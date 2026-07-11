@@ -8,29 +8,12 @@ import type { BookPage, LegacyPage, Paragraph } from './_core/storage';
 import { useFragmentStore } from './_core/storage';
 import { createWindowProvider } from './_core/windows';
 import { getPersonaDefinition, normalizePersonaId } from './_core/personas';
+import { BookNavigator } from './_core/BookNavigator/BookNavigator';
+import { extractPageTitle, formatPreviewText } from './_core/BookNavigator/utils';
 
 const MIRROR_REQUIRED_PAGES = 5;
 
 type MirrorBookmarkState = 'hidden' | 'normal' | 'has-new' | 'viewed';
-
-function formatPageTimestamp(value?: string | null) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(date);
-}
-
-function getPageTimestamp(page: BookPage) {
-  const lastParagraph = page.paragraphs[page.paragraphs.length - 1];
-  return formatPageTimestamp(lastParagraph?.timestamp || page.closed_at || page.opened_at);
-}
 
 function MirrorBookmark({ state }: { state: MirrorBookmarkState }) {
   if (state === 'hidden') return null;
@@ -40,11 +23,11 @@ function MirrorBookmark({ state }: { state: MirrorBookmarkState }) {
     <Link
       href="/v2/mirror"
       className="group relative z-30 flex cursor-pointer items-center"
-      aria-label="书签"
+      aria-label="镜中书"
       onClick={() => track('v4_mirror_bookmark_tap', { state })}
     >
       {/* The bookmark tab sticking out from the right edge of the card */}
-      <div className={`relative flex translate-x-[2px] items-center justify-center transition-all duration-700 group-hover:scale-110 group-active:scale-95 ${isHasNew ? 'h-[84px] w-[42px]' : isViewed ? 'h-[62px] w-[30px]' : 'h-[56px] w-[28px]'}`}>
+      <div className={`relative flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-active:scale-95 ${isHasNew ? 'h-[76px] w-[38px]' : isViewed ? 'h-[62px] w-[30px]' : 'h-[56px] w-[28px]'}`}>
         {/* Glow behind bookmark on has-new */}
         {isHasNew ? (
           <motion.div
@@ -57,7 +40,7 @@ function MirrorBookmark({ state }: { state: MirrorBookmarkState }) {
         <div
           className={`absolute inset-0 transition-all duration-500 ${
             isHasNew
-              ? 'bg-[#b78b5b]/95 shadow-[0_0_28px_rgba(183,139,91,0.45)] group-hover:shadow-[0_0_38px_rgba(183,139,91,0.62)] group-hover:bg-[#c59663]'
+              ? 'bg-[#9b7650]/90 shadow-[0_0_22px_rgba(155,118,80,0.4)] group-hover:shadow-[0_0_32px_rgba(155,118,80,0.6)] group-hover:bg-[#9b7650]'
               : isViewed
                 ? 'bg-[#7b5d3d]/55 group-hover:bg-[#7b5d3d]/80 group-hover:shadow-[0_0_16px_rgba(123,93,61,0.3)]'
                 : 'bg-[#6b4d30]/40 group-hover:bg-[#6b4d30]/70 group-hover:shadow-[0_0_14px_rgba(107,77,48,0.25)]'
@@ -66,7 +49,7 @@ function MirrorBookmark({ state }: { state: MirrorBookmarkState }) {
             clipPath: 'polygon(0 0, 100% 0, 100% 14%, 28% 50%, 100% 86%, 100% 100%, 0 100%)',
           }}
         />
-        {/* First emergence — only when the first clear outline appears */}
+        {/* Ink dot — only when has-new */}
         {isHasNew ? (
           <motion.span
             animate={{ opacity: [0.6, 1, 0.6] }}
@@ -119,24 +102,6 @@ const PaperStackIcon = ({ className = '' }: { className?: string }) => (
   </svg>
 );
 
-function extractPageTitle(paragraphs: string[]) {
-  const joined = paragraphs.join('').replace(/\s+/g, '').trim();
-  if (!joined) return '';
-  const cleaned = joined.replace(/[，。！？；：、…—「」『』""''（）《》【】,.!?;:'"()\[\]<>]/g, '');
-  if (cleaned.length <= 12) return cleaned;
-  for (let length = 12; length >= 6; length -= 1) {
-    const slice = cleaned.slice(0, length).trim();
-    if (slice.length >= 6) return slice;
-  }
-  return cleaned.slice(0, 8);
-}
-
-function formatPreviewText(text: string, limit: number) {
-  const normalized = text.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= limit) return normalized;
-  return normalized.slice(0, limit).trim() + '…';
-}
-
 function InstallBookmarkCard({ onClose }: { onClose: () => void }) {
   return (
     <motion.div initial={{ opacity: 0, y: -12, rotate: -2 }} animate={{ opacity: 1, y: 0, rotate: -1 }} exit={{ opacity: 0, y: -10, rotate: -2 }} transition={{ duration: 0.28, ease: 'easeOut' }} className="absolute right-0 top-10 z-50 w-[280px]">
@@ -152,30 +117,6 @@ function InstallBookmarkCard({ onClose }: { onClose: () => void }) {
         </div>
       </div>
     </motion.div>
-  );
-}
-
-function PageAxis({ pages, currentPageIndex, onSelect }: { pages: BookPage[]; currentPageIndex: number; onSelect: (index: number) => void }) {
-  const first = pages[0]?.page_number ?? '001';
-  const last = pages[pages.length - 1]?.page_number ?? '001';
-  return (
-    <div className="flex items-center gap-4 text-stone-500/74">
-      <span className="font-mono text-[10px] tracking-[0.24em] text-stone-600/70">{first}</span>
-      <div className="relative flex items-center gap-[7px] rounded-full border border-stone-800/60 bg-stone-950/18 px-3 py-2 backdrop-blur-sm">
-        <div className="pointer-events-none absolute left-3 right-3 top-1/2 h-px -translate-y-1/2 bg-stone-800/55" />
-        {pages.map((page, index) => {
-          const distance = Math.abs(index - currentPageIndex);
-          const isActive = index === currentPageIndex;
-          const isNear = distance === 1;
-          return (
-            <button key={page.id} type="button" onClick={() => onSelect(index)} className="group relative z-10 flex h-6 w-3 items-center justify-center cursor-pointer" aria-label={'跳转到第 ' + page.page_number + ' 页'}>
-              <motion.span layout transition={{ type: 'spring', stiffness: 420, damping: 28 }} className={`block rounded-full transition-colors duration-300 ${isActive ? 'bg-stone-200 shadow-[0_0_12px_rgba(231,229,228,0.28)]' : isNear ? 'bg-stone-500/80 group-hover:bg-stone-400' : 'bg-stone-700/75 group-hover:bg-stone-500/90'}`} style={{ width: isActive ? 4 : 2, height: isActive ? 24 : isNear ? 16 : 12, opacity: isActive ? 1 : isNear ? 0.82 : 0.58 }} />
-            </button>
-          );
-        })}
-      </div>
-      <span className="font-mono text-[10px] tracking-[0.24em] text-stone-600/70">{last}</span>
-    </div>
   );
 }
 
@@ -225,7 +166,7 @@ function ReadingNote({ page }: { page: BookPage }) {
 }
 
 function ExpandedPage({ page, onClose }: { page: BookPage; onClose: () => void }) {
-  return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/72 px-6 py-8" onClick={onClose}><motion.div initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.98, opacity: 0 }} transition={{ duration: 0.28, ease: 'easeOut' }} className="relative h-full max-h-[88vh] w-full max-w-[760px] overflow-hidden rounded-[6px] border border-stone-700/45 bg-[#181412] shadow-[0_30px_80px_rgba(0,0,0,0.45)]" onClick={(event) => event.stopPropagation()}><button type="button" onClick={onClose} className="absolute right-5 top-5 z-30 flex h-9 w-9 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-stone-200/10 hover:text-stone-100 cursor-pointer" aria-label="收起"><CollapseIcon className="h-[18px] w-[18px]" /></button><div className="pointer-events-none absolute inset-[12px] border border-stone-700/14" /><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_40%),linear-gradient(180deg,rgba(255,248,236,0.028),transparent_18%,transparent_84%,rgba(0,0,0,0.16))]" /><div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 180 180%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.5%22 numOctaves=%222%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%220.015%22/%3E%3C/svg%3E')] opacity-30" /><div className="relative z-10 flex h-full cursor-default flex-col overflow-y-auto px-10 pb-14 pt-14 select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div className="mb-10 text-center"><p className="font-mono text-[17px] tracking-[0.34em] text-stone-400">{page.page_number}</p>{page.title ? <p className="mt-3 text-[13px] tracking-[0.08em] text-stone-500">{page.title}</p> : null}</div><div className="divide-y divide-stone-700/15">{page.paragraphs.map((paragraph) => <p key={paragraph.id} className="whitespace-pre-wrap py-5 text-[16px] font-light leading-[2.15] tracking-[0.04em] text-stone-300 first:pt-0 last:pb-0">{paragraph.text}</p>)}</div><ReadingNote page={page} />{getPageTimestamp(page) ? <div className="mt-8 border-t border-stone-700/12 pt-4 text-center"><p className="font-mono text-[10px] tracking-[0.18em] text-stone-500/65">{getPageTimestamp(page)}</p></div> : null}</div></motion.div></motion.div>;
+  return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/72 px-6 py-8" onClick={onClose}><motion.div initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.98, opacity: 0 }} transition={{ duration: 0.28, ease: 'easeOut' }} className="relative h-full max-h-[88vh] w-full max-w-[760px] overflow-hidden rounded-[6px] border border-stone-700/45 bg-[#181412] shadow-[0_30px_80px_rgba(0,0,0,0.45)]" onClick={(event) => event.stopPropagation()}><button type="button" onClick={onClose} className="absolute right-5 top-5 z-30 flex h-9 w-9 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-stone-200/10 hover:text-stone-100 cursor-pointer" aria-label="收起"><CollapseIcon className="h-[18px] w-[18px]" /></button><div className="pointer-events-none absolute inset-[12px] border border-stone-700/14" /><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_40%),linear-gradient(180deg,rgba(255,248,236,0.028),transparent_18%,transparent_84%,rgba(0,0,0,0.16))]" /><div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 180 180%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.5%22 numOctaves=%222%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%220.015%22/%3E%3C/svg%3E')] opacity-30" /><div className="relative z-10 flex h-full cursor-default flex-col overflow-y-auto px-10 pb-14 pt-14 select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div className="mb-10 text-center"><p className="font-mono text-[17px] tracking-[0.34em] text-stone-400">{page.page_number}</p>{page.title ? <p className="mt-3 text-[13px] tracking-[0.08em] text-stone-500">{page.title}</p> : null}</div><div className="divide-y divide-stone-700/15">{page.paragraphs.map((paragraph) => <p key={paragraph.id} className="whitespace-pre-wrap py-5 text-[16px] font-light leading-[2.15] tracking-[0.04em] text-stone-300 first:pt-0 last:pb-0">{paragraph.text}</p>)}</div><ReadingNote page={page} /></div></motion.div></motion.div>;
 }
 
 function LegacyArchiveOverlay({ archive, onClose }: { archive: LegacyPage[]; onClose: () => void }) {
@@ -549,15 +490,15 @@ export default function V2HomePage() {
   const currentPage = useMemo(() => book.pages[Math.max(0, Math.min(currentPageIndex, book.pages.length - 1))], [book.pages, currentPageIndex]);
   const hasContent = useMemo(() => book.pages.some((page) => page.paragraphs.length > 0), [book.pages]);
   const shouldShowCover = hasHydrated && !coverDismissed;
-  // 书签 / 照见状态
+  // Mirror bookmark state
   const completedPageCount = useMemo(() => book.pages.filter((page) => page.paragraphs.length > 0).length, [book.pages]);
   const mirrorBookmarkState = useMemo<MirrorBookmarkState>(() => {
     if (completedPageCount < 1) return 'hidden'; // no pages at all, don't show bookmark
-    if (completedPageCount < MIRROR_REQUIRED_PAGES) return 'normal'; // 还没到第一次照见，但书签已经存在
+    if (completedPageCount < MIRROR_REQUIRED_PAGES) return 'normal'; // has pages but not enough for mirror
     // Has enough pages — check if there's new content since last view
     const lastPageClosedAt = book.pages.filter((p) => p.paragraphs.length > 0).pop()?.closed_at;
-    if (!mirrorViewedAt) return 'has-new'; // 第一次自己露出来
-    if (lastPageClosedAt && new Date(lastPageClosedAt).getTime() > mirrorViewedAt) return 'has-new'; // 这段时间的样子又多露出来一点
+    if (!mirrorViewedAt) return 'has-new'; // never viewed
+    if (lastPageClosedAt && new Date(lastPageClosedAt).getTime() > mirrorViewedAt) return 'has-new'; // new content since last view
     return 'viewed';
   }, [completedPageCount, mirrorViewedAt, book.pages]);
   // Safety net: ensure there's always a blank page at the end
@@ -688,9 +629,9 @@ export default function V2HomePage() {
         </div>
       </header>
 
-      {/* Page axis */}
-      <div className="relative z-20 mt-20 flex items-center justify-center px-4">
-        <PageAxis pages={book.pages} currentPageIndex={currentPageIndex} onSelect={setCurrentPageIndex} />
+      {/* Book navigator —— 书的生命进度 / 目录 */}
+      <div className="relative z-30 mt-20 flex items-center justify-center px-4">
+        <BookNavigator pages={book.pages} currentPageIndex={currentPageIndex} mirrorMarks={[]} onSelect={setCurrentPageIndex} />
       </div>
 
       {/* Card + Arrows layout: arrows outside the card */}
