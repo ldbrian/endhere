@@ -40,11 +40,11 @@ function MirrorBookmark({ state }: { state: MirrorBookmarkState }) {
     <Link
       href="/v2/mirror"
       className="group relative z-30 flex cursor-pointer items-center"
-      aria-label="镜中书"
+      aria-label="书签"
       onClick={() => track('v4_mirror_bookmark_tap', { state })}
     >
       {/* The bookmark tab sticking out from the right edge of the card */}
-      <div className={`relative flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-active:scale-95 ${isHasNew ? 'h-[76px] w-[38px]' : isViewed ? 'h-[62px] w-[30px]' : 'h-[56px] w-[28px]'}`}>
+      <div className={`relative flex translate-x-[2px] items-center justify-center transition-all duration-700 group-hover:scale-110 group-active:scale-95 ${isHasNew ? 'h-[84px] w-[42px]' : isViewed ? 'h-[62px] w-[30px]' : 'h-[56px] w-[28px]'}`}>
         {/* Glow behind bookmark on has-new */}
         {isHasNew ? (
           <motion.div
@@ -57,7 +57,7 @@ function MirrorBookmark({ state }: { state: MirrorBookmarkState }) {
         <div
           className={`absolute inset-0 transition-all duration-500 ${
             isHasNew
-              ? 'bg-[#9b7650]/90 shadow-[0_0_22px_rgba(155,118,80,0.4)] group-hover:shadow-[0_0_32px_rgba(155,118,80,0.6)] group-hover:bg-[#9b7650]'
+              ? 'bg-[#b78b5b]/95 shadow-[0_0_28px_rgba(183,139,91,0.45)] group-hover:shadow-[0_0_38px_rgba(183,139,91,0.62)] group-hover:bg-[#c59663]'
               : isViewed
                 ? 'bg-[#7b5d3d]/55 group-hover:bg-[#7b5d3d]/80 group-hover:shadow-[0_0_16px_rgba(123,93,61,0.3)]'
                 : 'bg-[#6b4d30]/40 group-hover:bg-[#6b4d30]/70 group-hover:shadow-[0_0_14px_rgba(107,77,48,0.25)]'
@@ -66,7 +66,7 @@ function MirrorBookmark({ state }: { state: MirrorBookmarkState }) {
             clipPath: 'polygon(0 0, 100% 0, 100% 14%, 28% 50%, 100% 86%, 100% 100%, 0 100%)',
           }}
         />
-        {/* Ink dot — only when has-new */}
+        {/* First emergence — only when the first clear outline appears */}
         {isHasNew ? (
           <motion.span
             animate={{ opacity: [0.6, 1, 0.6] }}
@@ -549,15 +549,15 @@ export default function V2HomePage() {
   const currentPage = useMemo(() => book.pages[Math.max(0, Math.min(currentPageIndex, book.pages.length - 1))], [book.pages, currentPageIndex]);
   const hasContent = useMemo(() => book.pages.some((page) => page.paragraphs.length > 0), [book.pages]);
   const shouldShowCover = hasHydrated && !coverDismissed;
-  // Mirror bookmark state
+  // 书签 / 照见状态
   const completedPageCount = useMemo(() => book.pages.filter((page) => page.paragraphs.length > 0).length, [book.pages]);
   const mirrorBookmarkState = useMemo<MirrorBookmarkState>(() => {
     if (completedPageCount < 1) return 'hidden'; // no pages at all, don't show bookmark
-    if (completedPageCount < MIRROR_REQUIRED_PAGES) return 'normal'; // has pages but not enough for mirror
+    if (completedPageCount < MIRROR_REQUIRED_PAGES) return 'normal'; // 还没到第一次照见，但书签已经存在
     // Has enough pages — check if there's new content since last view
     const lastPageClosedAt = book.pages.filter((p) => p.paragraphs.length > 0).pop()?.closed_at;
-    if (!mirrorViewedAt) return 'has-new'; // never viewed
-    if (lastPageClosedAt && new Date(lastPageClosedAt).getTime() > mirrorViewedAt) return 'has-new'; // new content since last view
+    if (!mirrorViewedAt) return 'has-new'; // 第一次自己露出来
+    if (lastPageClosedAt && new Date(lastPageClosedAt).getTime() > mirrorViewedAt) return 'has-new'; // 这段时间的样子又多露出来一点
     return 'viewed';
   }, [completedPageCount, mirrorViewedAt, book.pages]);
   // Safety net: ensure there's always a blank page at the end

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
@@ -7,38 +7,137 @@ import { track } from '../_core/analytics';
 import { useFragmentStore } from '../_core/storage';
 import { MirrorTopicPanel } from '../_core/MirrorTopicPanel';
 
-const MIRROR_LEVELS = [5, 10, 20, 40, 60] as const;
+const BOOKMARK_STAGES = [
+  {
+    min: 0,
+    max: 2,
+    title: '第一次照见',
+    body: '这本书还只认出一个很淡的轮廓。',
+    hint: '页数还少，线索也少，所以现在只能看见一点模糊的样子。',
+  },
+  {
+    min: 3,
+    max: 5,
+    title: '第一次照见',
+    body: '这几页里，有些东西开始反复出现了。',
+    hint: '书还没法把它说清，但已经能隐约照出一点你这段时间的样子。',
+  },
+  {
+    min: 6,
+    max: 14,
+    title: '这一段时间的样子',
+    body: '线索多了一些，轮廓也开始更稳一点。',
+    hint: '其中有些线索会留下来，有些会被后面的页修正掉。',
+  },
+  {
+    min: 15,
+    max: Infinity,
+    title: '这一段时间的样子',
+    body: '这本书现在能更忠实地照出：这一段时间，你留在这里的样子。',
+    hint: '它不是“真正的你”。它只是这一段时间，被这些书页留下来的你。',
+  },
+] as const;
 
-function getMirrorLevel(completedPages: number) {
-  let level = 0;
-  let nextThreshold: number = MIRROR_LEVELS[0];
-  for (let i = 0; i < MIRROR_LEVELS.length; i++) {
-    if (completedPages >= MIRROR_LEVELS[i]) {
-      level = i + 1;
-      nextThreshold = MIRROR_LEVELS[i + 1] ?? MIRROR_LEVELS[i];
-    } else {
-      nextThreshold = MIRROR_LEVELS[i];
-      break;
-    }
-  }
-  const currentThreshold = level > 0 ? MIRROR_LEVELS[level - 1] : 0;
-  return { level, currentThreshold, nextThreshold };
+function getBookmarkStage(completedPages: number) {
+  return BOOKMARK_STAGES.find((stage) => completedPages >= stage.min && completedPages <= stage.max) || BOOKMARK_STAGES[0];
+}
+
+function formatShortDate(value?: string | null) {
+  if (!value) return '——';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '——';
+  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+}
+
+function compact(text: string, max = 22) {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (!clean) return '这一页';
+  return clean.length > max ? clean.slice(0, max) + '…' : clean;
+}
+
+function pickSlipQuote(text: string) {
+  const sentence = text
+    .split(/(?<=[。！？!?])/)
+    .map((part) => part.trim())
+    .filter(Boolean)[0] || text.trim();
+  return compact(sentence, 22);
+}
+
+function buildEvidenceCards(pages: ReturnType<typeof useFragmentStore.getState>['book']['pages']) {
+  return pages
+    .filter((page) => page.paragraphs.length > 0)
+    .slice(-3)
+    .reverse()
+    .map((page) => {
+      const lastParagraph = page.paragraphs[page.paragraphs.length - 1];
+      const text = page.paragraphs.map((paragraph) => paragraph.text).filter(Boolean).join(' ');
+      return {
+        id: page.id,
+        pageNumber: page.page_number,
+        label: pickSlipQuote(text || lastParagraph?.text || ''),
+        date: formatShortDate(lastParagraph?.timestamp || page.closed_at || page.opened_at),
+      };
+    });
+}
+
+function BookmarkProgressBar({ completedPages }: { completedPages: number }) {
+  const target = 15;
+  const percent = Math.max(0, Math.min(100, (completedPages / target) * 100));
+  return (
+    <div className="mx-auto w-full max-w-[280px]">
+      <div className="mb-2 flex items-center justify-between text-[10px] tracking-[0.14em] text-stone-500/80">
+        <span>线索正在累积</span>
+        <span>{completedPages} / {target}</span>
+      </div>
+      <div className="h-[8px] overflow-hidden rounded-full bg-stone-800/55">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${percent}%` }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
+          className="h-full rounded-full bg-[linear-gradient(90deg,#7b5d3d_0%,#b28a5f_55%,#d7bb8b_100%)] shadow-[0_0_12px_rgba(178,138,95,0.28)]"
+        />
+      </div>
+    </div>
+  );
+}
+
+function EvidenceSlips({ items }: { items: { id: string; pageNumber: string; label: string; date: string }[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-10 space-y-3">
+      {items.map((item) => (
+        <motion.div
+          key={item.id}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          className="flex items-center justify-between border-b border-stone-800/55 pb-3 text-[13px] text-stone-300"
+        >
+          <div className="min-w-0 pr-4">
+            <p className="truncate tracking-[0.06em]">“{item.label}”</p>
+            <p className="mt-1 font-mono text-[10px] tracking-[0.16em] text-stone-500/75">第 {item.pageNumber} 页</p>
+          </div>
+          <p className="shrink-0 font-mono text-[10px] tracking-[0.16em] text-stone-500/80">{item.date}</p>
+        </motion.div>
+      ))}
+    </div>
+  );
 }
 
 export default function V2MirrorPage() {
-  const { book, mirrorViewedAt, markMirrorViewed, _hasHydrated: hasHydrated } = useFragmentStore();
-  const completedPageCount = useMemo(() => book.pages.filter((page) => page.paragraphs.length > 0).length, [book.pages]);
-  const isMirrorReady = completedPageCount >= MIRROR_LEVELS[0];
-  const remainingPages = Math.max(0, MIRROR_LEVELS[0] - completedPageCount);
-  const mirrorLevel = useMemo(() => getMirrorLevel(completedPageCount), [completedPageCount]);
+  const { book, markMirrorViewed, _hasHydrated: hasHydrated } = useFragmentStore();
+  const completedPages = useMemo(() => book.pages.filter((page) => page.paragraphs.length > 0), [book.pages]);
+  const completedPageCount = completedPages.length;
+  const stage = useMemo(() => getBookmarkStage(completedPageCount), [completedPageCount]);
+  const isBookmarkReady = completedPageCount >= 15;
+  const evidenceCards = useMemo(() => buildEvidenceCards(book.pages), [book.pages]);
 
-  // Mark mirror as viewed when entering the page and mirror is ready
   useEffect(() => {
-    if (hasHydrated && isMirrorReady) {
+    if (hasHydrated && completedPageCount > 0) {
       markMirrorViewed();
       track('v4_mirror_viewed', { completedPageCount });
     }
-  }, [hasHydrated, isMirrorReady, markMirrorViewed]);
+  }, [hasHydrated, completedPageCount, markMirrorViewed]);
 
   if (!hasHydrated) {
     return (
@@ -52,11 +151,9 @@ export default function V2MirrorPage() {
 
   return (
     <main className="min-h-dvh bg-[#120f0e] text-stone-100 selection:bg-stone-700 selection:text-stone-50">
-      {/* Ambient */}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.04),transparent_34%)]" />
 
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-6 py-6">
-        {/* Header */}
         <header className="shrink-0 border-b border-stone-800/40 pb-5">
           <div className="flex items-center justify-between gap-4">
             <Link
@@ -66,98 +163,39 @@ export default function V2MirrorPage() {
             >
               ← 回到书里
             </Link>
-            <span className="font-mono text-[10px] tracking-[0.26em] text-stone-600/60">MIRROR</span>
+            <div className="text-right">
+              <p className="font-mono text-[10px] tracking-[0.26em] text-stone-600/60">{stage.title}</p>
+            </div>
           </div>
         </header>
 
-        {/* Content */}
-        <section className="min-h-0 flex-1 pt-6">
+        <section className="min-h-0 flex-1 pt-6 pb-10">
           <AnimatePresence mode="wait">
-            {!isMirrorReady ? (
-              <motion.div
-                key="progress"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
-                className="flex h-full flex-col justify-center py-16"
-              >
-                {/* Progress illustration — book pages stacking */}
-                <div className="mx-auto mb-10 flex items-end gap-[3px]">
-                  {Array.from({ length: MIRROR_LEVELS[0] }).map((_, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ scaleY: 0 }}
-                      animate={{ scaleY: 1 }}
-                      transition={{ delay: index * 0.08, duration: 0.4, ease: 'easeOut' }}
-                      className={`w-[14px] origin-bottom rounded-[2px] transition-colors duration-500 ${
-                        index < completedPageCount
-                          ? 'bg-[#8b6b45]/70 h-[48px]'
-                          : 'bg-stone-700/30 h-[32px]'
-                      }`}
-                    />
-                  ))}
+            <motion.div
+              key={String(isBookmarkReady)}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.45, ease: 'easeOut' }}
+              className="flex h-full flex-col"
+            >
+              <div className="border border-[#8b6b45]/18 bg-[linear-gradient(180deg,rgba(34,27,23,0.92),rgba(21,17,15,0.96))] px-6 py-8 shadow-[0_24px_64px_rgba(0,0,0,0.24)]">
+                <BookmarkProgressBar completedPages={completedPageCount} />
+
+                <div className="mt-8 text-center">
+                  <p className="text-[18px] font-light tracking-[0.08em] text-stone-200">{stage.body}</p>
+                  <p className="mt-4 text-[12px] leading-[1.9] tracking-[0.06em] text-stone-500/80">{stage.hint}</p>
                 </div>
 
-                {/* Progress text */}
-                <div className="text-center">
-                  <p className="text-[15px] font-light leading-[2] tracking-[0.1em] text-stone-300/80">
-                    这本书正在慢慢认识你。
-                  </p>
-                  <p className="mt-3 text-[13px] font-light leading-[2] tracking-[0.06em] text-stone-500/70">
-                    再写 {remainingPages} 页，它会第一次尝试找出这些页之间的联系。
-                  </p>
-                  {/* Numeric progress */}
-                  <div className="mt-8 flex items-center justify-center gap-3">
-                    <span className="font-mono text-[20px] tracking-[0.12em] text-stone-300/60">{completedPageCount}</span>
-                    <span className="font-mono text-[12px] tracking-[0.2em] text-stone-600/50">/</span>
-                    <span className="font-mono text-[12px] tracking-[0.2em] text-stone-600/50">{MIRROR_LEVELS[0]}</span>
-                  </div>
-                  {/* Progress bar */}
-                  <div className="mx-auto mt-4 h-[2px] w-[120px] overflow-hidden rounded-full bg-stone-800/60">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(completedPageCount / MIRROR_LEVELS[0]) * 100}%` }}
-                      transition={{ duration: 0.8, ease: 'easeOut' }}
-                      className="h-full bg-[#8b6b45]/60"
-                    />
-                  </div>
+                <EvidenceSlips items={evidenceCards} />
+              </div>
+
+              {isBookmarkReady ? (
+                <div className="mt-8 min-h-0 flex-1 overflow-hidden border-t border-stone-800/40 pt-6">
+                  <MirrorTopicPanel embedded />
                 </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="mirror"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
-              >
-                <MirrorTopicPanel embedded />
-                {/* Level progress */}
-                <div className="mt-8 border-t border-stone-800/30 pt-5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] tracking-[0.16em] text-stone-500/50">下一层</span>
-                    <span className="font-mono text-[11px] tracking-[0.14em] text-stone-400/60">{completedPageCount} / {mirrorLevel.nextThreshold}</span>
-                  </div>
-                  <div className="mt-2.5 h-[2px] w-full overflow-hidden rounded-full bg-stone-800/50">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (completedPageCount / mirrorLevel.nextThreshold) * 100)}%` }}
-                      transition={{ duration: 0.8, ease: 'easeOut' }}
-                      className="h-full rounded-full bg-[#8b6b45]/50"
-                    />
-                  </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    {MIRROR_LEVELS.map((threshold, index) => (
-                      <div key={threshold} className="flex flex-col items-center gap-1">
-                        <span className={`h-[5px] w-[5px] rounded-full transition-colors duration-500 ${index < mirrorLevel.level ? 'bg-[#8b6b45]/70' : 'bg-stone-700/30'}`} />
-                        <span className={`font-mono text-[8px] tracking-[0.12em] ${index < mirrorLevel.level ? 'text-stone-400/60' : 'text-stone-600/35'}`}>{threshold}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
+              ) : null}
+            </motion.div>
           </AnimatePresence>
         </section>
       </div>
