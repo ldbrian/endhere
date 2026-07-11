@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -12,6 +12,25 @@ import { getPersonaDefinition, normalizePersonaId } from './_core/personas';
 const MIRROR_REQUIRED_PAGES = 5;
 
 type MirrorBookmarkState = 'hidden' | 'normal' | 'has-new' | 'viewed';
+
+function formatPageTimestamp(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
+function getPageTimestamp(page: BookPage) {
+  const lastParagraph = page.paragraphs[page.paragraphs.length - 1];
+  return formatPageTimestamp(lastParagraph?.timestamp || page.closed_at || page.opened_at);
+}
 
 function MirrorBookmark({ state }: { state: MirrorBookmarkState }) {
   if (state === 'hidden') return null;
@@ -206,7 +225,7 @@ function ReadingNote({ page }: { page: BookPage }) {
 }
 
 function ExpandedPage({ page, onClose }: { page: BookPage; onClose: () => void }) {
-  return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/72 px-6 py-8" onClick={onClose}><motion.div initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.98, opacity: 0 }} transition={{ duration: 0.28, ease: 'easeOut' }} className="relative h-full max-h-[88vh] w-full max-w-[760px] overflow-hidden rounded-[6px] border border-stone-700/45 bg-[#181412] shadow-[0_30px_80px_rgba(0,0,0,0.45)]" onClick={(event) => event.stopPropagation()}><button type="button" onClick={onClose} className="absolute right-5 top-5 z-30 flex h-9 w-9 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-stone-200/10 hover:text-stone-100 cursor-pointer" aria-label="收起"><CollapseIcon className="h-[18px] w-[18px]" /></button><div className="pointer-events-none absolute inset-[12px] border border-stone-700/14" /><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_40%),linear-gradient(180deg,rgba(255,248,236,0.028),transparent_18%,transparent_84%,rgba(0,0,0,0.16))]" /><div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 180 180%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.5%22 numOctaves=%222%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%220.015%22/%3E%3C/svg%3E')] opacity-30" /><div className="relative z-10 flex h-full cursor-default flex-col overflow-y-auto px-10 pb-14 pt-14 select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div className="mb-10 text-center"><p className="font-mono text-[17px] tracking-[0.34em] text-stone-400">{page.page_number}</p>{page.title ? <p className="mt-3 text-[13px] tracking-[0.08em] text-stone-500">{page.title}</p> : null}</div><div className="divide-y divide-stone-700/15">{page.paragraphs.map((paragraph) => <p key={paragraph.id} className="whitespace-pre-wrap py-5 text-[16px] font-light leading-[2.15] tracking-[0.04em] text-stone-300 first:pt-0 last:pb-0">{paragraph.text}</p>)}</div><ReadingNote page={page} /></div></motion.div></motion.div>;
+  return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/72 px-6 py-8" onClick={onClose}><motion.div initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.98, opacity: 0 }} transition={{ duration: 0.28, ease: 'easeOut' }} className="relative h-full max-h-[88vh] w-full max-w-[760px] overflow-hidden rounded-[6px] border border-stone-700/45 bg-[#181412] shadow-[0_30px_80px_rgba(0,0,0,0.45)]" onClick={(event) => event.stopPropagation()}><button type="button" onClick={onClose} className="absolute right-5 top-5 z-30 flex h-9 w-9 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-stone-200/10 hover:text-stone-100 cursor-pointer" aria-label="收起"><CollapseIcon className="h-[18px] w-[18px]" /></button><div className="pointer-events-none absolute inset-[12px] border border-stone-700/14" /><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_40%),linear-gradient(180deg,rgba(255,248,236,0.028),transparent_18%,transparent_84%,rgba(0,0,0,0.16))]" /><div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 180 180%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.5%22 numOctaves=%222%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%220.015%22/%3E%3C/svg%3E')] opacity-30" /><div className="relative z-10 flex h-full cursor-default flex-col overflow-y-auto px-10 pb-14 pt-14 select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div className="mb-10 text-center"><p className="font-mono text-[17px] tracking-[0.34em] text-stone-400">{page.page_number}</p>{page.title ? <p className="mt-3 text-[13px] tracking-[0.08em] text-stone-500">{page.title}</p> : null}</div><div className="divide-y divide-stone-700/15">{page.paragraphs.map((paragraph) => <p key={paragraph.id} className="whitespace-pre-wrap py-5 text-[16px] font-light leading-[2.15] tracking-[0.04em] text-stone-300 first:pt-0 last:pb-0">{paragraph.text}</p>)}</div><ReadingNote page={page} />{getPageTimestamp(page) ? <div className="mt-8 border-t border-stone-700/12 pt-4 text-center"><p className="font-mono text-[10px] tracking-[0.18em] text-stone-500/65">{getPageTimestamp(page)}</p></div> : null}</div></motion.div></motion.div>;
 }
 
 function LegacyArchiveOverlay({ archive, onClose }: { archive: LegacyPage[]; onClose: () => void }) {
