@@ -16,18 +16,15 @@ export function ProgressMarker({ progress }: { progress: number }) {
       // 用 animate 驱动 left，让标记随翻页在整条线上平滑滑动。
       animate={{ left: leftPercent }}
       transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-      className="pointer-events-none absolute top-1/2 z-20 flex h-[24px] w-[3px] -translate-x-1/2 -translate-y-1/2 items-stretch justify-center"
+      className="pointer-events-none absolute top-1/2 z-20 h-[24px] w-[3px] -translate-x-1/2 -translate-y-1/2"
     >
-      {/* 外层柔光：扩散、模糊的光晕 */}
+      {/* 主体光柱：上下端淡出，中段圆润发亮。发光用 box-shadow（GPU 合成，
+          跟随元素整体移动），不用 blur 滤镜——blur 每帧重算会在动画中产生残影。 */}
       <span
-        className="absolute inset-y-0 left-1/2 w-[10px] -translate-x-1/2 rounded-full blur-[3px]"
-        style={{ background: 'radial-gradient(ellipse at center, rgba(237,229,218,0.5) 0%, rgba(237,229,218,0.18) 45%, transparent 75%)' }}
-      />
-      {/* 主体光柱：上下端淡出，中段圆润发亮 */}
-      <span
-        className="relative w-full rounded-full"
+        className="block h-full w-full rounded-full"
         style={{
           background: 'linear-gradient(to bottom, rgba(237,229,218,0) 0%, rgba(237,229,218,0.92) 32%, rgba(245,238,228,1) 50%, rgba(237,229,218,0.92) 68%, rgba(237,229,218,0) 100%)',
+          boxShadow: '0 0 6px 1px rgba(237,229,218,0.45)',
         }}
       />
     </motion.span>
