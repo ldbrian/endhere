@@ -10,6 +10,9 @@ import { createWindowProvider } from './_core/windows';
 import { getPersonaDefinition, normalizePersonaId } from './_core/personas';
 import { BookNavigator } from './_core/BookNavigator/BookNavigator';
 import { extractPageTitle, formatPreviewText } from './_core/BookNavigator/utils';
+import { ShareCard } from './_core/ShareCard/ShareCard';
+import { useShareCard } from './_core/ShareCard/useShareCard';
+import { pickBookVoice } from './_core/bookVoice';
 
 const MIRROR_REQUIRED_PAGES = 5;
 
@@ -94,6 +97,15 @@ const CollapseIcon = ({ className = '' }: { className?: string }) => (
   </svg>
 );
 
+const ShareIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className={className} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="12" r="2.4" />
+    <circle cx="18" cy="6" r="2.4" />
+    <circle cx="18" cy="18" r="2.4" />
+    <path d="M8.1 10.9l7.8-3.8M8.1 13.1l7.8 3.8" />
+  </svg>
+);
+
 const PaperStackIcon = ({ className = '' }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" className={className} strokeLinecap="round" strokeLinejoin="round">
     <path d="M5 4h9l5 5v11H5z" />
@@ -165,8 +177,9 @@ function ReadingNote({ page }: { page: BookPage }) {
   );
 }
 
-function ExpandedPage({ page, onClose }: { page: BookPage; onClose: () => void }) {
-  return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/72 px-6 py-8" onClick={onClose}><motion.div initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.98, opacity: 0 }} transition={{ duration: 0.28, ease: 'easeOut' }} className="relative h-full max-h-[88vh] w-full max-w-[760px] overflow-hidden rounded-[6px] border border-stone-700/45 bg-[#181412] shadow-[0_30px_80px_rgba(0,0,0,0.45)]" onClick={(event) => event.stopPropagation()}><button type="button" onClick={onClose} className="absolute right-5 top-5 z-30 flex h-9 w-9 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-stone-200/10 hover:text-stone-100 cursor-pointer" aria-label="收起"><CollapseIcon className="h-[18px] w-[18px]" /></button><div className="pointer-events-none absolute inset-[12px] border border-stone-700/14" /><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_40%),linear-gradient(180deg,rgba(255,248,236,0.028),transparent_18%,transparent_84%,rgba(0,0,0,0.16))]" /><div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 180 180%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.5%22 numOctaves=%222%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%220.015%22/%3E%3C/svg%3E')] opacity-30" /><div className="relative z-10 flex h-full cursor-default flex-col overflow-y-auto px-10 pb-14 pt-14 select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div className="mb-10 text-center"><p className="font-mono text-[17px] tracking-[0.34em] text-stone-400">{page.page_number}</p>{page.title ? <p className="mt-3 text-[13px] tracking-[0.08em] text-stone-500">{page.title}</p> : null}</div><div className="divide-y divide-stone-700/15">{page.paragraphs.map((paragraph) => <p key={paragraph.id} className="whitespace-pre-wrap py-5 text-[16px] font-light leading-[2.15] tracking-[0.04em] text-stone-300 first:pt-0 last:pb-0">{paragraph.text}</p>)}</div><ReadingNote page={page} /></div></motion.div></motion.div>;
+function ExpandedPage({ page, onClose, onShare, sharing }: { page: BookPage; onClose: () => void; onShare: () => void; sharing: boolean }) {
+  const hasContent = page.paragraphs.length > 0;
+  return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/72 px-6 py-8" onClick={onClose}><motion.div initial={{ scale: 0.98, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.98, opacity: 0 }} transition={{ duration: 0.28, ease: 'easeOut' }} className="relative h-full max-h-[88vh] w-full max-w-[760px] overflow-hidden rounded-[6px] border border-stone-700/45 bg-[#181412] shadow-[0_30px_80px_rgba(0,0,0,0.45)]" onClick={(event) => event.stopPropagation()}>{hasContent ? <button type="button" onClick={onShare} disabled={sharing} className="absolute left-5 top-5 z-30 flex h-9 w-9 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-stone-200/10 hover:text-stone-100 cursor-pointer disabled:cursor-wait disabled:opacity-50" aria-label="保存为图片" title="保存为图片"><ShareIcon className="h-[17px] w-[17px]" /></button> : null}<button type="button" onClick={onClose} className="absolute right-5 top-5 z-30 flex h-9 w-9 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-stone-200/10 hover:text-stone-100 cursor-pointer" aria-label="收起"><CollapseIcon className="h-[18px] w-[18px]" /></button><div className="pointer-events-none absolute inset-[12px] border border-stone-700/14" /><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_40%),linear-gradient(180deg,rgba(255,248,236,0.028),transparent_18%,transparent_84%,rgba(0,0,0,0.16))]" /><div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 180 180%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.5%22 numOctaves=%222%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%220.015%22/%3E%3C/svg%3E')] opacity-30" /><div className="relative z-10 flex h-full cursor-default flex-col overflow-y-auto px-10 pb-14 pt-14 select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><div className="mb-10 text-center"><p className="font-mono text-[17px] tracking-[0.34em] text-stone-400">{page.page_number}</p>{page.title ? <p className="mt-3 text-[13px] tracking-[0.08em] text-stone-500">{page.title}</p> : null}</div><div className="divide-y divide-stone-700/15">{page.paragraphs.map((paragraph) => <p key={paragraph.id} className="whitespace-pre-wrap py-5 text-[16px] font-light leading-[2.15] tracking-[0.04em] text-stone-300 first:pt-0 last:pb-0">{paragraph.text}</p>)}</div><ReadingNote page={page} /></div></motion.div></motion.div>;
 }
 
 function LegacyArchiveOverlay({ archive, onClose }: { archive: LegacyPage[]; onClose: () => void }) {
@@ -243,7 +256,7 @@ function detectFinePointer(): boolean {
   return window.matchMedia?.('(pointer: fine)').matches ?? false;
 }
 
-function PageCard({ page, promptText, isLatestPage, submitPhase, finePointer, onAddParagraph, onExpand, onPersonaPreference, onRegenerateResponse, isRegenerating }: { page: BookPage; promptText: string; isLatestPage: boolean; submitPhase: SubmitPhase; finePointer: boolean; onAddParagraph: (text: string) => void; onExpand: () => void; onPersonaPreference: (persona: string, delta: 1 | -1) => void; onRegenerateResponse: (pageId: string, paragraphId: string, originalText: string, currentPersona: string) => void; isRegenerating: boolean; }) {
+function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, finePointer, onAddParagraph, onExpand, onPersonaPreference, onRegenerateResponse, isRegenerating }: { page: BookPage; promptText: string; isBookVoice: boolean; isLatestPage: boolean; submitPhase: SubmitPhase; finePointer: boolean; onAddParagraph: (text: string) => void; onExpand: () => void; onPersonaPreference: (persona: string, delta: 1 | -1) => void; onRegenerateResponse: (pageId: string, paragraphId: string, originalText: string, currentPersona: string) => void; isRegenerating: boolean; }) {
   const isFirstBlankPage = page.page_number === '001' && page.paragraphs.length === 0;
   const defaultText = isFirstBlankPage ? FIRST_PAGE_DEFAULT_TEXT : '';
   const [inputText, setInputText] = useState(defaultText);
@@ -410,11 +423,20 @@ function PageCard({ page, promptText, isLatestPage, submitPhase, finePointer, on
                 /* ── Blank writable page: inviting cursor ── */
                 <div className="flex h-full flex-col">
                   {showPrompt ? (
-                    <p
-                      className="mb-4 whitespace-pre-wrap text-[13px] font-light leading-[1.85] tracking-[0.04em] text-stone-500/50"
-                    >
-                      {promptText}
-                    </p>
+                    isBookVoice ? (
+                      <div className="mb-4">
+                        <p className="mb-1.5 font-mono text-[11px] tracking-[0.3em] text-stone-500/60">书</p>
+                        <p className="whitespace-pre-wrap text-[13px] font-light italic leading-[1.85] tracking-[0.04em] text-stone-400/45">
+                          {promptText}
+                        </p>
+                      </div>
+                    ) : (
+                      <p
+                        className="mb-4 whitespace-pre-wrap text-[13px] font-light leading-[1.85] tracking-[0.04em] text-stone-500/50"
+                      >
+                        {promptText}
+                      </p>
+                    )
                   ) : null}
                   <div className="relative z-10 flex-1 cursor-default">
                     {/* Hidden measurement span for cursor positioning */}
@@ -486,6 +508,12 @@ export default function V2HomePage() {
   const [finePointer, setFinePointer] = useState(false);
   const [regeneratingPageId, setRegeneratingPageId] = useState<string | null>(null);
   const currentWindow = useMemo(() => createWindowProvider().peekWindow(), []);
+  // Book Voice：挂载时定一次，按概率决定本页是「书在说话」还是走原 Window。
+  const currentBookVoice = useMemo(() => pickBookVoice(), []);
+  const isBookVoice = currentBookVoice !== null;
+  const activeVoiceText = currentBookVoice?.text ?? currentWindow.text;
+  // Book Voice 展示埋点：每次挂载定下 voice 后，若走的是书的声音，记一次 shown。
+  useEffect(() => { if (currentBookVoice) track('v4_book_voice_shown', { voice_id: currentBookVoice.id }); }, [currentBookVoice]);
   const { book, legacyArchive, currentPageIndex, setCurrentPageIndex, openLatestPage, appendParagraphToCurrentPage, finalizeCurrentPage, setParagraphResponse, applyPageTitle, pendingTitleTask, markOpened, ensureTrailingBlankPage, mirrorViewedAt, adjustPersonaPreference, personaPreferences, _hasHydrated: hasHydrated } = useFragmentStore();
   const currentPage = useMemo(() => book.pages[Math.max(0, Math.min(currentPageIndex, book.pages.length - 1))], [book.pages, currentPageIndex]);
   const hasContent = useMemo(() => book.pages.some((page) => page.paragraphs.length > 0), [book.pages]);
@@ -511,6 +539,10 @@ export default function V2HomePage() {
   // 一页一碎片 · 两段式：先保存（这一页被保存了下来）→ 再生成回应 → 揭晓 → 停留当前页，轴上出现空白下一页
   const handleAddParagraph = async (text: string) => {
     if (submitPhase !== 'idle') return;
+    // Book Voice 效果埋点（对照 Window 用）：本页若走的是 Book Voice 且用户真的下笔，记一次。
+    if (currentBookVoice) {
+      track('v4_book_voice_followed_by_write', { voice_id: currentBookVoice.id });
+    }
     const isCeremonialFirstPage = text === FIRST_PAGE_DEFAULT_TEXT;
     const targetPageId = book.pages[Math.max(0, Math.min(currentPageIndex, book.pages.length - 1))]?.id;
     const targetPageIndex = currentPageIndex;
@@ -598,14 +630,22 @@ export default function V2HomePage() {
   };
   const handlePrev = () => { if (submitPhase !== 'idle') return; if (currentPageIndex <= 0) return; setCurrentPageIndex(currentPageIndex - 1); };
   const handleNext = () => { if (submitPhase !== 'idle') return; if (currentPageIndex >= book.pages.length - 1) return; setCurrentPageIndex(currentPageIndex + 1); };
+  const { share: sharePage, sharing: isSharingPage, pendingPage: pendingSharePage } = useShareCard();
   useEffect(() => { if (!hasHydrated || !hasContent || coverDismissed) return; const timer = window.setTimeout(() => handleOpenBook(), 2000); return () => window.clearTimeout(timer); }, [hasHydrated, hasContent, coverDismissed]);
   const expandedPage = expandedPageId ? book.pages.find((page) => page.id === expandedPageId) || null : null;
   if (!hasHydrated) return <main className="min-h-screen bg-[#110f0e]" />;
   return (
     <main className="relative mx-auto flex min-h-screen w-full max-w-[480px] flex-col overflow-hidden bg-[#120f0e] font-sans text-stone-200 shadow-[0_0_120px_rgba(0,0,0,0.5)] sm:border-x sm:border-stone-900/60 [caret-color:transparent]">
       <AnimatePresence>{shouldShowCover ? <Cover hasContent={hasContent} onOpen={handleOpenBook} /> : null}</AnimatePresence>
-      <AnimatePresence>{expandedPage ? <ExpandedPage page={expandedPage} onClose={() => setExpandedPageId(null)} /> : null}</AnimatePresence>
+      <AnimatePresence>{expandedPage ? <ExpandedPage page={expandedPage} onClose={() => setExpandedPageId(null)} onShare={() => sharePage(expandedPage)} sharing={isSharingPage} /> : null}</AnimatePresence>
       <AnimatePresence>{showLegacy ? <LegacyArchiveOverlay archive={legacyArchive} onClose={() => setShowLegacy(false)} /> : null}</AnimatePresence>
+
+      {/* 离屏分享卡：仅截图时挂载，截完即卸载，绝不影响正常布局 */}
+      {pendingSharePage ? (
+        <div aria-hidden="true" style={{ position: 'fixed', left: -9999, top: 0, pointerEvents: 'none' }}>
+          <ShareCard page={pendingSharePage} />
+        </div>
+      ) : null}
 
       {/* Ambient light overlay */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(251,191,36,0.05),transparent_28%),linear-gradient(180deg,rgba(255,248,236,0.02),transparent_24%,transparent_78%,rgba(0,0,0,0.28))]" />
@@ -669,7 +709,7 @@ export default function V2HomePage() {
               </div>
               <AnimatePresence mode="wait">
                 <motion.div key={currentPage.id} initial={{ opacity: 0, x: 24, y: 8, scale: 0.985 }} animate={{ opacity: shouldShowCover ? 0.12 : 1, x: 0, y: 0, scale: shouldShowCover ? 0.992 : 1 }} exit={{ opacity: 0, x: -20, y: 6, scale: 0.988 }} transition={{ duration: 0.62, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0">
-                  <PageCard page={currentPage} promptText={currentWindow.text} isLatestPage={currentPageIndex === book.pages.length - 1} submitPhase={submitPhase} finePointer={finePointer} onAddParagraph={handleAddParagraph} onExpand={() => setExpandedPageId(currentPage.id)} onPersonaPreference={adjustPersonaPreference} onRegenerateResponse={handleRegenerateResponse} isRegenerating={regeneratingPageId === currentPage.id} />
+                  <PageCard page={currentPage} promptText={activeVoiceText} isBookVoice={isBookVoice} isLatestPage={currentPageIndex === book.pages.length - 1} submitPhase={submitPhase} finePointer={finePointer} onAddParagraph={handleAddParagraph} onExpand={() => setExpandedPageId(currentPage.id)} onPersonaPreference={adjustPersonaPreference} onRegenerateResponse={handleRegenerateResponse} isRegenerating={regeneratingPageId === currentPage.id} />
                 </motion.div>
               </AnimatePresence>
             </div>
