@@ -23,8 +23,7 @@ export const BOOK_VOICES: BookVoice[] = [
 ];
 
 // 15% 概率走 Book Voice（常量，可调）。稀有本身就是效果。
-// 调试时临时设 1.0 可强制每页都走 Book Voice；上线前请改回 0.15。
-const BOOK_VOICE_RATE = 1.0;
+const BOOK_VOICE_RATE = 0.15;
 
 // 决定本页显示什么。返回 null 表示走原 Window prompt。
 export function pickBookVoice(): BookVoice | null {

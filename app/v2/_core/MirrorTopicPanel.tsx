@@ -164,8 +164,8 @@ export function MirrorTopicPanel({ embedded = false }: { embedded?: boolean }) {
     <div className={embedded ? 'h-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden' : 'min-h-dvh bg-[#1B1614] px-7 py-12 text-stone-100'}>
       <div className="border-b border-stone-900/80 pb-5">
         <p className="font-mono text-[10px] tracking-[0.24em] text-stone-600">{stageTitle(groups.length)}</p>
-        <p className="mt-4 text-[16px] font-light leading-8 tracking-[0.08em] text-stone-200">这段时间，你留在这本书里的样子，开始慢慢清楚了。</p>
-        <p className="mt-4 text-[12px] leading-7 tracking-[0.08em] text-stone-500">它不是定义，也不是结论。只是这段时间里，反复留下来的线索。</p>
+        <p className="mt-4 text-[16px] font-light leading-8 tracking-[0.08em] text-stone-200">以下是根据已记录页面检测到的重复模式。</p>
+        <p className="mt-4 text-[12px] leading-7 tracking-[0.08em] text-stone-500">每条模式标注了出现次数和原文证据。重复 2 次以上的才被纳入。</p>
       </div>
 
       {activeGroup ? (
@@ -173,7 +173,7 @@ export function MirrorTopicPanel({ embedded = false }: { embedded?: boolean }) {
           <section className="border-b border-stone-900/80 py-7">
             <p className="text-[11px] tracking-[0.16em] text-stone-500">{kindLabel(activeGroup.kind)}</p>
             <p className="mt-4 text-[17px] font-light tracking-[0.06em] text-stone-100">{activeGroup.reason.join(' · ')}</p>
-            <p className="mt-4 text-[12px] leading-7 tracking-[0.08em] text-stone-500">这些线索在几页里反复出现过，所以这一段时间的样子，先从这里被照出来一点。</p>
+            <p className="mt-4 text-[12px] leading-7 tracking-[0.08em] text-stone-500">该模式在 {activeGroup.pages.length} 页中出现过。以下为原文证据：</p>
           </section>
 
           <section className="py-6">
@@ -207,7 +207,7 @@ export function MirrorTopicPanel({ embedded = false }: { embedded?: boolean }) {
               className="overflow-hidden pb-9 pt-2"
             >
               <div className="mb-4">
-                <p className="text-[12px] leading-7 tracking-[0.08em] text-stone-500">先看到的是这些原句。页码和标题只是来源，不是主角。</p>
+                <p className="text-[12px] leading-7 tracking-[0.08em] text-stone-500">原文记录（最多展示 3 页）：</p>
               </div>
               <div className="space-y-5">
                 {activeGroup.pages.slice(0, 3).map((page) => (
@@ -234,9 +234,9 @@ function MirrorQuietState({ embedded }: { embedded: boolean }) {
   return (
     <div className={embedded ? 'flex h-full flex-col justify-center' : 'min-h-dvh bg-[#1B1614] px-7 py-12 text-stone-100'}>
       <div className="border-b border-stone-900/80 pb-5">
-        <p className="font-mono text-[10px] tracking-[0.24em] text-stone-600">第一次照见</p>
-        <p className="mt-5 text-[15px] leading-8 tracking-[0.1em] text-stone-300">轮廓还很淡。</p>
-        <p className="mt-4 text-[12px] leading-7 tracking-[0.08em] text-stone-500">线索还少，所以它现在只能照出一点模糊的样子。</p>
+        <p className="font-mono text-[10px] tracking-[0.24em] text-stone-600">已记录</p>
+        <p className="mt-5 text-[15px] leading-8 tracking-[0.1em] text-stone-300">有记录页面，但尚无重复 2 次以上的模式。</p>
+        <p className="mt-4 text-[12px] leading-7 tracking-[0.08em] text-stone-500">继续写，当某个话题出现 2 次以上时会出现在这里。</p>
       </div>
     </div>
   );

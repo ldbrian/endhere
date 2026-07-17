@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { track } from './_core/analytics';
 import type { BookPage, LegacyPage, Paragraph } from './_core/storage';
-import { useFragmentStore } from './_core/storage';
-import { createWindowProvider } from './_core/windows';
+import { useFragmentStore, createEmptyPage } from './_core/storage';
 import { getPersonaDefinition, normalizePersonaId } from './_core/personas';
 import { BookNavigator } from './_core/BookNavigator/BookNavigator';
 import { extractPageTitle, formatPreviewText } from './_core/BookNavigator/utils';
@@ -14,7 +13,12 @@ import { ShareCard } from './_core/ShareCard/ShareCard';
 import { useShareCard } from './_core/ShareCard/useShareCard';
 import { pickBookVoice } from './_core/bookVoice';
 
-const MIRROR_REQUIRED_PAGES = 5;
+
+import { FirstPageOnboarding } from './_core/FirstPageOnboarding';
+import { FREEWRITE_OPTION_ID, BOOK_DUAL_TRACK_PROMPT } from './_core/onboarding';
+
+// V5: Mirror 不需要最低页数门槛。有一页就照一页的线索。
+const MIRROR_REQUIRED_PAGES = 1;
 
 type MirrorBookmarkState = 'hidden' | 'normal' | 'has-new' | 'viewed';
 
@@ -146,8 +150,8 @@ function Cover({ hasContent, onOpen }: { hasContent: boolean; onOpen: () => void
         <div className="relative z-10 text-center">
           <p className="mb-10 text-[10px] tracking-[0.42em] text-stone-500/60">THE LIVING BOOK</p>
           <h1 className="text-[36px] font-light tracking-[0.18em] text-stone-100">ENDHERE</h1>
-          <p className="mt-9 text-[15px] font-light tracking-[0.08em] text-stone-300/88">这是一本属于你的书</p>
-          <p className="mt-3 text-[12px] font-light tracking-[0.06em] text-stone-500/70">它会随着你留下的页面，慢慢拥有自己的模样</p>
+          <p className="mt-9 text-[15px] font-light tracking-[0.08em] text-stone-300/88">一本属于你的书</p>
+          <p className="mt-3 text-[12px] font-light tracking-[0.06em] text-stone-500/70">陪你寻找答案,而不是替你写下答案</p>
         </div>
         {/* 👆 修改了这部分 👆 */}
 
@@ -243,9 +247,9 @@ function LegacyArchiveOverlay({ archive, onClose }: { archive: LegacyPage[]; onC
   );
 }
 
-const FIRST_PAGE_DEFAULT_TEXT = '今天我第一次翻开这本书';
-const FIRST_PAGE_CEREMONIAL_NARRATION = '所有的故事都从翻开第一页开始。这页纸上的墨迹还未干，但书已经知道——它等到了属于自己的读者。从这一刻起，每一页都将因你而不同。';
-const BLANK_PAGE_INVITATION = '在这里写下此刻的心情…';
+// V5 文案:不再有仪式句 / 记录类术语。宪法 §5 已废 Fragment / 记录 等词汇。
+const FIRST_PAGE_DEFAULT_TEXT = '';  // V5 001 不再预填:让用户在书追问之后自己写
+const BLANK_PAGE_INVITATION = '在这里写下此刻在想的事…';  // V5 从「心情」→「想的事」:从记录改为问题
 
 // 提交一页后的中间状态：idle → saving（已保存）→ generating（生成中）→ idle（揭晓）
 type SubmitPhase = 'idle' | 'saving' | 'generating';
@@ -256,30 +260,53 @@ function detectFinePointer(): boolean {
   return window.matchMedia?.('(pointer: fine)').matches ?? false;
 }
 
-function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, finePointer, onAddParagraph, onExpand, onPersonaPreference, onRegenerateResponse, isRegenerating }: { page: BookPage; promptText: string; isBookVoice: boolean; isLatestPage: boolean; submitPhase: SubmitPhase; finePointer: boolean; onAddParagraph: (text: string) => void; onExpand: () => void; onPersonaPreference: (persona: string, delta: 1 | -1) => void; onRegenerateResponse: (pageId: string, paragraphId: string, originalText: string, currentPersona: string) => void; isRegenerating: boolean; }) {
+function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, finePointer, onAddParagraph, onExpand, onPersonaPreference, onRegenerateResponse, isRegenerating, onRestPage, onReopenPage }: { page: BookPage; promptText: string; isBookVoice: boolean; isLatestPage: boolean; submitPhase: SubmitPhase; finePointer: boolean; onAddParagraph: (text: string) => void; onExpand: () => void; onPersonaPreference: (persona: string, delta: 1 | -1) => void; onRegenerateResponse: (pageId: string, paragraphId: string, originalText: string, currentPersona: string) => void; isRegenerating: boolean; onRestPage: (pageId: string) => void; onReopenPage: (pageId: string) => void; }) {
   const isFirstBlankPage = page.page_number === '001' && page.paragraphs.length === 0;
-  const defaultText = isFirstBlankPage ? FIRST_PAGE_DEFAULT_TEXT : '';
-  const [inputText, setInputText] = useState(defaultText);
+  // V5: 001 不再预填仪式句,由 onboarding 引导用户写问题
+  const [inputText, setInputText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [liked, setLiked] = useState(false);
+  // V5 Living Page: 用户点击「继续写这一页」后允许在非最新页上追加
+  const [reopened, setReopened] = useState(false);
+  // V5 onboarding:用户点了五选项之一,openingA + openingB 共同成为顶部两行「书慢慢展开」
+  //   (沿用你 V5 §5 例:「慢慢告诉我。发生了什么?它为什么一直留在你的脑海里?」)
+  // freewrite(openingA='', openingB='') 表示跳追问直接手写;null 表示用户还没选。
+  const [pickedOpening, setPickedOpening] = useState<{ a: string; b: string } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const textMeasureRef = useRef<HTMLSpanElement | null>(null);
   const [cursorX, setCursorX] = useState(0);
-  // 最后一页且无内容且非提交中时才可写；有内容（已 finalize）即锁定
-  const isWritable = isLatestPage && page.paragraphs.length === 0 && submitPhase === 'idle';
-  const showPrompt = isWritable && promptText.trim().length > 0;
-  const paragraph = page.paragraphs[0];
+  // V5 Living Page 状态:
+  //   opening = 空白可写(最新页)  thinking = 进行中(可写/可合上)
+  //   resting = 已合上(阅读模式)  archived = 归档(阅读模式)
+  // reopened 允许用户在「继续写这一页」后在非最新页上追加
+  const latestParagraph = page.paragraphs[page.paragraphs.length - 1] || null;
+  const isActive = isLatestPage || reopened;
+  const isWritable = isActive && (page.status === 'opening' || page.status === 'thinking');
+  const canRest = isWritable && page.paragraphs.length > 0 && latestParagraph?.trace;
+  const isReadOnly = (page.status === 'resting' || page.status === 'archived') && !reopened;
+  // V5 prompt 显示规则:
+  //   001 + 未选 onboarding ⇒ 显示五选项主屏,不显示 prompt 槽
+  //   001 + 已选 opening    ⇒ 顶部呈现两行「书展开」,下方手写区
+  //   其他页                ⇒ 渲染父组件传的顶部书提问
+  //   Book Voice 命中        ⇒ 沿用旧「书」样式,不改
+  const showOnboarding = isFirstBlankPage && isWritable && pickedOpening === null;
+  const hasOpening = isFirstBlankPage && pickedOpening !== null && (pickedOpening.a || pickedOpening.b);
+  const effectivePrompt = (isFirstBlankPage && pickedOpening !== null)
+    ? `${pickedOpening.a}\n${pickedOpening.b}`.trim()
+    : promptText;
+  const showPrompt = isWritable && !showOnboarding && effectivePrompt.trim().length > 0;
   useEffect(() => {
-    const defaultText = page.page_number === '001' ? FIRST_PAGE_DEFAULT_TEXT : '';
-    setInputText(defaultText);
+    setInputText('');
     setIsFocused(false);
     setLiked(false);
+    setPickedOpening(null);
+    setReopened(false);
   }, [page.id, page.page_number]);
 
   // Reset liked when response changes (e.g. after regeneration)
   useEffect(() => {
     setLiked(false);
-  }, [paragraph?.trace]);
+  }, [latestParagraph?.trace]);
   // Measure text width for synthetic cursor positioning (触屏兜底用)
   useEffect(() => {
     if (textMeasureRef.current) {
@@ -324,7 +351,7 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
         <div className="pointer-events-none absolute right-0 top-0 h-full w-[20px] bg-gradient-to-l from-stone-950/30 to-transparent" />
 
         {/* Expand button (only on filled pages) */}
-        {paragraph ? (
+        {page.paragraphs.length > 0 ? (
           <button type="button" onClick={onExpand} className="absolute right-4 top-4 z-30 flex h-8 w-8 items-center justify-center rounded-full text-stone-500/60 transition-colors hover:bg-stone-200/10 hover:text-stone-100 cursor-pointer" aria-label="展开全屏">
             <ExpandIcon className="h-[15px] w-[15px]" />
           </button>
@@ -341,29 +368,29 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
           {/* Main content area */}
           <div className="mt-4 flex-1 min-h-0 overflow-hidden">
             <div className="h-full overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {paragraph ? (
-                /* ── Filled page: text from top-left ── */
-                <div className="flex flex-col">
+              {/* ── Existing paragraphs + responses ── */}
+              {page.paragraphs.map((p) => (
+                <div key={p.id}>
                   <p className="whitespace-pre-wrap text-[14px] font-light leading-[2] tracking-[0.04em] text-stone-300">
-                    {paragraph.text}
+                    {p.text}
                   </p>
-                  {paragraph.trace ? (
+                  {p.trace ? (
                     <div className="mt-5 border-t border-stone-700/12 pt-3">
                       <p className="mb-1 text-[9px] tracking-[0.18em] text-stone-500/55">
-                        {paragraph.persona ? getPersonaDefinition(normalizePersonaId(paragraph.persona)).name : 'Echo'}
+                        {p.persona ? getPersonaDefinition(normalizePersonaId(p.persona)).name : 'Echo'}
                       </p>
-                      <p className={`whitespace-pre-wrap text-[12px] font-light leading-[1.75] tracking-[0.03em] text-stone-400/75 transition-opacity duration-300 ${isRegenerating ? 'opacity-40' : ''}`}>
-                        {paragraph.trace}
+                      <p className={`whitespace-pre-wrap text-[12px] font-light leading-[1.75] tracking-[0.03em] text-stone-400/75 transition-opacity duration-300 ${isRegenerating && p.id === latestParagraph?.id ? 'opacity-40' : ''}`}>
+                        {p.trace}
                       </p>
-                      {/* P1-3: Preference buttons — hidden on ceremonial first page */}
-                      {paragraph.trace !== FIRST_PAGE_CEREMONIAL_NARRATION ? (
+                      {/* Like/Change buttons — only on latest paragraph, only when not writable */}
+                      {p.id === latestParagraph?.id && !isWritable && submitPhase === 'idle' ? (
                         <div className="mt-3 flex items-center gap-6">
                           <button
                             type="button"
                             onClick={() => {
                               if (liked) return;
                               setLiked(true);
-                              const persona = paragraph.persona || 'Echo';
+                              const persona = p.persona || 'Echo';
                               onPersonaPreference(persona, 1);
                               track('v4_persona_liked', { persona });
                             }}
@@ -377,8 +404,8 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
                             type="button"
                             onClick={() => {
                               if (isRegenerating) return;
-                              const persona = paragraph.persona || 'Echo';
-                              onRegenerateResponse(page.id, paragraph.id, paragraph.text, persona);
+                              const persona = p.persona || 'Echo';
+                              onRegenerateResponse(page.id, p.id, p.text, persona);
                             }}
                             disabled={isRegenerating}
                             className={`flex items-center gap-1.5 transition-colors ${isRegenerating ? 'text-stone-600/30 cursor-wait' : 'text-stone-500/50 hover:text-stone-300/70 cursor-pointer'}`}
@@ -395,51 +422,68 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
                         </div>
                       ) : null}
                     </div>
-                  ) : submitPhase !== 'idle' ? (
-                    /* 中间状态：已保存 → 正在生成回应。文案克制，符合世界观，不用工程化语言 */
-                    <div className="mt-5 border-t border-stone-700/12 pt-3">
-                      {submitPhase === 'saving' ? (
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.5 }}
-                          className="text-[11px] font-light leading-[1.8] tracking-[0.06em] text-stone-500/70"
-                        >
-                          这一页被保存了下来。
-                        </motion.p>
-                      ) : (
-                        <motion.p
-                          animate={{ opacity: [0.4, 1, 0.4] }}
-                          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-                          className="text-[11px] font-light leading-[1.8] tracking-[0.06em] text-stone-500"
-                        >
-                          书正在接住这一页…
-                        </motion.p>
-                      )}
-                    </div>
                   ) : null}
                 </div>
-              ) : isWritable ? (
-                /* ── Blank writable page: inviting cursor ── */
-                <div className="flex h-full flex-col">
-                  {showPrompt ? (
+              ))}
+
+              {/* Saving/Generating state */}
+              {submitPhase !== 'idle' && page.paragraphs.length > 0 ? (
+                <div className="mt-5 border-t border-stone-700/12 pt-3">
+                  {submitPhase === 'saving' ? (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.5 }}
+                      className="text-[11px] font-light leading-[1.8] tracking-[0.06em] text-stone-500/70"
+                    >
+                      这一页被保存了下来。
+                    </motion.p>
+                  ) : (
+                    <motion.p
+                      animate={{ opacity: [0.4, 1, 0.4] }}
+                      transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                      className="text-[11px] font-light leading-[1.8] tracking-[0.06em] text-stone-500"
+                    >
+                      书正在接住这一页…
+                    </motion.p>
+                  )}
+                </div>
+              ) : null}
+
+              {/* ── Writable area (below existing content, or standalone on blank page) ── */}
+              {isWritable ? (
+                <div className={`flex flex-col ${page.paragraphs.length > 0 ? 'mt-6 border-t border-stone-700/12 pt-5' : ''}`}>
+                  {/* Onboarding for first blank 001 page — no paragraphs yet */}
+                  {showOnboarding ? (
+                    <FirstPageOnboarding
+                      onPick={(opt) => {
+                        setPickedOpening({ a: opt.openingA, b: opt.openingB });
+                        if (opt.id === FREEWRITE_OPTION_ID) {
+                          window.setTimeout(() => inputRef.current?.focus(), 100);
+                        } else {
+                          window.setTimeout(() => inputRef.current?.focus(), 250);
+                        }
+                      }}
+                    />
+                  ) : page.paragraphs.length === 0 && showPrompt ? (
                     isBookVoice ? (
                       <div className="mb-4">
                         <p className="mb-1.5 font-mono text-[11px] tracking-[0.3em] text-stone-500/60">书</p>
                         <p className="whitespace-pre-wrap text-[13px] font-light italic leading-[1.85] tracking-[0.04em] text-stone-400/45">
-                          {promptText}
+                          {effectivePrompt}
                         </p>
                       </div>
                     ) : (
-                      <p
-                        className="mb-4 whitespace-pre-wrap text-[13px] font-light leading-[1.85] tracking-[0.04em] text-stone-500/50"
-                      >
-                        {promptText}
+                      <p className="mb-4 whitespace-pre-wrap text-[13px] font-light leading-[1.85] tracking-[0.04em] text-stone-500/50">
+                        {effectivePrompt}
                       </p>
                     )
+                  ) : page.paragraphs.length > 0 ? (
+                    <p className="mb-4 whitespace-pre-wrap text-[12px] font-light leading-[1.85] tracking-[0.04em] text-stone-500/40">
+                      继续说…
+                    </p>
                   ) : null}
-                  <div className="relative z-10 flex-1 cursor-default">
-                    {/* Hidden measurement span for cursor positioning */}
+                  <div className="relative z-10 cursor-default">
                     <span
                       ref={textMeasureRef}
                       aria-hidden
@@ -454,13 +498,12 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
                       onKeyDown={handleKeyDown}
                       onFocus={() => setIsFocused(true)}
                       onBlur={() => setIsFocused(false)}
-                      placeholder={isFirstBlankPage ? '' : BLANK_PAGE_INVITATION}
-                      className={`min-h-[80px] w-full resize-none bg-transparent text-[14px] font-light leading-[2] tracking-[0.04em] outline-none ${isWritable ? 'caret-stone-300' : 'caret-transparent'} text-stone-300 placeholder:text-stone-600/35`}
+                      placeholder={page.paragraphs.length > 0 ? '再写一点…' : isFirstBlankPage ? '' : BLANK_PAGE_INVITATION}
+                      className={`min-h-[80px] w-full resize-none bg-transparent text-[14px] font-light leading-[2] tracking-[0.04em] outline-none caret-stone-300 text-stone-300 placeholder:text-stone-600/35`}
                       rows={4}
-                      autoFocus={isWritable}
                     />
-                    {/* Synthetic blinking cursor — only on touch devices where native cursor can't be programmatically shown, and only when writable */}
-                    {!isFocused && !finePointer && isWritable ? (
+                    {/* Synthetic blinking cursor — only on touch devices */}
+                    {!isFocused && !finePointer ? (
                       <motion.span
                         animate={{ opacity: [1, 0] }}
                         transition={{ duration: 1.1, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
@@ -469,29 +512,59 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
                       />
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={commitInput}
-                    disabled={!inputText.trim() || submitPhase !== 'idle'}
-                    className={`mt-3 shrink-0 self-center rounded-full border px-5 py-1.5 text-[12px] tracking-[0.16em] transition-all duration-300 cursor-pointer ${
-                      inputText.trim() && submitPhase === 'idle'
-                        ? 'border-[#c9a86c]/40 bg-[linear-gradient(180deg,rgba(237,202,148,0.12),rgba(180,140,80,0.04))] text-[#ecd9b0] shadow-[0_0_16px_rgba(237,202,148,0.18)] hover:border-[#ecd9b0]/60 hover:shadow-[0_0_28px_rgba(237,202,148,0.32)]'
-                        : 'border-stone-700/25 text-stone-600/40 cursor-not-allowed'
-                    }`}
-                  >
-                    写下这一页
-                  </button>
                 </div>
               ) : null}
             </div>
           </div>
 
-          {/* Finished page hint */}
-          {isLatestPage && !isWritable && paragraph && submitPhase === 'idle' ? (
-            <div className="mt-3 shrink-0 text-center">
-              <p className="text-[10px] tracking-[0.16em] text-stone-600/40">这一页已经写完，向右翻到下一页</p>
-            </div>
-          ) : null}
+          {/* ── 底部操作区:固定不滚动 ── */}
+          <div className="shrink-0 pt-3 text-center">
+            {/* 提交按钮(可写状态) */}
+            {isWritable ? (
+              <button
+                type="button"
+                onClick={commitInput}
+                disabled={!inputText.trim() || submitPhase !== 'idle'}
+                className={`self-center rounded-full border px-5 py-1.5 text-[12px] tracking-[0.16em] transition-all duration-300 cursor-pointer ${
+                  inputText.trim() && submitPhase === 'idle'
+                    ? 'border-[#c9a86c]/40 bg-[linear-gradient(180deg,rgba(237,202,148,0.12),rgba(180,140,80,0.04))] text-[#ecd9b0] shadow-[0_0_16px_rgba(237,202,148,0.18)] hover:border-[#ecd9b0]/60 hover:shadow-[0_0_28px_rgba(237,202,148,0.32)]'
+                    : 'border-stone-700/25 text-stone-600/40 cursor-not-allowed'
+                }`}
+              >
+                {page.paragraphs.length > 0 ? '继续说' : '写下这一页'}
+              </button>
+            ) : null}
+
+            {/* 「合上这一页」— 有内容且有回应时出现 */}
+            {canRest ? (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => onRestPage(page.id)}
+                  className="text-[11px] font-light tracking-[0.14em] text-stone-500/50 transition-colors hover:text-stone-300/70 cursor-pointer"
+                >
+                  合上这一页 →
+                </button>
+              </div>
+            ) : null}
+
+            {/* 「继续写这一页」— 阅读模式(已合上的旧页) */}
+            {isReadOnly ? (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onReopenPage(page.id);
+                    setReopened(true);
+                    window.setTimeout(() => inputRef.current?.focus(), 250);
+                  }}
+                  className="text-[11px] font-light tracking-[0.14em] text-stone-500/50 transition-colors hover:text-stone-300/70 cursor-pointer"
+                >
+                  继续写这一页 →
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
       </div>
@@ -505,17 +578,26 @@ export default function V2HomePage() {
   const [showInstallCard, setShowInstallCard] = useState(false);
   const [showLegacy, setShowLegacy] = useState(false);
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle');
+  // 安全兜底：submitPhase 卡在 saving/generating 超过 15s 则自动重置
+  useEffect(() => {
+    if (submitPhase === 'idle') return;
+    const t = window.setTimeout(() => setSubmitPhase('idle'), 15000);
+    return () => window.clearTimeout(t);
+  }, [submitPhase]);
   const [finePointer, setFinePointer] = useState(false);
   const [regeneratingPageId, setRegeneratingPageId] = useState<string | null>(null);
-  const currentWindow = useMemo(() => createWindowProvider().peekWindow(), []);
-  // Book Voice：挂载时定一次，按概率决定本页是「书在说话」还是走原 Window。
-  const currentBookVoice = useMemo(() => pickBookVoice(), []);
-  const isBookVoice = currentBookVoice !== null;
-  const activeVoiceText = currentBookVoice?.text ?? currentWindow.text;
-  // Book Voice 展示埋点：每次挂载定下 voice 后，若走的是书的声音，记一次 shown。
-  useEffect(() => { if (currentBookVoice) track('v4_book_voice_shown', { voice_id: currentBookVoice.id }); }, [currentBookVoice]);
-  const { book, legacyArchive, currentPageIndex, setCurrentPageIndex, openLatestPage, appendParagraphToCurrentPage, finalizeCurrentPage, setParagraphResponse, applyPageTitle, pendingTitleTask, markOpened, ensureTrailingBlankPage, mirrorViewedAt, adjustPersonaPreference, personaPreferences, _hasHydrated: hasHydrated } = useFragmentStore();
+  const { book, legacyArchive, currentPageIndex, setCurrentPageIndex, openLatestPage, appendParagraphToCurrentPage, finalizeCurrentPage, setPageStatus, setParagraphResponse, applyPageTitle, pendingTitleTask, markOpened, ensureTrailingBlankPage, mirrorViewedAt, adjustPersonaPreference, personaPreferences, _hasHydrated: hasHydrated } = useFragmentStore();
   const currentPage = useMemo(() => book.pages[Math.max(0, Math.min(currentPageIndex, book.pages.length - 1))], [book.pages, currentPageIndex]);
+  // Book Voice：每翻到一张不同的空白页都重抽一次，15% 命中。
+  // 关键：依赖 [currentPage.id]，所以翻页会重新摇一次。
+  // 这保证大多页沉默、偶尔某一页听到书——符合 Silence Principle
+  // 与 mirror.v4.md §7 失败模式 G（不允许「每页都在留言」）。
+  const currentBookVoice = useMemo(() => pickBookVoice(), [currentPage.id]);
+  const isBookVoice = currentBookVoice !== null;
+  // V5 Addendum: 非 001 页不再展示每日 Window 观察句,统一为弱化双轨提问
+  const activeVoiceText = currentBookVoice?.text ?? BOOK_DUAL_TRACK_PROMPT;
+  // Book Voice 展示埋点：每次摇到 voice 就记一次 shown。
+  useEffect(() => { if (currentBookVoice) track('v4_book_voice_shown', { voice_id: currentBookVoice.id }); }, [currentBookVoice]);
   const hasContent = useMemo(() => book.pages.some((page) => page.paragraphs.length > 0), [book.pages]);
   const shouldShowCover = hasHydrated && !coverDismissed;
   // Mirror bookmark state
@@ -536,18 +618,31 @@ export default function V2HomePage() {
   // 检测精细指针（桌面）：决定是否能用程序化 focus 唤起原生光标
   useEffect(() => { setFinePointer(detectFinePointer()); }, []);
 
-  // 一页一碎片 · 两段式：先保存（这一页被保存了下来）→ 再生成回应 → 揭晓 → 停留当前页，轴上出现空白下一页
+  // V5 Addendum 多轮 Reflect: 同一页多段落交互
+  // 流程: 保存 → 生成回应(带上下文) → 揭晓 → 若页满则封页,否则保持可写
   const handleAddParagraph = async (text: string) => {
     if (submitPhase !== 'idle') return;
-    // Book Voice 效果埋点（对照 Window 用）：本页若走的是 Book Voice 且用户真的下笔，记一次。
     if (currentBookVoice) {
       track('v4_book_voice_followed_by_write', { voice_id: currentBookVoice.id });
     }
-    const isCeremonialFirstPage = text === FIRST_PAGE_DEFAULT_TEXT;
-    const targetPageId = book.pages[Math.max(0, Math.min(currentPageIndex, book.pages.length - 1))]?.id;
-    const targetPageIndex = currentPageIndex;
 
-    // ── 第一段：立即落盘原文（narration 暂空），让用户看到「这一页被保存了下来」──
+    const targetPage = book.pages[Math.max(0, Math.min(currentPageIndex, book.pages.length - 1))];
+    const targetPageId = targetPage?.id;
+    const targetPageIndex = currentPageIndex;
+    const isFirstParagraph = targetPage ? targetPage.paragraphs.length === 0 : true;
+
+    // 构建对话历史(多轮 reflect 上下文)
+    const conversationHistory: { role: 'user' | 'assistant'; content: string }[] = [];
+    if (targetPage) {
+      for (const p of targetPage.paragraphs) {
+        conversationHistory.push({ role: 'user', content: p.text });
+        if (p.trace) {
+          conversationHistory.push({ role: 'assistant', content: p.trace });
+        }
+      }
+    }
+
+    // ── 第一阶段：立即落盘原文 ──
     setSubmitPhase('saving');
     const { paragraph } = appendParagraphToCurrentPage({
       title: '',
@@ -557,24 +652,24 @@ export default function V2HomePage() {
       allow_shopkeeper_review: false,
       consent_level: 1,
     });
-    // 让「已保存」呼吸约一秒，再进入生成
     await new Promise((resolve) => window.setTimeout(resolve, 1000));
 
-    // ── 第二段：生成回应（仪式首页文案跳过 API；其余走 organize）──
+    // ── 第二阶段：生成 V5 Response ──
     setSubmitPhase('generating');
     let title = '';
     let narration = '';
     let persona;
     let artifact;
-    if (isCeremonialFirstPage) {
-      title = '第一页';
-      narration = FIRST_PAGE_CEREMONIAL_NARRATION;
-    } else {
+    {
       try {
         const response = await fetch('/api/v2/fragments/organize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ original_content: text, persona_preferences: personaPreferences }),
+          body: JSON.stringify({
+            original_content: text,
+            persona_preferences: personaPreferences,
+            conversation_history: conversationHistory,
+          }),
         });
         if (response.ok) {
           const data = await response.json();
@@ -590,16 +685,16 @@ export default function V2HomePage() {
       }
     }
 
-    // ── 揭晓：把回应写回刚才那段，然后封页（停留当前页，不跳转）──
-    if (targetPageId) {
-      setParagraphResponse(targetPageId, paragraph.id, { narration, persona, artifact });
+    // ── 第三阶段：揭晓回应 ──
+    try {
+      if (targetPageId) {
+        setParagraphResponse(targetPageId, paragraph.id, { narration, persona, artifact });
+      }
+    } catch {
+      // 安全兜底:即使 setParagraphResponse 意外抛错也不卡死 submitPhase
     }
-    const result = finalizeCurrentPage({ title, stayOnCurrentPage: true });
-    // 停留模式下 currentPageIndex 不变，但确保它指向刚写完的那一页（防御性）
-    if (targetPageIndex !== currentPageIndex) setCurrentPageIndex(targetPageIndex);
-    if (result) {
-      track('v4_page_turned', { closed_page_number: result.closedPage.page_number, next_page_number: result.nextPage.page_number });
-    }
+
+    // V5 Living Page: 不再自动封页。用户通过「合上这一页」控制何时休息。
     setSubmitPhase('idle');
   };
   const handleRegenerateResponse = async (pageId: string, paragraphId: string, originalText: string, currentPersona: string) => {
@@ -628,8 +723,48 @@ export default function V2HomePage() {
     }
     setRegeneratingPageId(null);
   };
-  const handlePrev = () => { if (submitPhase !== 'idle') return; if (currentPageIndex <= 0) return; setCurrentPageIndex(currentPageIndex - 1); };
-  const handleNext = () => { if (submitPhase !== 'idle') return; if (currentPageIndex >= book.pages.length - 1) return; setCurrentPageIndex(currentPageIndex + 1); };
+  const handleRestPage = (pageId: string) => {
+    setPageStatus(pageId, 'resting');
+    // 合上后确保有空白下一页，留在当前页
+    const state = useFragmentStore.getState();
+    const pages = state.book.pages;
+    const lastPage = pages[pages.length - 1];
+    if (lastPage && lastPage.paragraphs.length > 0 && lastPage.closed_at) {
+      const nextPage = createEmptyPage(pages.length);
+      useFragmentStore.setState({ book: { ...state.book, pages: [...pages, nextPage] } });
+    }
+  };
+  const handleReopenPage = (pageId: string) => {
+    if (submitPhase !== 'idle') return;
+    setPageStatus(pageId, 'thinking');
+  };
+  const handlePrev = () => {
+    const state = useFragmentStore.getState();
+    if (state.currentPageIndex <= 0) return;
+    setCurrentPageIndex(state.currentPageIndex - 1);
+  };
+  const handleNext = () => {
+    const state = useFragmentStore.getState();
+    const page = state.book.pages[state.currentPageIndex];
+    if (state.currentPageIndex >= state.book.pages.length - 1) {
+      // 在最后一页，有内容则 rest 并创建下一页；空白页什么也不做
+      if (page && page.paragraphs.length > 0 && page.status === 'thinking') {
+        setPageStatus(page.id, 'resting');
+        const updatedState = useFragmentStore.getState();
+        const pages = updatedState.book.pages;
+        const lastPage = pages[pages.length - 1];
+        if (lastPage && lastPage.paragraphs.length > 0 && lastPage.closed_at) {
+          const nextPage = createEmptyPage(pages.length);
+          useFragmentStore.setState({
+            book: { ...updatedState.book, pages: [...pages, nextPage] },
+            currentPageIndex: pages.length,
+          });
+        }
+      }
+      return;
+    }
+    setCurrentPageIndex(state.currentPageIndex + 1);
+  };
   const { share: sharePage, sharing: isSharingPage, pendingPage: pendingSharePage } = useShareCard();
   useEffect(() => { if (!hasHydrated || !hasContent || coverDismissed) return; const timer = window.setTimeout(() => handleOpenBook(), 2000); return () => window.clearTimeout(timer); }, [hasHydrated, hasContent, coverDismissed]);
   const expandedPage = expandedPageId ? book.pages.find((page) => page.id === expandedPageId) || null : null;
@@ -709,21 +844,20 @@ export default function V2HomePage() {
               </div>
               <AnimatePresence mode="wait">
                 <motion.div key={currentPage.id} initial={{ opacity: 0, x: 24, y: 8, scale: 0.985 }} animate={{ opacity: shouldShowCover ? 0.12 : 1, x: 0, y: 0, scale: shouldShowCover ? 0.992 : 1 }} exit={{ opacity: 0, x: -20, y: 6, scale: 0.988 }} transition={{ duration: 0.62, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0">
-                  <PageCard page={currentPage} promptText={activeVoiceText} isBookVoice={isBookVoice} isLatestPage={currentPageIndex === book.pages.length - 1} submitPhase={submitPhase} finePointer={finePointer} onAddParagraph={handleAddParagraph} onExpand={() => setExpandedPageId(currentPage.id)} onPersonaPreference={adjustPersonaPreference} onRegenerateResponse={handleRegenerateResponse} isRegenerating={regeneratingPageId === currentPage.id} />
+                  <PageCard page={currentPage} promptText={activeVoiceText} isBookVoice={isBookVoice} isLatestPage={currentPageIndex === book.pages.length - 1} submitPhase={submitPhase} finePointer={finePointer} onAddParagraph={handleAddParagraph} onExpand={() => setExpandedPageId(currentPage.id)} onPersonaPreference={adjustPersonaPreference} onRegenerateResponse={handleRegenerateResponse} isRegenerating={regeneratingPageId === currentPage.id} onRestPage={handleRestPage} onReopenPage={handleReopenPage} />
                 </motion.div>
               </AnimatePresence>
+
             </div>
           </div>
 
-          {/* Right arrow */}
+          {/* Right arrow — 始终可见。如果当前页是 thinking 且有内容,点击会触发 finalize(rest → new page);否则正常翻页 */}
           <div className="flex w-11 shrink-0 items-center justify-center">
-            {currentPageIndex < book.pages.length - 1 ? (
-              <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full text-stone-500/50 transition-all duration-300 hover:scale-110 hover:bg-stone-200/8 hover:text-stone-200 cursor-pointer" onClick={handleNext} aria-label="下一页">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="h-5 w-5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            ) : null}
+            <button type="button" className={`flex h-9 w-9 items-center justify-center rounded-full text-stone-500/50 transition-all duration-300 hover:scale-110 hover:bg-stone-200/8 hover:text-stone-200 cursor-pointer ${currentPage.paragraphs.length === 0 && currentPageIndex >= book.pages.length - 1 ? 'pointer-events-none opacity-0' : ''}`} onClick={handleNext} aria-label="下一页">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" className="h-5 w-5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>

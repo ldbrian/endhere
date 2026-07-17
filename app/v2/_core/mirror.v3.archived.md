@@ -1,4 +1,23 @@
-# Mirror 研究文档
+# Mirror 研究文档（V3 Legacy / ARCHIVED）
+
+> ⚠️ **STATUS: ARCHIVED — 本文档建立在一个已被推翻的世界观上。**
+>
+> 本文档将 Mirror 定义为"分析引擎"——基于 Reality 坐标在时间窗内发现 Echo、
+> 陈列重复、问「你有没有发现?」。
+>
+> 该模型在 ADR-002 中被**重定义**:Mirror 不再是分析引擎,
+> 而是 **a memory layer of a living book**。
+>
+> 本档案保留只为可追溯。任何据此实现的内容(关键词规则 PATTERN_RULES、
+> `/v2/api/mirror/analyze` 路由、`MirrorTopicPanel`)都属于 V3 残留,
+> 应依据 `mirror.v4.md` 重新评估。
+>
+> **新世界观见**: `mirror.v4.md`
+> **决策记录见**: `adr/ADR-002-mirror-redefinition.md`
+
+---
+
+# 镜面研究文档（原内容）
 
 > Status: 研究阶段，非实现。
 > 配套：`constitution.md` 第四层（Mirror）+ 第一公理。

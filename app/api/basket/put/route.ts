@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
+import { BLOCKED_PATTERNS, createRateLimiter } from '../../../lib/inputGuard';
 
 export const runtime = 'edge';
 
@@ -18,42 +19,16 @@ const ALLOWED_SHELLS = [
   '一张纸条', '一副耳机', '一双鞋', '一首歌',
 ];
 
-// 第二层：本地敏感词快速拦截，命中直接 403 不走 AI
-const BLOCKED_PATTERNS = [
-  // 自杀/自伤
-  /自杀|自残|去死|想死|死[一了]死|割腕|轻生|跳楼|跳桥|上吊|烧炭/,
-  // 严重谩骂
-  /操你|妈的|fuck|shit|你妈|傻[逼屄]|[滚去]你的|废物.*死/i,
-  // 色情
-  /做爱|性交|插入|射精|勃起|阴茎|阴道|口交|肛交/,
-  // 政治敏感（基础）
-  /天安门事件|六四|法轮功|台独|藏独|xinjiang.*camp/i,
-  // 广告/引流
-  /加我微信|扫码|私信|vx:|wx:|qq群|telegram|discord.*邀请/i,
-  // 联系方式
-  /1[3-9]\d{9}|(\d{3,4}[-\s]?\d{7,8})/,
-];
+// 第二层：本地敏感词快速拦截 —— 模式抽到 lib/inputGuard.ts，本路由透过 BLOCKED_PATTERNS 复用
 
-// IP 频率限制：同一 IP 每小时最多 3 次
-const ipRateMap = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = ipRateMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    ipRateMap.set(ip, { count: 1, resetAt: now + 60 * 60 * 1000 });
-    return true;
-  }
-  if (entry.count >= 3) return false;
-  entry.count++;
-  return true;
-}
+// IP 频率限制：同一 IP 每小时最多 3 次（沿用原配置）
+const ipRateMap = createRateLimiter({ max: 3, windowMs: 60 * 60 * 1000 });
 
 export async function POST(req: Request) {
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
 
-    if (!checkRateLimit(ip)) {
+    if (!ipRateMap.check(ip)) {
       return new Response(JSON.stringify({
         status: 'reject',
         message: '今天留下的东西太多了，明天再来吧。'

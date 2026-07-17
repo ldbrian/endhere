@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { realityValidator } from './RealityValidator';
 import type { RealityValidationResult, ValidatedExtractedEntity } from './types';
+import { checkInput } from '../../../lib/inputGuard';
 
 export type RealityExtractorProvider = 'openai' | 'anthropic';
 
@@ -70,6 +71,17 @@ export class RealityExtractor {
     const provider = providerFromOptions(options);
 
     if (!text) return { ok: true, provider, entities: [], raw: [] };
+
+    // 输入守门：长度上限 2000、命中敏感词直接返回空（不污染 LLM、不烧 token）
+    const guard = checkInput(text, { min: 1, max: 2000 });
+    if (!guard.ok) {
+      return {
+        ok: false,
+        provider,
+        reason: `REALITY_EXTRACTOR_INPUT_${guard.reason}`,
+        raw: null,
+      };
+    }
 
     try {
       const rawText = provider === 'anthropic'

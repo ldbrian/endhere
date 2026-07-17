@@ -42,10 +42,13 @@ export type PageBookmark = {
   created_at: string;
 };
 
+export type PageStatus = 'opening' | 'thinking' | 'resting' | 'archived';
+
 export type BookPage = {
   id: string;
   page_number: string;
   title: string;
+  status: PageStatus;
   paragraphs: Paragraph[];
   traces: PageTrace[];
   bookmarks: PageBookmark[];
@@ -76,7 +79,7 @@ export type LegacyPage = {
   closed_at: string | null;
 };
 
-const PAGE_PARAGRAPH_LIMIT = 1;
+const PAGE_PARAGRAPH_LIMIT = 5;
 const PAGE_CHAR_LIMIT = 600;
 
 function createPageId() {
@@ -91,12 +94,13 @@ function formatPageNumber(value: number) {
   return String(value).padStart(3, '0');
 }
 
-function createEmptyPage(index: number) {
+export function createEmptyPage(index: number) {
   const now = new Date().toISOString();
   return {
     id: createPageId(),
     page_number: formatPageNumber(index + 1),
     title: '',
+    status: 'opening' as PageStatus,
     paragraphs: [],
     traces: [],
     bookmarks: [],
@@ -192,6 +196,7 @@ interface BookState {
   mergeShopkeeperComments: (comments: Record<string, string | null>) => void;
   appendParagraphToCurrentPage: (draft: FragmentDraft) => { page: BookPage; paragraph: Paragraph; fragment: Fragment };
   finalizeCurrentPage: (options?: { title?: string; stayOnCurrentPage?: boolean }) => { closedPage: BookPage; nextPage: BookPage } | null;
+  setPageStatus: (pageId: string, status: PageStatus) => void;
   setParagraphResponse: (pageId: string, paragraphId: string, response: { narration?: string; persona?: FragmentPersonaId; artifact?: FragmentArtifact }) => void;
   applyPageTitle: (pageId: string, title: string) => void;
   adjustPersonaPreference: (persona: string, delta: 1 | -1) => void;
@@ -255,8 +260,10 @@ export const useFragmentStore = create<BookState>()(
             const pages = [...state.book.pages];
             const pageIndex = Math.max(0, Math.min(state.currentPageIndex, pages.length - 1));
             const currentPage = pages[pageIndex];
+            // 写入内容时自动推进到 thinking 状态
             const nextPage: BookPage = {
               ...currentPage,
+              status: 'thinking',
               paragraphs: [...currentPage.paragraphs, paragraph],
               traces: paragraph.trace
                 ? [
@@ -300,6 +307,7 @@ export const useFragmentStore = create<BookState>()(
           const closedPage: BookPage = {
             ...currentPage,
             title: providedTitle || currentPage.title,
+            status: 'resting',
             closed_at: now,
           };
           const nextPage = createEmptyPage(state.book.pages.length);
@@ -329,6 +337,24 @@ export const useFragmentStore = create<BookState>()(
           });
 
           return { closedPage, nextPage };
+        },
+        setPageStatus: (pageId, status) => {
+          set((state) => {
+            const pages = state.book.pages.map((page) => {
+              if (page.id !== pageId) return page;
+              const now = new Date().toISOString();
+              return {
+                ...page,
+                status,
+                closed_at: status === 'resting' || status === 'archived' ? now : null,
+              };
+            });
+            const nextBook: Book = { ...state.book, pages };
+            return {
+              book: nextBook,
+              localFragments: buildLegacyFragments(nextBook),
+            };
+          });
         },
         setParagraphResponse: (pageId, paragraphId, response) => {
           set((state) => {
@@ -371,7 +397,9 @@ export const useFragmentStore = create<BookState>()(
           const state = get();
           const pages = state.book.pages;
           const lastPage = pages[pages.length - 1];
-          if (lastPage && lastPage.paragraphs.length > 0) {
+          // 只有最后一页已关闭(closed_at !== null)时才追加空白页
+          // 多轮 reflect 期间页保持打开,不被空白页抢位
+          if (lastPage && lastPage.paragraphs.length > 0 && lastPage.closed_at) {
             const nextPage = createEmptyPage(pages.length);
             set({
               book: { ...state.book, pages: [...pages, nextPage] },

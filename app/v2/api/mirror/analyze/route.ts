@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 
 export const runtime = 'edge';
 
-export const MIRROR_SYSTEM_PROMPT = '你是一个冰冷、客观的数据观察引擎。你的任务是从用户碎片中提取事实、归并主题，并发现重复出现的表达模式。绝对禁止生成心理学诊断、人格判断、人生建议、安慰或总结陈词。只输出 JSON。Pattern 优先级高于 Topic。';
+export const MIRROR_SYSTEM_PROMPT = '你是一个模式识别引擎。从用户碎片中提取事实、归并重复出现的主题和表达模式。只输出 JSON。绝对禁止：心理学诊断、人格判断、人生建议、安慰、总结陈词、对用户下定义。禁止输出任何"你是一个…的人""你总是…""你本质…"类表述。只陈述事实：什么话题出现了多少次、什么情绪重复了多少次。Pattern 优先级高于 Topic。';
 
 const client = new OpenAI({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: process.env.DEEPSEEK_BASE_URL });
 
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   if (!process.env.DEEPSEEK_API_KEY || !process.env.DEEPSEEK_BASE_URL) return Response.json(fallbackAnalysis(current, previous));
 
   const schema = '{"summary":{"top_patterns":[{"label":"","count":0}],"top_life_areas":[{"label":"","count":0}]},"patterns":[{"id":"","label":"","current_count":0,"previous_count":0,"dominant_sentiment":"","evidence_ids":[""],"latest_fragment_id":""}],"life_areas":[{"id":"","label":"","current_count":0,"previous_count":0,"dominant_sentiment":"","evidence_ids":[""],"latest_fragment_id":""}],"words":[{"label":"","count":0}]}';
-  const instruction = '请分析这些 End Here 用户碎片。Topic 不等于 Insight。必须同时分析：1 用户在谈论什么 life_areas；2 用户在重复什么表达/情绪/行为模式 patterns。Pattern 优先级高于 life_areas。patterns 可以是愤怒、抱怨、疲惫、焦虑、期待、兴奋、无奈、逃避、拖延、比较、自责等，但必须来自原文证据。禁止建议、诊断、安慰、解释意义。必须做语义归并：垃圾邻居、傻逼司机、派单系统脑残应合并为愤怒或抱怨，而不是拆成邻居/司机/系统。收入差、房贷、花钱、孩子补课应合并为金钱焦虑。每个 pattern 和 life_area 至少需要 2 条 evidence_ids；孤立碎片不要进入列表。label 最多 6 个汉字。patterns 最多 5 个，life_areas 最多 5 个，words 最多 6 个。count 表示包含该模式/领域的碎片条数。只输出 JSON，结构为：' + schema;
+  const instruction = '请分析这些碎片。只陈述事实，不下任何定义。Topic 不等于 Insight。必须同时分析：1 用户在谈论什么 life_areas；2 用户在重复什么表达/情绪/行为模式 patterns。Pattern 优先级高于 life_areas。patterns 可以是愤怒、抱怨、疲惫、焦虑、期待、兴奋、无奈、逃避、拖延、比较、自责等，但必须来自原文证据。禁止：建议、诊断、安慰、解释意义、下定义、描述用户"是什么样的人"。禁止输出"你是一个…的人""你总是…""你本质…""你内心深处…"等句式。必须做语义归并：垃圾邻居、傻逼司机、派单系统脑残应合并为愤怒或抱怨，而不是拆成邻居/司机/系统。收入差、房贷、花钱、孩子补课应合并为金钱焦虑。每个 pattern 和 life_area 至少需要 2 条 evidence_ids；孤立碎片不要进入列表。label 最多 6 个汉字。patterns 最多 5 个，life_areas 最多 5 个，words 最多 6 个。count 表示包含该模式/领域的碎片条数。只输出 JSON，结构为：' + schema;
 
   try {
     const response = await client.chat.completions.create({

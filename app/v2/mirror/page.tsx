@@ -1,41 +1,39 @@
 ﻿'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { track } from '../_core/analytics';
 import { useFragmentStore } from '../_core/storage';
-import { MirrorTopicPanel } from '../_core/MirrorTopicPanel';
+
+type PatternRow = {
+  id: string;
+  label: string;
+  current_count: number;
+  previous_count: number;
+  dominant_sentiment: string;
+  evidence_ids: string[];
+  latest_fragment_id: string | null;
+};
+
+type LifeAreaRow = PatternRow;
+
+type MirrorAnalysis = {
+  source: string;
+  summary: {
+    top_patterns: { label: string; count: number }[];
+    top_life_areas: { label: string; count: number }[];
+  };
+  patterns: PatternRow[];
+  life_areas: LifeAreaRow[];
+  words: { label: string; count: number }[];
+};
 
 const BOOKMARK_STAGES = [
-  {
-    min: 0,
-    max: 2,
-    title: '第一次照见',
-    body: '这本书还只认出一个很淡的轮廓。',
-    hint: '页数还少，线索也少，所以现在只能看见一点模糊的样子。',
-  },
-  {
-    min: 3,
-    max: 5,
-    title: '第一次照见',
-    body: '这几页里，有些东西开始反复出现了。',
-    hint: '书还没法把它说清，但已经能隐约照出一点你这段时间的样子。',
-  },
-  {
-    min: 6,
-    max: 14,
-    title: '这一段时间的样子',
-    body: '线索多了一些，轮廓也开始更稳一点。',
-    hint: '其中有些线索会留下来，有些会被后面的页修正掉。',
-  },
-  {
-    min: 15,
-    max: Infinity,
-    title: '这一段时间的样子',
-    body: '这本书现在能更忠实地照出：这一段时间，你留在这里的样子。',
-    hint: '它不是“真正的你”。它只是这一段时间，被这些书页留下来的你。',
-  },
+  { min: 0, max: 2, title: '第一次照见' },
+  { min: 3, max: 5, title: '第一次照见' },
+  { min: 6, max: 14, title: '这一段时间的样子' },
+  { min: 15, max: Infinity, title: '这一段时间的样子' },
 ] as const;
 
 function getBookmarkStage(completedPages: number) {
@@ -86,8 +84,8 @@ function BookmarkProgressBar({ completedPages }: { completedPages: number }) {
   return (
     <div className="mx-auto w-full max-w-[280px]">
       <div className="mb-2 flex items-center justify-between text-[10px] tracking-[0.14em] text-stone-500/80">
-        <span>线索正在累积</span>
-        <span>{completedPages} / {target}</span>
+        <span>已记录</span>
+        <span>{completedPages} 页</span>
       </div>
       <div className="h-[8px] overflow-hidden rounded-full bg-stone-800/55">
         <motion.div
@@ -124,12 +122,64 @@ function EvidenceSlips({ items }: { items: { id: string; pageNumber: string; lab
   );
 }
 
+function PatternList({
+  patterns,
+  lifeAreas,
+}: {
+  patterns: PatternRow[];
+  lifeAreas: LifeAreaRow[];
+}) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const all = [
+    ...patterns.map((p) => ({ ...p, _kind: 'pattern' as const })),
+    ...lifeAreas.map((l) => ({ ...l, _kind: 'life_area' as const })),
+  ].sort((a, b) => b.current_count - a.current_count);
+  const active = all.find((item) => item.id === activeId) || all[0] || null;
+
+  if (all.length === 0) return null;
+
+  return (
+    <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="space-y-3 border-b border-stone-800/40 pb-6">
+        {all.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => {
+              setActiveId(item.id);
+              track('v4_mirror_group_tap', { label: item.label });
+            }}
+            className={`w-full border-b pb-3 text-left transition-colors duration-300 ${
+              active?.id === item.id ? 'border-[#8b6b45]/40 text-stone-100' : 'border-stone-800/30 text-stone-500 hover:text-stone-300'
+            }`}
+          >
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="text-[15px] tracking-[0.05em]">{item.label}</span>
+              <span className="text-[11px] tracking-[0.08em] text-stone-500">{item.current_count} 处</span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {active ? (
+        <div className="pt-4">
+          <p className="text-[11px] tracking-[0.16em] text-stone-500">{active._kind === 'pattern' ? '重复模式' : '生活领域'} · {active.dominant_sentiment}</p>
+          <p className="mt-2 text-[12px] leading-7 tracking-[0.08em] text-stone-500">出现 {active.current_count} 次</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function V2MirrorPage() {
   const { book, markMirrorViewed, _hasHydrated: hasHydrated } = useFragmentStore();
+  const [analysis, setAnalysis] = useState<MirrorAnalysis | null>(null);
+  const [loading, setLoading] = useState(true);
+
   const completedPages = useMemo(() => book.pages.filter((page) => page.paragraphs.length > 0), [book.pages]);
   const completedPageCount = completedPages.length;
   const stage = useMemo(() => getBookmarkStage(completedPageCount), [completedPageCount]);
-  const isBookmarkReady = completedPageCount >= 15;
+  const isBookmarkReady = completedPageCount > 0;
   const evidenceCards = useMemo(() => buildEvidenceCards(book.pages), [book.pages]);
 
   useEffect(() => {
@@ -138,6 +188,29 @@ export default function V2MirrorPage() {
       track('v4_mirror_viewed', { completedPageCount });
     }
   }, [hasHydrated, completedPageCount, markMirrorViewed]);
+
+  useEffect(() => {
+    if (!hasHydrated || completedPages.length === 0) {
+      setLoading(false);
+      return;
+    }
+    const fragments = completedPages.map((page) => ({
+      id: page.id,
+      text: page.paragraphs.map((p) => p.text).filter(Boolean).join('\n'),
+      title: page.title || undefined,
+      createdAt: page.opened_at || undefined,
+    }));
+    setLoading(true);
+    fetch('/v2/api/mirror/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_fragments: fragments, previous_fragments: [] }),
+    })
+      .then((res) => res.json())
+      .then((data) => setAnalysis(data))
+      .catch(() => setAnalysis(null))
+      .finally(() => setLoading(false));
+  }, [hasHydrated, completedPages]);
 
   if (!hasHydrated) {
     return (
@@ -182,17 +255,37 @@ export default function V2MirrorPage() {
               <div className="border border-[#8b6b45]/18 bg-[linear-gradient(180deg,rgba(34,27,23,0.92),rgba(21,17,15,0.96))] px-6 py-8 shadow-[0_24px_64px_rgba(0,0,0,0.24)]">
                 <BookmarkProgressBar completedPages={completedPageCount} />
 
-                <div className="mt-8 text-center">
-                  <p className="text-[18px] font-light tracking-[0.08em] text-stone-200">{stage.body}</p>
-                  <p className="mt-4 text-[12px] leading-[1.9] tracking-[0.06em] text-stone-500/80">{stage.hint}</p>
-                </div>
+                {loading ? (
+                  <div className="mt-8 text-center">
+                    <p className="text-[18px] font-light tracking-[0.08em] text-stone-200">正在分析…</p>
+                  </div>
+                ) : analysis && analysis.patterns.length > 0 ? (
+                  <div className="mt-8 text-center space-y-4">
+                    <p className="text-[18px] font-light tracking-[0.08em] text-stone-200">
+                      重复最多的模式：
+                      {analysis.summary.top_patterns.slice(0, 3).map((p, i) => (
+                        <span key={p.label}>
+                          {i > 0 && '、'}{p.label}（{p.count}次）
+                        </span>
+                      ))}
+                    </p>
+                    <p className="text-[12px] leading-[1.9] tracking-[0.06em] text-stone-500/80">
+                      全部 {analysis.patterns.length + analysis.life_areas.length} 个模式
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-8 text-center">
+                    <p className="text-[18px] font-light tracking-[0.08em] text-stone-200">已记录 {completedPageCount} 页，尚未形成足够多的重复模式。</p>
+                    <p className="mt-4 text-[12px] leading-[1.9] tracking-[0.06em] text-stone-500/80">继续记录，当某个话题出现 2 次以上时会在这里显示。</p>
+                  </div>
+                )}
 
                 <EvidenceSlips items={evidenceCards} />
               </div>
 
-              {isBookmarkReady ? (
+              {isBookmarkReady && analysis && (analysis.patterns.length > 0 || analysis.life_areas.length > 0) ? (
                 <div className="mt-8 min-h-0 flex-1 overflow-hidden border-t border-stone-800/40 pt-6">
-                  <MirrorTopicPanel embedded />
+                  <PatternList patterns={analysis.patterns} lifeAreas={analysis.life_areas} />
                 </div>
               ) : null}
             </motion.div>
