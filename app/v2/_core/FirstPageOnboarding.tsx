@@ -26,7 +26,7 @@ export function FirstPageOnboarding({ onPick }: Props) {
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         className="text-center"
       >
-        <h1 className="font-serif text-[24px] font-light leading-[1.5] tracking-[0.04em] text-stone-100">
+        <h1 className="font-serif text-[20px] font-light leading-[1.5] tracking-[0.04em] text-stone-100">
           这是你的第一页，
           <br />
           今天想从哪里开始？

@@ -498,7 +498,7 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
                       onKeyDown={handleKeyDown}
                       onFocus={() => setIsFocused(true)}
                       onBlur={() => setIsFocused(false)}
-                      placeholder={page.paragraphs.length > 0 ? '再写一点…' : isFirstBlankPage ? '' : BLANK_PAGE_INVITATION}
+                      placeholder={page.paragraphs.length > 0 ? '后来呢？结果怎么样了？' : isFirstBlankPage ? '' : BLANK_PAGE_INVITATION}
                       className={`min-h-[80px] w-full resize-none bg-transparent text-[14px] font-light leading-[2] tracking-[0.04em] outline-none caret-stone-300 text-stone-300 placeholder:text-stone-600/35`}
                       rows={4}
                     />
@@ -560,7 +560,7 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
                   }}
                   className="text-[11px] font-light tracking-[0.14em] text-stone-500/50 transition-colors hover:text-stone-300/70 cursor-pointer"
                 >
-                  继续写这一页 →
+                  后来怎么样了？→
                 </button>
               </div>
             ) : null}
