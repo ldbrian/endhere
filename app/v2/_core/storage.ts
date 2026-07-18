@@ -463,7 +463,7 @@ export const useFragmentStore = create<BookState>()(
     {
       name: 'endhere_v2_storage',
       storage: createJSONStorage(() => localStorage),
-      version: 4,
+      version: 5,
       migrate: (persistedState: unknown) => {
         const state = (persistedState || {}) as Partial<BookState> & { localFragments?: Fragment[]; ownerId?: string; book?: Book; currentPageIndex?: number; legacyArchive?: LegacyPage[] };
         const ownerId = state.ownerId || createOwnerId();
