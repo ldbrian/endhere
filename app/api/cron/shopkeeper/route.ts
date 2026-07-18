@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { NextResponse } from 'next/server';
 import { supabase } from '../../../lib/supabase';
-import { createFragmentId } from '../../../v2/_core/fragments';
+import { createFragmentId } from '../../../book/_core/fragments';
 
 // 强制 Edge Runtime 以获得更快响应，或保留 Node 侧重稳定性
 export const runtime = 'edge';

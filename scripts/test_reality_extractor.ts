@@ -1,4 +1,4 @@
-import { realityExtractor } from '../app/v2/_core/reality/RealityExtractor';
+import { realityExtractor } from '../app/book/_core/reality/RealityExtractor';
 
 const sampleEntities = [
   { kind: 'TIME', value: '夜里', evidence: '夜里 11 点', confidence: 0.92 },
