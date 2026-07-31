@@ -147,7 +147,7 @@ function PatternList({
             type="button"
             onClick={() => {
               setActiveId(item.id);
-              track('v5_mirror_group_tap', { label: item.label });
+              track('v5_mirror_pattern_tap', { label: item.label });
             }}
             className={`w-full border-b pb-3 text-left transition-colors duration-300 ${
               active?.id === item.id ? 'border-[#8b6b45]/40 text-stone-100' : 'border-stone-800/30 text-stone-500 hover:text-stone-300'
@@ -185,7 +185,7 @@ export default function MirrorPage() {
   useEffect(() => {
     if (hasHydrated && completedPageCount > 0) {
       markMirrorViewed();
-      track('v5_mirror_viewed', { completedPageCount });
+      track('v5_mirror_viewed', { completed_pages: completedPageCount });
     }
   }, [hasHydrated, completedPageCount, markMirrorViewed]);
 
@@ -232,7 +232,7 @@ export default function MirrorPage() {
             <Link
               href="/book"
               className="border-b border-dashed border-stone-700/60 pb-0.5 text-[11px] tracking-[0.18em] text-stone-500 transition-colors duration-500 hover:border-stone-400 hover:text-stone-200"
-              onClick={() => track('v5_mirror_back_to_book_tap')}
+              onClick={() => track('v5_mirror_return')}
             >
               ← 回到书里
             </Link>

@@ -19,9 +19,9 @@ export type QuestionOption = {
 export const FIRST_PAGE_QUESTION_OPTIONS: QuestionOption[] = [
   {
     id: 'vexing_problem',
-    label: '有个问题困扰着我',
-    openingA: '慢慢告诉我，是什么在困扰你？',
-    openingB: '它从什么时候开始一直留在你心里？',
+    label: '最近有什么事情让你想不明白？',
+    openingA: '慢慢告诉我，是什么让你想不明白？',
+    openingB: '它从什么时候开始，一直留在你脑海里？',
   },
 ];
 

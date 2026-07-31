@@ -59,9 +59,11 @@ function clampText(value: string, maxLength = 220) {
 }
 
 export default function FeaturedAdminPage() {
-  const [token, setToken] = useState(getSavedAdminToken);
-  const [draftToken, setDraftToken] = useState(getSavedAdminToken);
+  const [ready, setReady] = useState(false);
+  const [token, setToken] = useState('');
+  const [draftToken, setDraftToken] = useState('');
   const [status, setStatus] = useState<FeaturedStatus>('all');
+  useEffect(() => { setToken(getSavedAdminToken()); setDraftToken(getSavedAdminToken()); setReady(true); }, []);
   const [query, setQuery] = useState('');
   const [fragments, setFragments] = useState<AdminFragment[]>([]);
   const [featuredCount, setFeaturedCount] = useState(0);
@@ -178,6 +180,8 @@ export default function FeaturedAdminPage() {
       setSavingId(null);
     }
   };
+
+  if (!ready) return <main className="min-h-dvh bg-[#1B1614]" />;
 
   return (
     <main className="min-h-dvh bg-[#1B1614] text-stone-100 selection:bg-stone-700 selection:text-stone-50">

@@ -73,11 +73,23 @@ function matchesRoute(row: VisitLogRow, route: string) {
 }
 
 function summarize(rows: VisitLogRow[]) {
+  const record = (name: string) => rows.filter((r) => r.event_name === name).length;
+  const avgTime = rows
+    .filter((r) => r.event_name === 'v5_response_delivered' && r.payload?.response_time_ms)
+    .reduce((sum, r, _, arr) => sum + (r.payload?.response_time_ms as number) / arr.length, 0);
   return {
-    homeViews: rows.filter((row) => row.event_name.startsWith('v5_')).length,
-    leaveFragmentTaps: rows.filter((row) => row.event_name === 'v5_mirror_back_to_book_tap').length,
-    fragmentNewViews: rows.filter((row) => row.event_name === 'v5_page_created').length,
-    privateFragmentSaves: rows.filter((row) => row.event_name === 'v5_book_page_saved').length,
+    totalEvents: rows.filter((r) => r.event_name.startsWith('v5_')).length,
+    paragraphsWritten: record('v5_paragraph_written'),
+    pagesRested: record('v5_page_rested'),
+    pagesReopened: record('v5_page_reopened'),
+    responsesDelivered: record('v5_response_delivered'),
+    responsesFallback: record('v5_response_fallback'),
+    mirrorViewed: record('v5_mirror_viewed'),
+    mirrorPatternTap: record('v5_mirror_pattern_tap'),
+    onboardingPicks: record('v5_onboarding_pick'),
+    voiceShown: record('v5_voice_shown'),
+    voiceFollowed: record('v5_voice_followed'),
+    avgResponseTimeMs: Math.round(avgTime),
   };
 }
 

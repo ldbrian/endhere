@@ -457,6 +457,7 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
                   {showOnboarding ? (
                     <FirstPageOnboarding
                       onPick={(opt) => {
+                        track('v5_onboarding_pick', { option_id: opt.id });
                         setPickedOpening({ a: opt.openingA, b: opt.openingB });
                         if (opt.id === FREEWRITE_OPTION_ID) {
                           window.setTimeout(() => inputRef.current?.focus(), 100);
@@ -597,7 +598,7 @@ export default function BookHomePage() {
   // V5 Addendum: 非 001 页不再展示每日 Window 观察句,统一为弱化双轨提问
   const activeVoiceText = currentBookVoice?.text ?? BOOK_DUAL_TRACK_PROMPT;
   // Book Voice 展示埋点：每次摇到 voice 就记一次 shown。
-  useEffect(() => { if (currentBookVoice) track('v5_book_voice_shown', { voice_id: currentBookVoice.id }); }, [currentBookVoice]);
+  useEffect(() => { if (currentBookVoice) track('v5_voice_shown', { voice_id: currentBookVoice.id }); }, [currentBookVoice]);
   const hasContent = useMemo(() => book.pages.some((page) => page.paragraphs.length > 0), [book.pages]);
   const shouldShowCover = hasHydrated && !coverDismissed;
   // Mirror bookmark state
@@ -623,7 +624,7 @@ export default function BookHomePage() {
   const handleAddParagraph = async (text: string) => {
     if (submitPhase !== 'idle') return;
     if (currentBookVoice) {
-      track('v5_book_voice_followed_by_write', { voice_id: currentBookVoice.id });
+      track('v5_voice_followed', { voice_id: currentBookVoice.id });
     }
 
     const targetPage = book.pages[Math.max(0, Math.min(currentPageIndex, book.pages.length - 1))];
@@ -652,10 +653,12 @@ export default function BookHomePage() {
       allow_shopkeeper_review: false,
       consent_level: 1,
     });
+    track('v5_paragraph_written', { char_count: text.length, page_number: targetPage?.page_number, is_multi_round: !isFirstParagraph });
     await new Promise((resolve) => window.setTimeout(resolve, 1000));
 
     // ── 第二阶段：生成 V5 Response ──
     setSubmitPhase('generating');
+    const t0 = performance.now();
     let title = '';
     let narration = '';
     let persona;
@@ -679,9 +682,14 @@ export default function BookHomePage() {
           if (data.artifact && typeof data.artifact.emoji === 'string' && typeof data.artifact.name === 'string') {
             artifact = { emoji: String(data.artifact.emoji).trim(), name: String(data.artifact.name).trim() };
           }
+          track('v5_response_delivered', { response_time_ms: Math.round(performance.now() - t0), persona });
+        } else if (response.status === 429) {
+          track('v5_response_fallback', { reason: 'rate_limit' });
+        } else {
+          track('v5_response_fallback', { reason: 'http_' + response.status });
         }
       } catch {
-        // 网络失败：留空 response，页面仍然成立
+        track('v5_response_fallback', { reason: 'network_error' });
       }
     }
 
@@ -725,8 +733,10 @@ export default function BookHomePage() {
   };
   const handleRestPage = (pageId: string) => {
     setPageStatus(pageId, 'resting');
-    // 合上后确保有空白下一页，留在当前页
     const state = useFragmentStore.getState();
+    const page = state.book.pages.find((p) => p.id === pageId);
+    track('v5_page_rested', { page_number: page?.page_number, paragraph_count: page?.paragraphs.length });
+    // 合上后确保有空白下一页，留在当前页
     const pages = state.book.pages;
     const lastPage = pages[pages.length - 1];
     if (lastPage && lastPage.paragraphs.length > 0 && lastPage.closed_at) {
@@ -737,6 +747,9 @@ export default function BookHomePage() {
   const handleReopenPage = (pageId: string) => {
     if (submitPhase !== 'idle') return;
     setPageStatus(pageId, 'thinking');
+    const state = useFragmentStore.getState();
+    const page = state.book.pages.find((p) => p.id === pageId);
+    track('v5_page_reopened', { page_number: page?.page_number });
   };
   const handlePrev = () => {
     const state = useFragmentStore.getState();

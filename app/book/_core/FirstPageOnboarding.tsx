@@ -1,7 +1,7 @@
 ﻿'use client';
 
 // FirstPageOnboarding —— V5 Addendum 简化版 001 新手引导
-// 只给两个选择:「有个问题困扰着我」或「随便说点什么」
+// 只给两个选择:「最近有什么事情让你想不明白？」或「写下最近发生的一件事」
 // 标题克制,CTA 不挤到滚动条外
 
 import { motion } from 'framer-motion';
@@ -54,7 +54,7 @@ export function FirstPageOnboarding({ onPick }: Props) {
         ))}
       </motion.div>
 
-      {/* ── 「随便说点什么」= 自由书写 ── */}
+      {/* ── 「写下最近发生的一件事」= 自由书写 ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -67,7 +67,7 @@ export function FirstPageOnboarding({ onPick }: Props) {
           className="text-[14px] font-light tracking-[0.08em] text-stone-300/80 transition-colors hover:text-stone-100 cursor-pointer"
         >
           <span className="mr-3 text-stone-600/40 transition-colors group-hover:text-stone-400/60">·</span>
-          随便说点什么
+          写下最近发生的一件事
           <span className="ml-2 inline-block text-stone-600/20 transition-all duration-300 group-hover:ml-3 group-hover:text-stone-400/50">→</span>
         </button>
       </motion.div>

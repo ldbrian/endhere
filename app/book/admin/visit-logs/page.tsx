@@ -17,10 +17,18 @@ type VisitLogResponse = {
   logs: VisitLogRow[];
   total: number;
   summary: {
-    homeViews: number;
-    leaveFragmentTaps: number;
-    fragmentNewViews: number;
-    privateFragmentSaves: number;
+    totalEvents: number;
+    paragraphsWritten: number;
+    pagesRested: number;
+    pagesReopened: number;
+    responsesDelivered: number;
+    responsesFallback: number;
+    mirrorViewed: number;
+    mirrorPatternTap: number;
+    onboardingPicks: number;
+    voiceShown: number;
+    voiceFollowed: number;
+    avgResponseTimeMs: number;
   };
 };
 
@@ -57,18 +65,28 @@ function shortPayload(payload: Record<string, any> | null) {
 }
 
 export default function VisitLogsPage() {
-  const [token, setToken] = useState(getSavedAdminToken);
-  const [draftToken, setDraftToken] = useState(getSavedAdminToken);
+  const [ready, setReady] = useState(false);
+  const [token, setToken] = useState('');
+  const [draftToken, setDraftToken] = useState('');
+  useEffect(() => { setToken(getSavedAdminToken()); setDraftToken(getSavedAdminToken()); setReady(true); }, []);
   const [eventName, setEventName] = useState('');
   const [route, setRoute] = useState('');
   const [date, setDate] = useState('');
   const [returning, setReturning] = useState<'all' | 'new' | 'returning'>('all');
   const [logs, setLogs] = useState<VisitLogRow[]>([]);
   const [summary, setSummary] = useState<VisitLogResponse['summary']>({
-    homeViews: 0,
-    leaveFragmentTaps: 0,
-    fragmentNewViews: 0,
-    privateFragmentSaves: 0,
+    totalEvents: 0,
+    paragraphsWritten: 0,
+    pagesRested: 0,
+    pagesReopened: 0,
+    responsesDelivered: 0,
+    responsesFallback: 0,
+    mirrorViewed: 0,
+    mirrorPatternTap: 0,
+    onboardingPicks: 0,
+    voiceShown: 0,
+    voiceFollowed: 0,
+    avgResponseTimeMs: 0,
   });
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -136,6 +154,8 @@ export default function VisitLogsPage() {
   };
 
   const visibleRoute = useMemo(() => route.trim() || 'ALL', [route]);
+
+  if (!ready) return <main className="min-h-dvh bg-[#1B1614]" />;
 
   return (
     <main className="min-h-dvh bg-[#1B1614] text-stone-100 selection:bg-stone-700 selection:text-stone-50">
@@ -227,22 +247,55 @@ export default function VisitLogsPage() {
               </div>
             </section>
 
-            <section className="grid gap-4 py-5 sm:grid-cols-4">
+            {/* ── V5 Metrics Grid ── */}
+            <section className="grid gap-4 py-5 sm:grid-cols-3 lg:grid-cols-6">
               <div className="border border-stone-800/70 bg-stone-950/50 p-4">
-                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">HOME VIEW</p>
-                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.homeViews}</p>
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">WRITTEN</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.paragraphsWritten}</p>
               </div>
               <div className="border border-stone-800/70 bg-stone-950/50 p-4">
-                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">LEAVE FRAGMENT</p>
-                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.leaveFragmentTaps}</p>
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">RESTED</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.pagesRested}</p>
               </div>
               <div className="border border-stone-800/70 bg-stone-950/50 p-4">
-                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">FRAGMENT NEW VIEW</p>
-                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.fragmentNewViews}</p>
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">REOPENED</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.pagesReopened}</p>
               </div>
               <div className="border border-stone-800/70 bg-stone-950/50 p-4">
-                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">PRIVATE SAVES</p>
-                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.privateFragmentSaves}</p>
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">RESP DELIVERED</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.responsesDelivered}</p>
+              </div>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">FALLBACK</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.responsesFallback}</p>
+              </div>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">AVG RESP MS</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.avgResponseTimeMs}</p>
+              </div>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">MIRROR VIEWS</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.mirrorViewed}</p>
+              </div>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">PATTERN TAPS</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.mirrorPatternTap}</p>
+              </div>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">ONBOARDING</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.onboardingPicks}</p>
+              </div>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">VOICE SHOWN</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.voiceShown}</p>
+              </div>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">VOICE FOLLOWED</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.voiceFollowed}</p>
+              </div>
+              <div className="border border-stone-800/70 bg-stone-950/50 p-4">
+                <p className="font-mono text-[9px] tracking-[0.22em] text-stone-500">TOTAL EVENTS</p>
+                <p className="mt-3 text-[22px] font-light text-stone-100">{summary.totalEvents}</p>
               </div>
             </section>
 

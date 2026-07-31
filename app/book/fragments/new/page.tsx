@@ -69,7 +69,7 @@ function NewFragmentContent() {
     }
 
     setError('');
-    if (entryWindow) track('v5_book_window_written', createWindowTelemetry(entryWindow));
+    if (entryWindow) track('v5_paragraph_written', { char_count: entryWindow.text?.length, source: 'fragments_new' });
     setStep('tracing');
 
     try {
@@ -108,7 +108,7 @@ function NewFragmentContent() {
       consent_level: 1,
       artifact: safePage.artifact,
     });
-    track('v5_book_page_saved', createWindowTelemetry(entryWindow));
+    track('v5_page_rested', { source: 'fragments_new' });
     setStep('saved');
   };
 
