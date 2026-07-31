@@ -16,6 +16,7 @@ import { pickBookVoice } from './_core/bookVoice';
 
 import { FirstPageOnboarding } from './_core/FirstPageOnboarding';
 import { FREEWRITE_OPTION_ID, BOOK_DUAL_TRACK_PROMPT } from './_core/onboarding';
+import { ReaderAnnotationOverlay, READER_ANNOTATION_DONE_KEY } from './_core/ReaderAnnotationOverlay';
 
 // V5: Mirror 不需要最低页数门槛。有一页就照一页的线索。
 const MIRROR_REQUIRED_PAGES = 1;
@@ -98,6 +99,13 @@ const CollapseIcon = ({ className = '' }: { className?: string }) => (
     <path d="M20 4l-6 6" strokeLinecap="square" />
     <path d="M4 20l6-6" strokeLinecap="square" />
     <path d="M20 20l-6-6" strokeLinecap="square" />
+  </svg>
+);
+
+const PencilIcon = ({ className = '' }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" className={className} strokeLinecap="square" strokeLinejoin="miter">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
   </svg>
 );
 
@@ -578,6 +586,17 @@ export default function BookHomePage() {
   const [expandedPageId, setExpandedPageId] = useState<string | null>(null);
   const [showInstallCard, setShowInstallCard] = useState(false);
   const [showLegacy, setShowLegacy] = useState(false);
+  const [showAnnotation, setShowAnnotation] = useState(false);
+  // 读者批注角标：翻开书后出现，留过批注永久消失（localStorage 持久）
+  // 惰性初始化：首页在 hasHydrated 前只渲染空壳，无需担心 hydration 失配
+  const [annotationDone, setAnnotationDone] = useState<boolean>(() => {
+    try {
+      if (typeof window === 'undefined') return false;
+      return window.localStorage.getItem(READER_ANNOTATION_DONE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle');
   // 安全兜底：submitPhase 卡在 saving/generating 超过 15s 则自动重置
   useEffect(() => {
@@ -787,6 +806,7 @@ export default function BookHomePage() {
       <AnimatePresence>{shouldShowCover ? <Cover hasContent={hasContent} onOpen={handleOpenBook} /> : null}</AnimatePresence>
       <AnimatePresence>{expandedPage ? <ExpandedPage page={expandedPage} onClose={() => setExpandedPageId(null)} onShare={() => sharePage(expandedPage)} sharing={isSharingPage} /> : null}</AnimatePresence>
       <AnimatePresence>{showLegacy ? <LegacyArchiveOverlay archive={legacyArchive} onClose={() => setShowLegacy(false)} /> : null}</AnimatePresence>
+      <AnimatePresence>{showAnnotation ? <ReaderAnnotationOverlay onClose={() => setShowAnnotation(false)} onSubmitted={() => setAnnotationDone(true)} /> : null}</AnimatePresence>
 
       {/* 离屏分享卡：仅截图时挂载，截完即卸载，绝不影响正常布局 */}
       {pendingSharePage ? (
@@ -812,6 +832,24 @@ export default function BookHomePage() {
           </button>
           <button type="button" onClick={() => setShowInstallCard((value) => !value)} className="outline-none cursor-pointer" aria-label="安装说明">
             <PlasticBagIcon className="h-5 w-5 text-stone-500/80 transition-colors hover:text-stone-300" />
+          </button>
+          <button type="button" onClick={() => { setShowAnnotation(true); track('v5_reader_annotation_open', {}); }} className="relative outline-none cursor-pointer" aria-label="留下一页批注" title="留下一页批注">
+            <PencilIcon className="h-5 w-5 text-stone-500/80 transition-colors hover:text-stone-300" />
+            {/* 琥珀呼吸墨点：翻开书后出现，留过批注后永久消失（复用镜中书未读墨点语言） */}
+            {!annotationDone ? (
+              <>
+                <motion.div
+                  animate={{ opacity: [0.3, 0.6, 0.3] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+                  className="pointer-events-none absolute -inset-1.5 rounded-full bg-[#9b7650]/25 blur-md"
+                />
+                <motion.span
+                  animate={{ opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+                  className="pointer-events-none absolute -right-0.5 -top-0.5 h-[6px] w-[6px] rounded-full bg-[#ecd9b0]/90"
+                />
+              </>
+            ) : null}
           </button>
           <AnimatePresence>{showInstallCard ? <InstallBookmarkCard onClose={() => setShowInstallCard(false)} /> : null}</AnimatePresence>
         </div>
