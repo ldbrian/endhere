@@ -272,7 +272,6 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
   const isFirstBlankPage = page.page_number === '001' && page.paragraphs.length === 0;
   // V5: 001 不再预填仪式句,由 onboarding 引导用户写问题
   const [inputText, setInputText] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
   const [liked, setLiked] = useState(false);
   // V5 Living Page: 用户点击「继续写这一页」后允许在非最新页上追加
   const [reopened, setReopened] = useState(false);
@@ -281,8 +280,6 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
   // freewrite(openingA='', openingB='') 表示跳追问直接手写;null 表示用户还没选。
   const [pickedOpening, setPickedOpening] = useState<{ a: string; b: string } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const textMeasureRef = useRef<HTMLSpanElement | null>(null);
-  const [cursorX, setCursorX] = useState(0);
   // V5 Living Page 状态:
   //   opening = 空白可写(最新页)  thinking = 进行中(可写/可合上)
   //   resting = 已合上(阅读模式)  archived = 归档(阅读模式)
@@ -305,7 +302,6 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
   const showPrompt = isWritable && !showOnboarding && effectivePrompt.trim().length > 0;
   useEffect(() => {
     setInputText('');
-    setIsFocused(false);
     setLiked(false);
     setPickedOpening(null);
     setReopened(false);
@@ -315,12 +311,6 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
   useEffect(() => {
     setLiked(false);
   }, [latestParagraph?.trace]);
-  // Measure text width for synthetic cursor positioning (触屏兜底用)
-  useEffect(() => {
-    if (textMeasureRef.current) {
-      setCursorX(textMeasureRef.current.offsetWidth);
-    }
-  }, [inputText, isFocused]);
   // Auto-focus and place cursor at end of default text (works on desktop / fine pointer)
   useEffect(() => {
     if (isWritable && finePointer && inputRef.current) {
@@ -337,7 +327,7 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
       return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
   }, [isWritable, finePointer, page.id]);
-  const commitInput = () => { const trimmed = inputText.trim(); if (!trimmed || submitPhase !== 'idle') return; onAddParagraph(trimmed); setInputText(''); setIsFocused(false); };
+  const commitInput = () => { const trimmed = inputText.trim(); if (!trimmed || submitPhase !== 'idle') return; onAddParagraph(trimmed); setInputText(''); };
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); commitInput(); } };
 
   return (
@@ -493,33 +483,15 @@ function PageCard({ page, promptText, isBookVoice, isLatestPage, submitPhase, fi
                     </p>
                   ) : null}
                   <div className="relative z-10 cursor-default">
-                    <span
-                      ref={textMeasureRef}
-                      aria-hidden
-                      className="pointer-events-none absolute left-0 top-0 invisible whitespace-pre text-[14px] font-light leading-[2] tracking-[0.04em]"
-                    >
-                      {inputText}
-                    </span>
                     <textarea
                       ref={inputRef}
                       value={inputText}
                       onChange={(event) => setInputText(event.target.value)}
                       onKeyDown={handleKeyDown}
-                      onFocus={() => setIsFocused(true)}
-                      onBlur={() => setIsFocused(false)}
                       placeholder={page.paragraphs.length > 0 ? '后来呢？结果怎么样了？' : isFirstBlankPage ? '' : BLANK_PAGE_INVITATION}
                       className={`min-h-[80px] w-full resize-none bg-transparent text-[14px] font-light leading-[2] tracking-[0.04em] outline-none caret-stone-300 text-stone-300 placeholder:text-stone-600/35`}
                       rows={4}
                     />
-                    {/* Synthetic blinking cursor — only on touch devices */}
-                    {!isFocused && !finePointer ? (
-                      <motion.span
-                        animate={{ opacity: [1, 0] }}
-                        transition={{ duration: 1.1, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
-                        className="pointer-events-none absolute top-[3px] inline-block h-[18px] w-[1.5px] rounded-full bg-[#c9a86c]/70"
-                        style={{ left: `${cursorX}px` }}
-                      />
-                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -684,7 +656,7 @@ export default function BookHomePage() {
     let artifact;
     {
       try {
-        const response = await fetch('/api/book/fragments/organize', {
+        const response = await fetch('/api/book/organize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -730,7 +702,7 @@ export default function BookHomePage() {
     setRegeneratingPageId(pageId);
     try {
       const currentPreferences = useFragmentStore.getState().personaPreferences;
-      const response = await fetch('/api/book/fragments/organize', {
+      const response = await fetch('/api/book/organize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ original_content: originalText, persona_preferences: currentPreferences }),

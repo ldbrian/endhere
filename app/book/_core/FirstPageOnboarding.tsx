@@ -45,11 +45,11 @@ export function FirstPageOnboarding({ onPick }: Props) {
             key={opt.id}
             type="button"
             onClick={() => onPick({ id: opt.id, openingA: opt.openingA, openingB: opt.openingB })}
-            className="group text-[14px] font-light tracking-[0.08em] text-stone-300/80 transition-all duration-300 hover:text-stone-100 cursor-pointer"
+            className="group flex items-center text-[14px] font-light tracking-[0.08em] text-stone-300/85 transition-all duration-300 hover:text-stone-100 cursor-pointer"
           >
             <span className="mr-3 text-stone-600/40 transition-colors group-hover:text-stone-400/60">·</span>
             {opt.label}
-            <span className="ml-2 inline-block text-stone-600/20 transition-all duration-300 group-hover:ml-3 group-hover:text-stone-400/50">→</span>
+            <span className="ml-2 inline-block text-[#c9a86c]/85 transition-all duration-300 group-hover:ml-3 group-hover:text-[#c9a86c]">→</span>
           </button>
         ))}
       </motion.div>
@@ -64,11 +64,11 @@ export function FirstPageOnboarding({ onPick }: Props) {
         <button
           type="button"
           onClick={() => onPick({ id: FREEWRITE_OPTION_ID, openingA: '', openingB: '' })}
-          className="text-[14px] font-light tracking-[0.08em] text-stone-300/80 transition-colors hover:text-stone-100 cursor-pointer"
+          className="group flex items-center text-[14px] font-light tracking-[0.08em] text-stone-300/85 transition-colors hover:text-stone-100 cursor-pointer"
         >
           <span className="mr-3 text-stone-600/40 transition-colors group-hover:text-stone-400/60">·</span>
           写下最近发生的一件事
-          <span className="ml-2 inline-block text-stone-600/20 transition-all duration-300 group-hover:ml-3 group-hover:text-stone-400/50">→</span>
+          <span className="ml-2 inline-block text-[#c9a86c]/85 transition-all duration-300 group-hover:ml-3 group-hover:text-[#c9a86c]">→</span>
         </button>
       </motion.div>
     </motion.div>

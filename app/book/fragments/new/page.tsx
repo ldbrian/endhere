@@ -73,7 +73,7 @@ function NewFragmentContent() {
     setStep('tracing');
 
     try {
-      const response = await fetch('/api/book/fragments/organize', {
+      const response = await fetch('/api/book/organize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ original_content: original }),
