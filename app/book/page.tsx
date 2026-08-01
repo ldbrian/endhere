@@ -684,6 +684,12 @@ export default function BookHomePage() {
       }
     }
 
+    // ── 安全网：若仍拿不到回应，给一句安静的兜底，避免用户卡在首页无法合页 ──
+    if (!narration.trim()) {
+      track('v5_response_fallback', { reason: 'empty_narration' });
+      narration = '这一页，书先接住了。';
+    }
+
     // ── 第三阶段：揭晓回应 ──
     try {
       if (targetPageId) {

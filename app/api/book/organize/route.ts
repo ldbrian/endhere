@@ -14,10 +14,16 @@ export const runtime = 'edge'
 // 同一 IP 每小时最多 6 次：允许用户写一页改/补，但不允许脚本狂灌
 const organizeLimiter = createRateLimiter({ max: 6, windowMs: 60 * 60 * 1000 })
 
-const client = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY,
-  baseURL: process.env.DEEPSEEK_BASE_URL,
-})
+// 惰性创建 OpenAI 客户端：环境变量缺失时返回 null，路由走兜底，而不是模块加载即 500
+let openaiClient: OpenAI | null = null
+function getOpenAIClient(): OpenAI | null {
+  if (openaiClient) return openaiClient
+  const apiKey = process.env.DEEPSEEK_API_KEY
+  const baseURL = process.env.DEEPSEEK_BASE_URL
+  if (!apiKey || !baseURL) return null
+  openaiClient = new OpenAI({ apiKey, baseURL })
+  return openaiClient
+}
 
 type OrganizedFragment = {
   title: string
@@ -275,7 +281,13 @@ ${isFirstRound ? `生成三样东西:
     }
     messages.push({ role: 'user', content: original })
 
-    const response = await client.chat.completions.create({
+    const llm = getOpenAIClient()
+    if (!llm) {
+      console.error('[V5 Organize] Missing DEEPSEEK_API_KEY/DEEPSEEK_BASE_URL, serving fallback')
+      return Response.json(fallbackOrganized(original, persona))
+    }
+
+    const response = await llm.chat.completions.create({
       model: 'deepseek-chat',
       messages,
       temperature: 0.45,
