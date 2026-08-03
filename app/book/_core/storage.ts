@@ -462,7 +462,31 @@ export const useFragmentStore = create<BookState>()(
     },
     {
       name: 'endhere_v2_storage',
-      storage: createJSONStorage(() => localStorage),
+      // 硬化 localStorage：私有模式 / 配额满 / 值损坏都不允许抛错，
+      // 否则 zustand persist 会把异常传导到提交流程与 hydration。
+      storage: createJSONStorage(() => ({
+        getItem: (name) => {
+          try {
+            return window.localStorage.getItem(name) ?? null;
+          } catch {
+            return null;
+          }
+        },
+        setItem: (name, value) => {
+          try {
+            window.localStorage.setItem(name, value);
+          } catch (e) {
+            console.warn('[EndHere Storage] 写入失败（容量已满或存储被禁用）:', e);
+          }
+        },
+        removeItem: (name) => {
+          try {
+            window.localStorage.removeItem(name);
+          } catch {
+            // 忽略：移除失败不影响内存态
+          }
+        },
+      })),
       version: 5,
       migrate: (persistedState: unknown) => {
         const state = (persistedState || {}) as Partial<BookState> & { localFragments?: Fragment[]; ownerId?: string; book?: Book; currentPageIndex?: number; legacyArchive?: LegacyPage[] };
@@ -470,47 +494,55 @@ export const useFragmentStore = create<BookState>()(
 
         // 先重建出旧 book（兼容两种历史格式：已有 book.pages 的 V3，和只有 localFragments 的更早版本）
         let oldBook: Book | null = null;
-        if (state.book?.pages?.length) {
-          oldBook = state.book;
-        } else if (Array.isArray(state.localFragments) && state.localFragments.length > 0) {
-          const legacyFragments = [...state.localFragments].sort((a, b) => a.created_at.localeCompare(b.created_at));
-          let page: BookPage = createEmptyPage(0);
-          const pages: BookPage[] = [];
-          for (const item of legacyFragments) {
-            const paragraph: Paragraph = {
-              id: item.id,
-              text: item.original_content,
-              trace: item.narration_content,
-              timestamp: item.created_at,
-              persona: item.meta.ai_persona,
-              artifact: item.meta.artifact,
-              consent_level: item.meta.consent_level,
-              visibility: item.visibility,
-              allow_shopkeeper_review: item.allow_shopkeeper_review,
-              shopkeeper_comment: item.shopkeeper_comment,
-            };
-            if (pageNeedsTurn(page) && page.paragraphs.length > 0) {
-              pages.push({ ...page, closed_at: paragraph.timestamp });
-              page = createEmptyPage(pages.length);
+        try {
+          if (Array.isArray(state.book?.pages) && state.book.pages.length > 0) {
+            oldBook = state.book;
+          } else if (Array.isArray(state.localFragments) && state.localFragments.length > 0) {
+            const legacyFragments = [...state.localFragments]
+              .filter((item) => !!item && typeof item === 'object')
+              .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+            let page: BookPage = createEmptyPage(0);
+            const pages: BookPage[] = [];
+            for (const item of legacyFragments) {
+              const paragraph: Paragraph = {
+                id: item.id,
+                text: item.original_content,
+                trace: item.narration_content,
+                timestamp: item.created_at,
+                persona: item.meta?.ai_persona,
+                artifact: item.meta?.artifact,
+                consent_level: item.meta?.consent_level,
+                visibility: item.visibility,
+                allow_shopkeeper_review: item.allow_shopkeeper_review,
+                shopkeeper_comment: item.shopkeeper_comment,
+              };
+              if (pageNeedsTurn(page) && page.paragraphs.length > 0) {
+                pages.push({ ...page, closed_at: paragraph.timestamp });
+                page = createEmptyPage(pages.length);
+              }
+              page = {
+                ...page,
+                title: page.title || item.title || '',
+                paragraphs: [...page.paragraphs, paragraph],
+                traces: paragraph.trace
+                  ? [...page.traces, { id: createTraceId(), content: paragraph.trace, persona: paragraph.persona, paragraph_id: paragraph.id, created_at: paragraph.timestamp }]
+                  : page.traces,
+              };
             }
-            page = {
-              ...page,
-              title: page.title || item.title || '',
-              paragraphs: [...page.paragraphs, paragraph],
-              traces: paragraph.trace
-                ? [...page.traces, { id: createTraceId(), content: paragraph.trace, persona: paragraph.persona, paragraph_id: paragraph.id, created_at: paragraph.timestamp }]
-                : page.traces,
-            };
+            pages.push(page);
+            oldBook = { id: `book_${crypto.randomUUID()}`, owner_id: ownerId, pages };
           }
-          pages.push(page);
-          oldBook = { id: `book_${crypto.randomUUID()}`, owner_id: ownerId, pages };
+        } catch (e) {
+          // 旧数据损坏时绝不抛给 persist —— 否则 hydration 永不完成、页面白屏
+          console.error('[EndHere Storage] 旧数据迁移失败，已重置为空书:', e);
+          oldBook = null;
         }
 
         // 把有内容的旧页转成陈列页（只读），尾部空白页丢弃
         const legacyArchive: LegacyPage[] = Array.isArray(state.legacyArchive) ? [...state.legacyArchive] : [];
-        if (oldBook) {
+        if (oldBook && Array.isArray(oldBook.pages)) {
           for (const page of oldBook.pages) {
-            if (page.paragraphs.length > 0) {
+            if (Array.isArray(page.paragraphs) && page.paragraphs.length > 0) {
               legacyArchive.push(bookPageToLegacy(page));
             }
           }
@@ -529,8 +561,14 @@ export const useFragmentStore = create<BookState>()(
           pendingTitleTask: null,
         };
       },
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+      onRehydrateStorage: () => (state, error) => {
+        // 即使 rehydrate/migrate 失败也必须标记 hydration 完成，
+        // 否则所有以 hasHydrated 做门控的页面会永久渲染空壳（白屏）。
+        useFragmentStore.setState({ _hasHydrated: true });
+        if (error) {
+          console.error('[EndHere Storage] 恢复失败，已回退到初始空书:', error);
+          return;
+        }
         if (state) state.ensureTrailingBlankPage();
       },
       partialize: (state) => ({

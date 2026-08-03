@@ -636,14 +636,23 @@ export default function BookHomePage() {
 
     // ── 第一阶段：立即落盘原文 ──
     setSubmitPhase('saving');
-    const { paragraph } = appendParagraphToCurrentPage({
-      title: '',
-      original_content: text,
-      narration_content: '',
-      visibility: 'private',
-      allow_shopkeeper_review: false,
-      consent_level: 1,
-    });
+    let paragraph: Paragraph;
+    try {
+      ({ paragraph } = appendParagraphToCurrentPage({
+        title: '',
+        original_content: text,
+        narration_content: '',
+        visibility: 'private',
+        allow_shopkeeper_review: false,
+        consent_level: 1,
+      }));
+    } catch (e) {
+      // 落盘失败（理论上被硬化 storage 拦截）也不让整个流程崩溃
+      console.error('[EndHere] 段落落盘失败:', e);
+      track('v5_paragraph_write_failed', {});
+      setSubmitPhase('idle');
+      return;
+    }
     track('v5_paragraph_written', { char_count: text.length, page_number: targetPage?.page_number, is_multi_round: !isFirstParagraph });
     await new Promise((resolve) => window.setTimeout(resolve, 1000));
 
@@ -716,6 +725,12 @@ export default function BookHomePage() {
       if (response.ok) {
         const data = await response.json();
         const narration = String(data.narration_content || '').trim();
+        // 空回应不覆盖旧回应 —— 避免把用户已看到的内容擦掉
+        if (!narration) {
+          track('v5_regenerate_fallback', { reason: 'empty_narration' });
+          setRegeneratingPageId(null);
+          return;
+        }
         const persona = normalizePersonaId(data.persona);
         let artifact;
         if (data.artifact && typeof data.artifact.emoji === 'string' && typeof data.artifact.name === 'string') {

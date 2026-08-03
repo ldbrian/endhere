@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
-import DataMigrator from './components/DataMigrator'
 
 export const metadata: Metadata = {
   title: 'End Here',
@@ -35,7 +34,6 @@ export default function RootLayout({
     <html lang="zh-CN">
       {/* V3.2：注入暖黑底色与防溢出类名 */}
       <body className="bg-[#1B1614] text-stone-400 antialiased overflow-x-hidden">
-        <DataMigrator />
         <main className="w-full">
           {children}
         </main>

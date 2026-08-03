@@ -214,9 +214,6 @@ function NewFragmentContent() {
                   <button type="button" onClick={() => router.push('/book')} className="text-[12px] tracking-[0.16em] text-stone-500 transition-colors duration-500 hover:text-stone-300">
                     回到今天
                   </button>
-                  <button type="button" onClick={() => router.push('/book/nostalgia')} className="text-[12px] tracking-[0.16em] text-stone-300 transition-colors duration-500 hover:text-white">
-                    翻看书页
-                  </button>
                 </div>
               </motion.div>
             )}
