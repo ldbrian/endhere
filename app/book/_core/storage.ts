@@ -562,14 +562,22 @@ export const useFragmentStore = create<BookState>()(
         };
       },
       onRehydrateStorage: () => (state, error) => {
-        // 即使 rehydrate/migrate 失败也必须标记 hydration 完成，
-        // 否则所有以 hasHydrated 做门控的页面会永久渲染空壳（白屏）。
-        useFragmentStore.setState({ _hasHydrated: true });
         if (error) {
           console.error('[EndHere Storage] 恢复失败，已回退到初始空书:', error);
+        }
+        // 恢复成功路径：直接用 state 上的 action 标记完成。
+        // 注意：绝不能在回调里引用模块级 useFragmentStore（zustand v5 会同步调用此回调，
+        // 此时 const 尚未初始化，会触发 TDZ ReferenceError，导致 hydration 永久卡死）。
+        if (state) {
+          state.setHasHydrated(true);
+          state.ensureTrailingBlankPage();
           return;
         }
-        if (state) state.ensureTrailingBlankPage();
+        // 恢复失败兜底：state 为 undefined 时，推迟到模块初始化完成后再标记 hydration，
+        // 否则所有以 hasHydrated 做门控的页面会永久渲染空壳（白屏）。
+        const finish = () => useFragmentStore.setState({ _hasHydrated: true });
+        if (typeof queueMicrotask === 'function') queueMicrotask(finish);
+        else Promise.resolve().then(finish);
       },
       partialize: (state) => ({
         ownerId: state.ownerId,
