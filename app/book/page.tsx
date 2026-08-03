@@ -905,6 +905,17 @@ export default function BookHomePage() {
           </div>
         </div>
       </div>
+
+      {/* V6 安静的入口 —— 换个角度看 */}
+      <footer className="relative z-30 shrink-0 pb-6 pt-2 text-center">
+        <Link
+          href="/book/ways"
+          onClick={() => track('v6_ways_entry')}
+          className="border-b border-dashed border-stone-700/50 pb-0.5 text-[11px] tracking-[0.18em] text-stone-500/80 transition-colors duration-500 hover:border-stone-400 hover:text-stone-300"
+        >
+          换个角度看
+        </Link>
+      </footer>
     </main>
   );
 }

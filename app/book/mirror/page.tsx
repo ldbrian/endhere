@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { track } from '../_core/analytics';
 import { useFragmentStore } from '../_core/storage';
+import { useWaysArchive } from '../_core/waysArchive';
+import { LENSES } from '../../lib/ways/lens';
 
 type PatternRow = {
   id: string;
@@ -173,6 +175,8 @@ function PatternList({
 
 export default function MirrorPage() {
   const { book, markMirrorViewed, _hasHydrated: hasHydrated } = useFragmentStore();
+  const observations = useWaysArchive((state) => state.observations);
+  const waysHydrated = useWaysArchive((state) => state._hasHydrated);
   const [analysis, setAnalysis] = useState<MirrorAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -282,6 +286,42 @@ export default function MirrorPage() {
 
                 <EvidenceSlips items={evidenceCards} />
               </div>
+
+              {waysHydrated && observations.length > 0 ? (
+                <div className="mt-8 border border-[#8b6b45]/18 bg-[linear-gradient(180deg,rgba(34,27,23,0.92),rgba(21,17,15,0.96))] px-6 py-7 shadow-[0_24px_64px_rgba(0,0,0,0.24)]">
+                  <p className="font-mono text-[10px] tracking-[0.26em] text-stone-600/60">观察方式 · 你留下的</p>
+                  <p className="mt-3 text-[16px] font-light tracking-[0.08em] text-stone-200">
+                    {observations.length === 1 ? '这是你留下的第一个观察。' : `你在这里留下了 ${observations.length} 个观察。`}
+                  </p>
+                  <div className="mt-6 space-y-5">
+                    {observations.map((obs) => {
+                      const lens = LENSES[obs.lensId];
+                      return (
+                        <div key={obs.id} className="border-t border-stone-800/55 pt-5">
+                          <div className="flex items-baseline justify-between gap-4">
+                            <p className="text-[11px] tracking-[0.14em] text-stone-500">
+                              {lens?.label ?? obs.lensId} · {lens?.poetic ?? ''}
+                            </p>
+                            <p className="font-mono text-[10px] tracking-[0.16em] text-stone-600">{formatShortDate(obs.createdAt)}</p>
+                          </div>
+                          <p className="mt-2 text-[14px] font-light leading-7 tracking-[0.04em] text-stone-200">{obs.angle}</p>
+                          <p className="mt-2 border-l border-stone-800 pl-3 text-[12px] font-light leading-6 tracking-[0.05em] text-stone-500">
+                            “{compact(obs.fragment, 40)}”
+                          </p>
+                          {obs.userResponse ? (
+                            <p className="mt-2 text-[12px] font-light leading-6 tracking-[0.05em] text-stone-500">你：{compact(obs.userResponse, 60)}</p>
+                          ) : null}
+                          {obs.landed ? (
+                            <p className="mt-2 font-mono text-[10px] tracking-[0.16em] text-stone-600">
+                              {obs.landed === 'new' ? '看见新的东西' : obs.landed === 'seen' ? '早就知道' : '说不清'}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
 
               {isBookmarkReady && analysis && (analysis.patterns.length > 0 || analysis.life_areas.length > 0) ? (
                 <div className="mt-8 min-h-0 flex-1 overflow-hidden border-t border-stone-800/40 pt-6">

@@ -19,7 +19,9 @@ export interface Lens {
   name: string
   /** 用户可见短名 */
   label: string
-  /** 入口问题（三入口展示用，固定骨架） */
+  /** 诗意展示名（前端卡片标题用，例如"你所等待的"） */
+  poetic: string
+  /** 入口提示（三入口展示用，固定骨架） */
   entrance: string
   /** 镜子跨碎片识别的稳定坐标 */
   signatureKey: string
@@ -38,6 +40,7 @@ export const LENSES: Record<LensId, Lens> = {
     id: 'expectation',
     name: '期待',
     label: '期待',
+    poetic: '你所等待的',
     entrance: '这件事里，有没有一个没有被满足的期待？',
     signatureKey: 'expectation_unmet',
     generator: {
@@ -62,6 +65,7 @@ export const LENSES: Record<LensId, Lens> = {
     id: 'time',
     name: '时间',
     label: '时间',
+    poetic: '你所走过的',
     entrance: '如果未来的你回看今天，会怎么看？',
     signatureKey: 'temporal_distance',
     generator: {
@@ -86,6 +90,7 @@ export const LENSES: Record<LensId, Lens> = {
     id: 'exception',
     name: '例外',
     label: '例外',
+    poetic: '你没想到的',
     entrance: '有没有一次类似的事情，你没有这么难受？',
     signatureKey: 'exception_found',
     generator: {
