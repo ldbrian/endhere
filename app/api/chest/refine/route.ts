@@ -41,7 +41,7 @@ function corsHeaders(): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': process.env.CHEST_CORS_ORIGIN || '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, x-device-id',
     'Access-Control-Max-Age': '86400',
   }
 }
@@ -56,6 +56,35 @@ function extractJsonObject(raw: string) {
   const end = cleaned.lastIndexOf('}')
   if (start < 0 || end < start) throw new Error('No JSON object in chest refine response')
   return cleaned.slice(start, end + 1)
+}
+
+// 鲁棒 JSON 解析：DeepSeek 偶发输出不严格合法 JSON（尾逗号 / 单引号 / 未转义换行 / 前导注释），直接 JSON.parse 会炸
+function safeJsonParse(raw: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(extractJsonObject(raw))
+  } catch {
+    // 去掉可能混入的注释行，再试着修复常见不合法点
+  }
+  const cleaned = raw
+    .replace(/```json/g, '')
+    .replace(/```/g, '')
+    .replace(/\/\/[^\n]*/g, '')
+    .trim()
+  const start = cleaned.indexOf('{')
+  const end = cleaned.lastIndexOf('}')
+  if (start < 0 || end < start) return null
+  let candidate = cleaned.slice(start, end + 1)
+    // 控制字符（如未转义换行出现在字符串值里）
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '')
+    // 尾逗号：,} 和 ,]
+    .replace(/,\s*([}\]])/g, '$1')
+  // JSON 标准不允许单引号；按最简单情况把单引号字符替换为双引号（值内不包含转义单引号的场景）
+  candidate = candidate.replace(/'(?=\s*:)/g, '"').replace(/'(?=\s*[,}])/g, '"')
+  try {
+    return JSON.parse(candidate)
+  } catch {
+    return null
+  }
 }
 
 function normalizePersona(value: unknown): ChestPersonaId {
@@ -149,7 +178,7 @@ export async function POST(req: Request) {
     })
 
     const raw = response.choices[0]?.message?.content || ''
-    const parsed = JSON.parse(extractJsonObject(raw)) as Record<string, unknown>
+    const parsed = safeJsonParse(raw) || {} as Record<string, unknown>
 
     if (parsed.type !== 'result') {
       return Response.json({
