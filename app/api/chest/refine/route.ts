@@ -17,6 +17,9 @@ export const runtime = 'edge'
 // 同一 IP 每分钟最多 20 次：对话多轮场景比 organize 更频，但防止脚本狂灌
 const chestLimiter = createRateLimiter({ max: 20, windowMs: 60 * 1000 })
 
+// 第几个用户回合后 AI 开始考虑「进入下一阶段」（offer）；用户可强制继续突破
+const OFFER_AFTER = 3
+
 // 惰性创建 OpenAI 客户端：环境变量缺失时返回 null，路由走兜底，而不是模块加载即 500
 let openaiClient: OpenAI | null = null
 function getOpenAIClient(): OpenAI | null {
@@ -118,6 +121,9 @@ export async function POST(req: Request) {
       }
     }
     final = body.final === true
+    const mode = body.mode === 'egg' ? 'egg' : 'chat'
+    // 用户点「我还想聊聊」强制继续：即使达到 offer 阈值也只回普通回复，不出 offer/不结束
+    const forceContinue = body.forceContinue === true
 
     const rawMessages = Array.isArray(body.messages) ? body.messages : []
     const messages: ChatMsg[] = []
@@ -129,7 +135,7 @@ export async function POST(req: Request) {
         }
       }
     }
-    if (messages.length === 0) return Response.json({ error: 'EMPTY' }, { status: 400, headers: corsHeaders() })
+    if (messages.length === 0 && mode !== 'egg') return Response.json({ error: 'EMPTY' }, { status: 400, headers: corsHeaders() })
 
     // 敏感词命中：静默降级而非暴露拦截事实；超长直接 400
     for (const m of messages) {
@@ -144,41 +150,110 @@ export async function POST(req: Request) {
 
     // ── AI 降级闸：无 key / mock 环境 → 本地模板，流程永不中断
     const llm = getOpenAIClient()
+    const userTurns = messages.filter((m) => m.role === 'user').length
+
     if (!llm || process.env.CHEST_MOCK === '1') {
-      return Response.json(
-        final
-          ? buildLocalResult({ persona, emotion, salt })
-          : { type: 'reply', reply: fallbackReply(persona) },
-        { headers: corsHeaders() },
-      )
+      if (mode === 'egg' && !final) {
+        const egg = pickFallbackEgg(persona, emotion, salt)
+        return Response.json({ type: 'result', egg: { id: egg.id, text: egg.text } }, { headers: corsHeaders() })
+      }
+      if (mode === 'egg' && final) {
+        const obj = pickFallbackObject(persona, emotion, salt)
+        return Response.json({
+          type: 'result',
+          reply: CHEST_PERSONAS[persona]?.greeting || '嗯。',
+          title: titleFromEmotion(emotion),
+          object: {
+            id: obj.id,
+            name: obj.baseName,
+            meaning: obj.baseMeaning,
+            desc: `${obj.baseName}——${obj.baseMeaning}。`,
+          },
+        }, { headers: corsHeaders() })
+      }
+      if (final) return Response.json(buildLocalResult({ persona, emotion, salt }), { headers: corsHeaders() })
+      if (!forceContinue && userTurns >= OFFER_AFTER) {
+        const egg = pickFallbackEgg(persona, emotion, salt)
+        return Response.json({
+          type: 'offer',
+          reply: CHEST_PERSONAS[persona]?.greeting || '嗯。',
+          egg: { id: egg.id, text: egg.text },
+        }, { headers: corsHeaders() })
+      }
+      return Response.json({ type: 'reply', reply: fallbackReply(persona) }, { headers: corsHeaders() })
     }
 
+    // 服务端兜底（本地模板分支已处理所有态，无需重复）；以下为 LLM 路径
     const me = CHEST_PERSONAS[persona]
+    const isEggReceipt = mode === 'egg' && final
+    const isEggFresh = mode === 'egg' && !final
+    const isOffer = !final && !forceContinue && userTurns >= OFFER_AFTER && !isEggFresh
+
     const system = [
       me.system,
       `当前情绪：${emotion?.state || '未知'}，强度 ${emotion?.score ?? 5}/10。`,
-      final
-        ? `这是本轮的最后一句。请同时给出：一句收尾回应（延续你的人格）、一个行动彩蛋（你人格风格的行事方式）、以及${OBJECT_PROMPT}`
+      isEggFresh
+        ? '这是探索行动彩蛋。请只给一个符合你人格风格、可在现实生活中执行的小行动（1句话，具体、不费力）。'
+        : isEggReceipt
+        ? '用户完成了一个生活彩蛋并回来反馈。请给一句温柔的收尾认可，并生成一件象征这次体验的小票物件。'
+        : final
+        ? `用户主动结束倾诉。请给出：一句收尾回应（延续你的人格）、以及${OBJECT_PROMPT}。不要给行动彩蛋。`
+        : isOffer
+        ? `可以先进入下一阶段了。请给一句：对当前情绪承接/总结，并给出一个符合你人格风格的生活彩蛋建议（1句话，具体、不费力）。注意这不是强制结束，只是"可以进入下一阶段"。`
         : '请先用一句话回应。不要替用户下结论，不要给长篇建议。',
       '只输出 JSON。',
     ].join('\n')
 
-    const finalSchema = '{"type":"result","reply":"…","title":"≤10字标题","egg":{"text":"行动建议"},"object":{"id":"池内id","name":"≤10字","meaning":"一句话寓意","desc":"收尾文案"}}'
+    const receiptSchema = '{"type":"result","reply":"…","title":"≤10字标题","object":{"id":"池内id","name":"≤10字","meaning":"一句话寓意","desc":"收尾文案"}}'
+    const eggSchema = '{"type":"result","egg":{"text":"一个生活小行动"}}'
+    const offerSchema = '{"type":"offer","reply":"一句情绪承接/总结","egg":{"text":"一个生活彩蛋建议"}}'
     const replySchema = '{"type":"reply","reply":"一句话回应"}'
     const user = [...messages.map((m) => `${m.role === 'assistant' ? '你' : '对方'}：${m.content}`), final ? `对方：${messages[messages.length - 1]?.content}` : ''].join('\n')
 
+    let outSchema = replySchema
+    if (isEggFresh) outSchema = eggSchema
+    else if (isEggReceipt || final) outSchema = receiptSchema
+    else if (isOffer) outSchema = offerSchema
+
     const response = await llm.chat.completions.create({
       model: 'deepseek-chat',
-      temperature: final ? 0.8 : 0.7,
-      max_tokens: final ? 500 : 220,
+      temperature: isEggFresh ? 0.9 : final ? 0.8 : 0.7,
+      max_tokens: isEggFresh ? 120 : final ? 500 : 220,
       messages: [
         { role: 'system', content: system },
-        { role: 'user', content: user + '\n\n请严格输出：' + (final ? finalSchema : replySchema) },
+        { role: 'user', content: user + '\n\n请严格输出：' + outSchema },
       ],
     })
 
     const raw = response.choices[0]?.message?.content || ''
     const parsed = safeJsonParse(raw) || {} as Record<string, unknown>
+
+    // ── 探索路径：只回行动彩蛋，无情绪小票/物件 ──
+    if (isEggFresh) {
+      const egg = pickFallbackEgg(persona, emotion, salt)
+      const eggRaw = parsed.egg && typeof parsed.egg === 'object' ? parsed.egg as Record<string, unknown> : {}
+      return Response.json({
+        type: 'result',
+        egg: {
+          id: egg.id,
+          text: String(eggRaw.text || egg.text).slice(0, 60),
+        },
+      }, { headers: corsHeaders() })
+    }
+
+    // ── offer：AI 判断可进入下一阶段，给承接 + 彩蛋建议（一次返回） ──
+    if (isOffer) {
+      const egg = pickFallbackEgg(persona, emotion, salt)
+      const eggRaw = parsed.egg && typeof parsed.egg === 'object' ? parsed.egg as Record<string, unknown> : {}
+      return Response.json({
+        type: 'offer',
+        reply: String(parsed.reply || me.greeting).slice(0, 140),
+        egg: {
+          id: egg.id,
+          text: String(eggRaw.text || egg.text).slice(0, 60),
+        },
+      }, { headers: corsHeaders() })
+    }
 
     if (parsed.type !== 'result') {
       return Response.json({
@@ -187,7 +262,6 @@ export async function POST(req: Request) {
       }, { headers: corsHeaders() })
     }
 
-    const egg = pickFallbackEgg(persona, emotion, salt)
     let object = pickFallbackObject(persona, emotion, salt)
     const objRaw = parsed.object
     const objId = objRaw && typeof objRaw === 'object'
@@ -196,18 +270,16 @@ export async function POST(req: Request) {
     const matched = CHEST_OBJECTS.find((o) => o.id === objId)
     if (matched) object = matched
     const objFields = objRaw && typeof objRaw === 'object' ? objRaw as Record<string, unknown> : {}
-    const eggRaw = parsed.egg && typeof parsed.egg === 'object' ? parsed.egg as Record<string, unknown> : {}
 
     return Response.json({
       type: 'result',
       reply: String(parsed.reply || me.greeting).slice(0, 140),
       title: String(parsed.title || titleFromEmotion(emotion)).slice(0, 10),
-      egg: { id: egg.id, text: String(eggRaw.text || egg.text).slice(0, 60) },
       object: {
         id: object.id,
-        name: String(objFields.name || object.baseName).slice(0, 10),
-        meaning: String(objFields.meaning || object.baseMeaning).slice(0, 24),
-        desc: String(objFields.desc || `${object.baseName}——${object.baseMeaning}。`).slice(0, 60),
+        name: String((objFields as Record<string, unknown>).name || object.baseName).slice(0, 10),
+        meaning: String((objFields as Record<string, unknown>).meaning || object.baseMeaning).slice(0, 24),
+        desc: String((objFields as Record<string, unknown>).desc || `${object.baseName}——${object.baseMeaning}。`).slice(0, 60),
       },
     }, { headers: corsHeaders() })
   } catch (error) {
