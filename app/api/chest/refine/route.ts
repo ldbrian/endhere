@@ -124,6 +124,8 @@ export async function POST(req: Request) {
     const mode = body.mode === 'egg' ? 'egg' : 'chat'
     // 用户点「我还想聊聊」强制继续：即使达到 offer 阈值也只回普通回复，不出 offer/不结束
     const forceContinue = body.forceContinue === true
+    // 语言：BeginHere 传 lang='en' 时整段对话（含 title/name/meaning/desc/egg）全用英文
+    const lang = body.lang === 'en' ? 'en' : 'zh'
 
     const rawMessages = Array.isArray(body.messages) ? body.messages : []
     const messages: ChatMsg[] = []
@@ -201,7 +203,9 @@ export async function POST(req: Request) {
         : isOffer
         ? `可以先进入下一阶段了。请给一句：对当前情绪承接/总结，并给出一个符合你人格风格的生活彩蛋建议（1句话，具体、不费力）。注意这不是强制结束，只是"可以进入下一阶段"。`
         : '请先用一句话回应。不要替用户下结论，不要给长篇建议。',
-      '只输出 JSON。',
+      lang === 'en'
+        ? 'The user uses English. Reply entirely in English: the reply text, egg text, object title, name, meaning and desc must all be in English. Output ONLY the JSON object. Title and name should be short (a few words). ' + '只输出 JSON。'
+        : '只输出 JSON。',
     ].join('\n')
 
     const receiptSchema = '{"type":"result","reply":"…","title":"≤10字标题","object":{"id":"池内id","name":"≤10字","meaning":"一句话寓意","desc":"收尾文案"}}'
