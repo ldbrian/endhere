@@ -111,6 +111,14 @@ export const CHEST_OBJECTS: ChestObjectDef[] = [
   { id: 'star', baseName: '一颗星星', baseMeaning: '微光 / 夜晚', artKey: 'star', tags: ['Rin', 'sad', 'tired'] },
   { id: 'sprout', baseName: '一株新芽', baseMeaning: '新生 / 今天开始', artKey: 'sprout', tags: ['Child', 'hopeful', 'bored'] },
   { id: 'heart', baseName: '一颗心', baseMeaning: '被爱 / 还在跳', artKey: 'heart', tags: ['Rin', 'sad', 'tired'] },
+  { id: 'moon', baseName: '一轮月亮', baseMeaning: '安抚 / 夜色', artKey: 'moon', tags: ['Rin', 'sad', 'tired'] },
+  { id: 'candle', baseName: '一支蜡烛', baseMeaning: '暖意 / 守候', artKey: 'candle', tags: ['Rin', 'tired', 'sad'] },
+  { id: 'flower', baseName: '一朵花', baseMeaning: '绽放 / 新鲜', artKey: 'flower', tags: ['Child', 'happy', 'hopeful'] },
+  { id: 'letter', baseName: '一封信', baseMeaning: '未说出口 / 倾诉', artKey: 'letter', tags: ['Rin', 'sad'] },
+  { id: 'compass', baseName: '一个指南针', baseMeaning: '方向 / 决定', artKey: 'compass', tags: ['Ash', 'annoyed', 'bored'] },
+  { id: 'stone', baseName: '一块石头', baseMeaning: '沉稳 / 踏实', artKey: 'stone', tags: ['Ash', 'annoyed', 'tired'] },
+  { id: 'cloud', baseName: '一朵云', baseMeaning: '放空 / 轻盈', artKey: 'cloud', tags: ['Child', 'bored', 'tired'] },
+  { id: 'camera', baseName: '一台相机', baseMeaning: '定格 / 此刻', artKey: 'camera', tags: ['Child', 'happy', 'bored'] },
 ]
 
 // ------------------------------------------------------------
