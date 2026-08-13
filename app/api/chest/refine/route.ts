@@ -37,7 +37,7 @@ type ChatMsg = { role: 'user' | 'assistant'; content: string }
 const OBJECT_PROMPT =
   '从物件池里选一个最贴合用户此刻状态的物件，并生成它的今日解释。' +
   '物件池：' + CHEST_OBJECTS.map((o) => o.id + '·' + o.baseMeaning).join('；') + '。' +
-  'name 是给物件起的一个有画面感的短名（≤10字）、meaning 是用一句话解释它在这个时刻意味着什么、desc 是一句收尾文案（不要升华说教）。'
+  'name 是给物件起的一个有画面感的短名（中文≤10字）、meaning 是用一句话解释它在这个时刻意味着什么、desc 是一句收尾文案（不要升华说教）。'
 
 // 本接口只服务 BeginHere 子域；CORS 白名单在生产由环境变量控制
 function corsHeaders(): Record<string, string> {
@@ -93,6 +93,13 @@ function safeJsonParse(raw: string): Record<string, unknown> | null {
 function normalizePersona(value: unknown): ChestPersonaId {
   const v = String(value || '')
   return v === 'Ash' || v === 'Child' ? v : v === 'Rin' ? 'Rin' : 'Rin'
+}
+
+// 截断按语言区分：中文按字（上限小），英文按字符（词汇更长，上限需放大）
+// zh 与 en 的参数顺序：cut(text, lang, zhMax, enMax)
+function cut(text: string, lang: string, zhMax: number, enMax: number): string {
+  const max = lang === 'en' ? enMax : zhMax
+  return text.slice(0, max)
 }
 
 export async function POST(req: Request) {
@@ -204,11 +211,13 @@ export async function POST(req: Request) {
         ? `可以先进入下一阶段了。请给一句：对当前情绪承接/总结，并给出一个符合你人格风格的生活彩蛋建议（1句话，具体、不费力）。注意这不是强制结束，只是"可以进入下一阶段"。`
         : '请先用一句话回应。不要替用户下结论，不要给长篇建议。',
       lang === 'en'
-        ? 'The user uses English. Reply entirely in English: the reply text, egg text, object title, name, meaning and desc must all be in English. Output ONLY the JSON object. Title and name should be short (a few words). ' + '只输出 JSON。'
+        ? 'The user uses English. Reply entirely in English: the reply text, egg text, object title, name, meaning and desc must all be in English. Output ONLY the JSON object. In English, title and name should be short (2-5 words), meaning one clear sentence, desc one closing line. ' + '只输出 JSON。'
         : '只输出 JSON。',
     ].join('\n')
 
-    const receiptSchema = '{"type":"result","reply":"…","title":"≤10字标题","object":{"id":"池内id","name":"≤10字","meaning":"一句话寓意","desc":"收尾文案"}}'
+    const receiptSchema = lang === 'en'
+      ? '{"type":"result","reply":"…","title":"short title","object":{"id":"pool id","name":"short name","meaning":"one-sentence meaning","desc":"one closing line"}}'
+      : '{"type":"result","reply":"…","title":"≤10字标题","object":{"id":"池内id","name":"≤10字","meaning":"一句话寓意","desc":"收尾文案"}}'
     const eggSchema = '{"type":"result","egg":{"text":"一个生活小行动"}}'
     const offerSchema = '{"type":"offer","reply":"一句情绪承接/总结","egg":{"text":"一个生活彩蛋建议"}}'
     const replySchema = '{"type":"reply","reply":"一句话回应"}'
@@ -240,7 +249,7 @@ export async function POST(req: Request) {
         type: 'result',
         egg: {
           id: egg.id,
-          text: String(eggRaw.text || egg.text).slice(0, 60),
+          text: cut(String(eggRaw.text || egg.text), lang, 60, 140),
         },
       }, { headers: corsHeaders() })
     }
@@ -251,10 +260,10 @@ export async function POST(req: Request) {
       const eggRaw = parsed.egg && typeof parsed.egg === 'object' ? parsed.egg as Record<string, unknown> : {}
       return Response.json({
         type: 'offer',
-        reply: String(parsed.reply || me.greeting).slice(0, 140),
+        reply: cut(String(parsed.reply || me.greeting), lang, 140, 400),
         egg: {
           id: egg.id,
-          text: String(eggRaw.text || egg.text).slice(0, 60),
+          text: cut(String(eggRaw.text || egg.text), lang, 60, 140),
         },
       }, { headers: corsHeaders() })
     }
@@ -262,7 +271,7 @@ export async function POST(req: Request) {
     if (parsed.type !== 'result') {
       return Response.json({
         type: 'reply',
-        reply: String(parsed.reply || fallbackReply(persona)).slice(0, 120),
+        reply: cut(String(parsed.reply || fallbackReply(persona)), lang, 120, 400),
       }, { headers: corsHeaders() })
     }
 
@@ -277,13 +286,13 @@ export async function POST(req: Request) {
 
     return Response.json({
       type: 'result',
-      reply: String(parsed.reply || me.greeting).slice(0, 140),
-      title: String(parsed.title || titleFromEmotion(emotion)).slice(0, 10),
+      reply: cut(String(parsed.reply || me.greeting), lang, 140, 400),
+      title: cut(String(parsed.title || titleFromEmotion(emotion)), lang, 10, 30),
       object: {
         id: object.id,
-        name: String((objFields as Record<string, unknown>).name || object.baseName).slice(0, 10),
-        meaning: String((objFields as Record<string, unknown>).meaning || object.baseMeaning).slice(0, 24),
-        desc: String((objFields as Record<string, unknown>).desc || `${object.baseName}——${object.baseMeaning}。`).slice(0, 60),
+        name: cut(String((objFields as Record<string, unknown>).name || object.baseName), lang, 10, 30),
+        meaning: cut(String((objFields as Record<string, unknown>).meaning || object.baseMeaning), lang, 24, 80),
+        desc: cut(String((objFields as Record<string, unknown>).desc || `${object.baseName}——${object.baseMeaning}。`), lang, 60, 160),
       },
     }, { headers: corsHeaders() })
   } catch (error) {
