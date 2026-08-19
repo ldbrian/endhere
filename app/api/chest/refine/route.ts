@@ -5,10 +5,13 @@ import {
   CHEST_PERSONAS,
   buildLocalResult,
   fallbackReply,
+  matchObjectByText,
   pickFallbackEgg,
   pickFallbackObject,
   seed,
   titleFromEmotion,
+  detectCrisis,
+  CRISIS_REPLIES,
   type ChestPersonaId,
 } from '../_pools'
 
@@ -37,7 +40,8 @@ type ChatMsg = { role: 'user' | 'assistant'; content: string }
 const OBJECT_PROMPT =
   '从物件池里选一个最贴合用户此刻状态的物件，并生成它的今日解释。' +
   '物件池：' + CHEST_OBJECTS.map((o) => o.id + '·' + o.baseMeaning).join('；') + '。' +
-  'name 是给物件起的一个有画面感的短名（中文≤10字）、meaning 是用一句话解释它在这个时刻意味着什么、desc 是一句收尾文案（不要升华说教）。'
+  'name 是给物件起的一个有画面感的短名（中文≤10字）、meaning 是用一句话解释它在这个时刻意味着什么、desc 是一句收尾文案（不要升华说教）。' +
+  '注意：物件 id 决定图标，name/meaning 的画面必须和这个 id 一致（比如选了 star 就不要把名字起成「一片叶子」，选了 stone 就不要叫「一封信」）。'
 
 // 本接口只服务 BeginHere 子域；CORS 白名单在生产由环境变量控制
 function corsHeaders(): Record<string, string> {
@@ -146,6 +150,14 @@ export async function POST(req: Request) {
     }
     if (messages.length === 0 && mode !== 'egg') return Response.json({ error: 'EMPTY' }, { status: 400, headers: corsHeaders() })
 
+    // ── 危机安全层：命中自杀/自伤信号 → 绕过人格与所有游戏机制，改为引导求助 ──
+    // 必须在 checkInput 之前：危机词不应被当成普通敏感词静默降级成「生活碎片」
+    const crisisLevel = detectCrisis(messages)
+    if (crisisLevel) {
+      const text = CRISIS_REPLIES[crisisLevel][lang === 'en' ? 'en' : 'zh']
+      return Response.json({ type: 'crisis', level: crisisLevel, reply: text }, { headers: corsHeaders() })
+    }
+
     // 敏感词命中：静默降级而非暴露拦截事实；超长直接 400
     for (const m of messages) {
       const guard = checkInput(m.content, { max: 2000 })
@@ -204,7 +216,7 @@ export async function POST(req: Request) {
       isEggFresh
         ? '这是探索行动彩蛋。请只给一个符合你人格风格、可在现实生活中执行的小行动（1句话，具体、不费力）。'
         : isEggReceipt
-        ? '用户完成了一个生活彩蛋并回来反馈。请给一句温柔的收尾认可，并生成一件象征这次体验的小票物件。'
+        ? '用户完成了一个生活彩蛋并回来反馈（输入包含彩蛋原文、完成状态与感受）。请基于「这次真实发生的行动」给一句轻量、具体的回应：看见用户真的做了一件小事，回应里带上这件小事本身（不要泛泛而谈、不要教育、不要分析深层心理、不要变成心理咨询）。然后生成一件象征这次体验的小票物件。'
         : final
         ? `用户主动结束倾诉。请给出：一句收尾回应（延续你的人格）、以及${OBJECT_PROMPT}。不要给行动彩蛋。`
         : isOffer
@@ -275,14 +287,12 @@ export async function POST(req: Request) {
       }, { headers: corsHeaders() })
     }
 
-    let object = pickFallbackObject(persona, emotion, salt)
-    const objRaw = parsed.object
-    const objId = objRaw && typeof objRaw === 'object'
-      ? String((objRaw as Record<string, unknown>).id || '')
-      : ''
-    const matched = CHEST_OBJECTS.find((o) => o.id === objId)
-    if (matched) object = matched
-    const objFields = objRaw && typeof objRaw === 'object' ? objRaw as Record<string, unknown> : {}
+    const objRaw = parsed.object && typeof parsed.object === 'object' ? parsed.object as Record<string, unknown> : {}
+    const objFields = objRaw as Record<string, unknown>
+    // 类型由「名字+寓意」语义匹配纠正（保证图标与名字一致）；匹配不到再信任 AI 选的 id，最后才情绪兜底
+    const byText = matchObjectByText(`${objFields.name || ''} ${objFields.meaning || ''}`)
+    const matched = byText || CHEST_OBJECTS.find((o) => o.id === String(objFields.id || ''))
+    const object = matched || pickFallbackObject(persona, emotion, salt)
 
     return Response.json({
       type: 'result',
@@ -290,9 +300,9 @@ export async function POST(req: Request) {
       title: cut(String(parsed.title || titleFromEmotion(emotion)), lang, 10, 30),
       object: {
         id: object.id,
-        name: cut(String((objFields as Record<string, unknown>).name || object.baseName), lang, 10, 30),
-        meaning: cut(String((objFields as Record<string, unknown>).meaning || object.baseMeaning), lang, 24, 80),
-        desc: cut(String((objFields as Record<string, unknown>).desc || `${object.baseName}——${object.baseMeaning}。`), lang, 60, 160),
+        name: cut(String(objFields.name || object.baseName), lang, 10, 30),
+        meaning: cut(String(objFields.meaning || object.baseMeaning), lang, 24, 80),
+        desc: cut(String(objFields.desc || `${object.baseName}——${object.baseMeaning}。`), lang, 60, 160),
       },
     }, { headers: corsHeaders() })
   } catch (error) {

@@ -19,7 +19,8 @@ export const CHEST_PERSONAS: Record<ChestPersonaId, ChestPersonaDef> = {
     system: `你是 Ash，BeginHere 里的清醒视角。
 你不共情铺垫、不安慰、不抒情。你先听清事实，再直接指出一个成立的地方：哪里和预期对不上、哪里是盲点。
 必要的时候可以轻微扎心，但不刻薄。
-回复保持 1~2 句，不写温柔比喻，不总结成长。`,
+每次回应都以一个具体的观察开头，再留一句让对方接着往下说的追问（针对刚才的具体细节，不要用「你确认过吗」这类审问感，也不要抽象的「你想说的是什么」）。
+回复保持 1~2 句。`,
     greeting: '说吧。发生了什么。',
     eggStyle: '给一个直接、可执行的小行动，解决眼前最实际的一点。',
   },
@@ -30,6 +31,7 @@ export const CHEST_PERSONAS: Record<ChestPersonaId, ChestPersonaDef> = {
 你先稳稳接住对方的感受，不分析原因、不总结道理。
 像敏感的人低声说一句：指出此刻最真实的一层感受，让对方觉得被听见。
 不劝振作，不写成鸡汤，不替对方解释自己。
+每次回应在接住情绪之后，用一句轻柔的话邀请对方继续说下去（比如追问这件事里最具体的某个细节，或问「是从什么时候开始的」），但不要变成一连串提问的访谈。
 回复保持 1~2 句。`,
     greeting: '听你说。我在这里。',
     eggStyle: '给一个让你缓过来一点的小事，安静、不费力。',
@@ -41,6 +43,8 @@ export const CHEST_PERSONAS: Record<ChestPersonaId, ChestPersonaDef> = {
 你像一个小朋友，不分析、不讲大道理、不装成熟。
 用好奇的眼睛把它看成一次玩耍、一个小意外、一个想立刻问出口的问题。
 可以联想、提小问题，或说一个很具体的小动作。
+你的提问要紧贴对方刚才说出的情绪和细节，不要只对着场景问、更不要飘到不相干的地方。
+每次回应都以一个好奇的小问题收尾，让对方愿意继续讲。
 回复保持 1~2 句，不故作可爱，不抽象概括。`,
     greeting: '咦，今天发生了什么呀？',
     eggStyle: '给一个像小时候玩一下那样的小行动，具体、好玩、不费力。',
@@ -96,6 +100,52 @@ export interface ChestObjectDef {
   baseMeaning: string
   artKey: string
   tags: string[]
+}
+
+// 物件语义关键词：AI 起名/寓意与「物件类型」可能错位（比如起了「一片叶子」却选了 star），
+// 用名字关键词把类型纠正回来，保证图标与名字一致。需与 BeginHere 侧 pixel-icons.ts 保持一致。
+export const OBJECT_KEYWORDS: Record<string, string[]> = {
+  lamp: ['灯', '光', '微光', '希望', 'light', 'lamp', 'glow'],
+  key: ['钥匙', '开启', '门', '锁', '解开', 'key', 'open'],
+  cup: ['杯', '茶', '沿', '接住', '日常', '杯沿', 'cup', 'tea', 'mug'],
+  seed: ['种子', '种', '叶', '苗', '生长', '慢慢', 'seed', 'leaf', 'grow'],
+  boat: ['船', '渡过', '离开', '小船', 'boat', 'ship'],
+  paperplane: ['纸飞机', '飞机', '飞走', '折', 'paper', 'plane'],
+  photo: ['照片', '回忆', '旧', '那时候', 'photo', 'memory', 'picture'],
+  umbrella: ['伞', '保护', '挡', 'umbrella', 'rain'],
+  book: ['书', '页', '记录', '未写完', '本子', 'book', 'page', 'journal'],
+  star: ['星', '微光', '夜', '天空', 'star', 'night', 'twinkle'],
+  sprout: ['芽', '新生', '嫩', '今天开始', 'sprout', 'bud'],
+  heart: ['心', '爱', '跳', 'heart', 'love'],
+  moon: ['月', '夜色', '安抚', 'moon', 'night'],
+  candle: ['烛', '蜡', '暖', '守候', 'candle', 'flame', 'warm'],
+  flower: ['花', '绽放', '新鲜', 'flower', 'bloom'],
+  letter: ['信', '字', '倾诉', '未说出口', '笺', '写', '票', '小票', 'letter', 'mail', 'note'],
+  compass: ['指南针', '方向', '决定', 'compass', 'direction'],
+  stone: ['石', '沉稳', '踏实', '停摆', '不动', 'stone', 'rock', 'steady'],
+  cloud: ['云', '放空', '轻盈', '灰色', '飘', 'cloud', 'gray', 'drift'],
+  camera: ['相机', '定格', '此刻', '拍', 'camera', 'shot'],
+}
+
+// 用名字/寓意文本匹配最贴切的物件类型；无命中或多平票返回 null（交给调用方按原 id / 情绪兜底）
+export function matchObjectByText(text: string): ChestObjectDef | null {
+  const t = String(text || '').toLowerCase()
+  if (!t) return null
+  let best: string[] = []
+  let bestScore = 0
+  for (const o of CHEST_OBJECTS) {
+    const kw = OBJECT_KEYWORDS[o.id] || []
+    const score = kw.reduce((n, k) => (t.includes(k.toLowerCase()) ? n + 1 : n), 0)
+    if (score > bestScore) {
+      bestScore = score
+      best = [o.id]
+    } else if (score === bestScore && score > 0) {
+      best.push(o.id)
+    }
+  }
+  if (bestScore === 0) return null
+  if (best.length !== 1) return null // 多类型平票 → 交给调用方
+  return CHEST_OBJECTS.find((o) => o.id === best[0]) || null
 }
 
 export const CHEST_OBJECTS: ChestObjectDef[] = [
@@ -231,4 +281,90 @@ export const CHEST_FALLBACK_REPLIES: Record<ChestPersonaId, string> = {
 
 export function fallbackReply(persona: ChestPersonaId): string {
   return CHEST_FALLBACK_REPLIES[persona] || CHEST_FALLBACK_REPLIES.Rin
+}
+
+// ------------------------------------------------------------
+// 危机安全层（Safety Layer > Persona）
+// 统一处理自杀/自伤信号，不受当前人格影响；一旦命中，绕过
+// 彩蛋/offer/小票机制，改为引导现实求助。
+// ------------------------------------------------------------
+
+export type CrisisLevel = 1 | 2 | 3 | 4
+
+// ④ 高风险 / 临近行动：明确的行动意图 + 时间/方法，必须立即求助
+const CRISIS_HIGH: RegExp[] = [
+  /(已经|就要|准备|打算|决定|今晚|马上|现在|待会|等会|一会儿|下班后|周末|明天).{0,12}(自杀|去死|了结|结束自己|死掉|割腕|跳楼|跳桥|上吊|烧炭|服安眠药|吃药|伤害自己|自残)/,
+  /(自杀|自残|跳楼|跳桥|上吊|割腕|烧炭|服毒|吃安眠药).{0,12}(已经|就要|准备|打算|今晚|马上|现在|工具|药|刀|绳子)/,
+  // 无核心词的临近行动表达（今晚就去做 / 东西都备好了）
+  /(今晚|现在|马上|待会|一会儿|已经|就要|准备|打算|决定).{0,6}(去做|动手|实施|了结|结束一切|结束自己)/,
+  // 英文：明确时间/准备 + 结束生命
+  /(tonight|today|now|right now|soon|later|after work|this weekend|tomorrow|have already|about to|going to|planning to|ready to).{0,24}(kill myself|end my life|end it all|take my own life|hurt myself|harm myself)/i,
+  /(kill myself|end my life|take my own life|suicide).{0,24}(tonight|today|now|right now|soon|after work|this weekend|tomorrow|have already|about to|planning|ready)/i,
+]
+
+// ③ 明确意图：表达「想死/想自杀/不想活」但没有临近行动
+const CRISIS_INTENT: RegExp[] = [
+  /(我|自己)?(想|要|打算|真的想|好想)(自杀|去死|死掉|了结|结束自己|离开这个世界|不活了|消失)/,
+  /不想(活|继续活|活着|再活|面对这一切)/,
+  /活着(没有|没|没什么|毫无)(意思|意义|价值|盼头|动力)/,
+  /(希望|宁愿|恨不得)(自己)?(死|消失|没出生)/,
+  // 英文：明确求死
+  /(i\s*('?m\s*)?(just|really|honestly|so|definitely)?\s*(want|wish|would\s*like|have\s*decided|am\s*thinking|'?m\s*thinking)\s*(so\s*)?(to\s*)?(kill\s*myself|die|end\s*my\s*life|end\s*it\s*all|not\s*be\s*alive|not\s*exist|disappear|take\s*my\s*own\s*life))/i,
+  /(i\s*(don.t|do not|can.t|can not|no longer)\s*want\s*to\s*(live|be\s*alive|go\s*on|keep\s*living|continue|be\s*here))/i,
+  /(life|living)\s*(has|holds)?\s*(no|nothing|zero)\s*(meaning|point|purpose|worth|hope)/i,
+  /i\s*(don.t|do not)\s*(want\s*to\s*)?(wake\s*up|be\s*here|exist)/i,
+  /(i\s*(just|really|honestly|sometimes)?\s*(wish|wished|hope)\s*(i\s*)?(could|would|can|'d|was|were)\s*(just\s*)?(disappear|not\s*exist|be\s*gone|be\s*dead|be\s*dead\s*and\s*gone|kill\s*myself|dead))/i,
+]
+
+// ② 被动/模糊自伤：提及痛苦但未明确求死，需谨慎回应并确认状态
+const CRISIS_PASSIVE: RegExp[] = [
+  /(有时候|偶尔|经常|总|一直).{0,8}(觉得|感觉|想).{0,8}(活着没|没意思|撑不下去|坚持不下去|承受不了|熬不下去|太累|扛不住)/,
+  /(撑不下去|熬不下去|坚持不下去|承受不了|扛不住|没力气活下去|看不到头)/,
+  /(没有)(意义|希望|盼头|动力|方向)/,
+  /(不想|无法|难以).{0,6}(面对|应付|承受|处理)/,
+  // 英文：被动痛苦表达
+  /(i\s*(sometimes|often|always|keep|feel|am)\s*(so|really|just|very|all)?\s*(like\s*)?(i\s*)?(giving up|can't go on|cant go on|can't keep going|cant keep going|falling apart|breaking down|drowning|hopeless|worthless|empty|numb))/i,
+  /i\s*(don.t|do not|can.t|can not|cant)\s*(see|have|find|feel\s+there\s+is)\s*(any\s*)?(point|hope|way\s*out|reason)/i,
+  /there\s*(is|seems\s+to\s+be)\s*no\s*(point|hope|reason|way\s*out)/i,
+  /i\s*feel\s*(like|that)\s*(i\s*)?(am\s*)?(a\s*)?(burden|failure|nothing)/i,
+]
+
+// ① 普通提及：提到自杀/自伤但显然不是本人处境（他人/新闻/作品）→ 走正常流程
+export function detectCrisis(messages: { role: string; content: string }[]): CrisisLevel | null {
+  const userText = messages
+    .filter((m) => m.role === 'user')
+    .map((m) => m.content)
+    .join('\n')
+    .trim()
+  if (!userText) return null
+
+  // 普通提及（他人/作品/新闻）不触发危机层——但保留对「我自己也是」这类反转的检测
+  const personalRef = /(我|自己|我真的|我也|我是|我现在)/.test(userText)
+  const thirdPerson = /(朋友|同学|同事|家人|妹妹|弟弟|姐姐|哥哥|妈妈|爸爸|邻居|网友|听说|新闻|报道|电影|剧|角色|小说|书里|某|一个)/.test(userText)
+
+  // 只有明显是「他人/作品」且无「我」的第一人称表述，才判定为普通提及
+  if (thirdPerson && !personalRef) return null
+
+  if (CRISIS_HIGH.some((re) => re.test(userText))) return 4
+  if (CRISIS_INTENT.some((re) => re.test(userText))) return 3
+  if (CRISIS_PASSIVE.some((re) => re.test(userText))) return 2
+  return null
+}
+
+// 各等级的安全回复（固定文案，不受人格影响；含英文版）
+// level 1（普通提及）不触发危机层，detectCrisis 只返回 2/3/4；此处类型上兜底。
+export const CRISIS_REPLIES: Record<CrisisLevel, { zh: string; en: string }> = {
+  1: { zh: '', en: '' },
+  2: {
+    zh: '听到你说这些话，我有些担心你。现在感觉很难受的话，不用硬撑——你愿意跟我多说说发生了什么吗？如果此刻痛苦已经压得你喘不过气，也请记得联系一个你信任的人，或拨打心理援助热线（如北京 010-82951332）。你不需要一个人扛着。',
+    en: "I'm a little worried about you after reading that. You don't have to carry this alone—can you tell me a bit more about what's going on? If the pain feels overwhelming right now, please reach out to someone you trust, or a support line (e.g. in many countries you can call a local crisis line). You don't have to face this by yourself.",
+  },
+  3: {
+    zh: '谢谢你愿意把这些告诉我。你现在心里一定很痛，我不想随便给你一句安慰就带过。如果你已经产生了想结束生命的念头，请先别一个人待着——联系身边信任的人，或拨打 24 小时心理援助热线（北京 010-82951332；或手机端 12356）。让我陪你到联系上他们为止，好吗？',
+    en: "Thank you for trusting me with this. What you're feeling sounds very painful, and I don't want to brush past it. If you're having thoughts of ending your life, please don't stay alone—reach out to someone you trust, or call a 24h crisis/suicide prevention line in your region. I'll stay with you until you've reached them, okay?",
+  },
+  4: {
+    zh: '我听到了，也看到了你的痛苦。请你现在立刻放下手里的东西，联系你身边能最快见到的人，或者拨打紧急求助电话。你的生命很珍贵，值得被救——请现在就打电话给信任的人或心理危机干预热线（北京 010-82951332；全国 12356），他们能马上帮你。我会一直在这里等你。',
+    en: "I hear you, and I see how much pain you're in. Please stop what you're doing right now and reach out to someone who can be with you immediately, or call an emergency/crisis line now. Your life matters, and you deserve help—please call someone you trust or a suicide prevention hotline (in your country) right now. I'll be here with you.",
+  },
 }
