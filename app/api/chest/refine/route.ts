@@ -135,6 +135,8 @@ export async function POST(req: Request) {
     const mode = body.mode === 'egg' ? 'egg' : 'chat'
     // 用户点「我还想聊聊」强制继续：即使达到 offer 阈值也只回普通回复，不出 offer/不结束
     const forceContinue = body.forceContinue === true
+    // 场景分流 hint：BeginHere 按本地时段发（夜晚=indoor），决定给蛋时避开「要出门」的
+    const place: 'indoor' | 'any' = body.place === 'indoor' ? 'indoor' : 'any'
     // 语言：BeginHere 传 lang='en' 时整段对话（含 title/name/meaning/desc/egg）全用英文
     const lang = body.lang === 'en' ? 'en' : 'zh'
 
@@ -175,7 +177,7 @@ export async function POST(req: Request) {
 
     if (!llm || process.env.CHEST_MOCK === '1') {
       if (mode === 'egg' && !final) {
-        const egg = pickFallbackEgg(persona, emotion, salt)
+        const egg = pickFallbackEgg(persona, emotion, salt, place)
         return Response.json({ type: 'result', egg: { id: egg.id, text: egg.text } }, { headers: corsHeaders() })
       }
       if (mode === 'egg' && final) {
@@ -194,7 +196,7 @@ export async function POST(req: Request) {
       }
       if (final) return Response.json(buildLocalResult({ persona, emotion, salt }), { headers: corsHeaders() })
       if (!forceContinue && userTurns >= OFFER_AFTER) {
-        const egg = pickFallbackEgg(persona, emotion, salt)
+        const egg = pickFallbackEgg(persona, emotion, salt, place)
         return Response.json({
           type: 'offer',
           reply: CHEST_PERSONAS[persona]?.greeting || '嗯。',
@@ -213,6 +215,9 @@ export async function POST(req: Request) {
     const system = [
       me.system,
       `当前情绪：${emotion?.state || '未知'}，强度 ${emotion?.score ?? 5}/10。`,
+      place === 'indoor' && (isEggFresh || isOffer)
+        ? '场景约束：现在是深夜、你在家。给的小行动必须不需要出门、现在就能完成（比如听歌、写一段话、整理一件旧物、做一个几秒钟的小动作）。不要给出门/通勤/买东西/见人的行动。'
+        : '',
       isEggFresh
         ? '这是探索行动彩蛋。请只给一个符合你人格风格、可在现实生活中执行的小行动（1句话，具体、不费力）。'
         : isEggReceipt
@@ -255,7 +260,7 @@ export async function POST(req: Request) {
 
     // ── 探索路径：只回行动彩蛋，无情绪小票/物件 ──
     if (isEggFresh) {
-      const egg = pickFallbackEgg(persona, emotion, salt)
+      const egg = pickFallbackEgg(persona, emotion, salt, place)
       const eggRaw = parsed.egg && typeof parsed.egg === 'object' ? parsed.egg as Record<string, unknown> : {}
       return Response.json({
         type: 'result',
@@ -268,7 +273,7 @@ export async function POST(req: Request) {
 
     // ── offer：AI 判断可进入下一阶段，给承接 + 彩蛋建议（一次返回） ──
     if (isOffer) {
-      const egg = pickFallbackEgg(persona, emotion, salt)
+      const egg = pickFallbackEgg(persona, emotion, salt, place)
       const eggRaw = parsed.egg && typeof parsed.egg === 'object' ? parsed.egg as Record<string, unknown> : {}
       return Response.json({
         type: 'offer',

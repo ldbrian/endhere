@@ -55,43 +55,51 @@ export interface EggDef {
   id: string
   spirit: 'demon' | 'angel'
   text: string
-  tags: { type: string; cat: string; time: string; social: 0 | 1; repeatable: boolean }
+  tags: {
+    type: string
+    cat: string
+    time: string
+    social: 0 | 1
+    repeatable: boolean
+    // 完成场景：indoor=在家随时可做 / outdoor=需要出门或通勤场景 / any=两者皆可
+    place: 'indoor' | 'outdoor' | 'any'
+  }
 }
 
 export const CHEST_EGGS: EggDef[] = [
   // ============ 小恶魔 · 偏离 ============
-  { id: 'd1', spirit: 'demon', text: '今天回家的时候，换一条从没走过的路。路上找一个以前从没注意过的东西。', tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: false } },
-  { id: 'd2', spirit: 'demon', text: '下一餐，点一道从来没点过的菜。不好吃也没关系——那也是一次经历。', tags: { type: 'action', cat: 'food', time: 'any', social: 0, repeatable: true } },
-  { id: 'd3', spirit: 'demon', text: '今天把一件每天都会做的事，换一个时间段来做。感受一下差别。', tags: { type: 'action', cat: 'time', time: 'any', social: 0, repeatable: true } },
-  { id: 'd4', spirit: 'demon', text: '今天不坐电梯，改走楼梯。数一数你一共经过了多少级台阶。', tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: true } },
-  { id: 'd5', spirit: 'demon', text: '买一样你从没买过的小东西——不超过十块钱的那种。', tags: { type: 'action', cat: 'consume', time: 'any', social: 0, repeatable: true } },
-  { id: 'd6', spirit: 'demon', text: '坐车的时候，提前一站下车，把剩下的路走完。', tags: { type: 'action', cat: 'route', time: 'day', social: 0, repeatable: true } },
-  { id: 'd7', spirit: 'demon', text: '今天用「不常用的那只手」做一件小事，感受一下那种别扭。', tags: { type: 'notice', cat: 'order', time: 'any', social: 0, repeatable: true } },
-  { id: 'd8', spirit: 'demon', text: '找一首你从来没听过的歌，完整地听完它。', tags: { type: 'action', cat: 'media', time: 'any', social: 0, repeatable: true } },
-  { id: 'd9', spirit: 'demon', text: '点饮料的时候，点一杯你平时永远不会选的那款。', tags: { type: 'action', cat: 'food', time: 'any', social: 0, repeatable: true } },
-  { id: 'd10', spirit: 'demon', text: '走到路口再决定往哪拐。不查地图，凭感觉走十分钟。', tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: true } },
-  { id: 'd11', spirit: 'demon', text: '上班或上学的路上，数一数沿途一共有几棵树。', tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: true } },
-  { id: 'd12', spirit: 'demon', text: '对那个每天都会遇到、但从没说过话的人，说一句「你好」。', tags: { type: 'action', cat: 'social', time: 'any', social: 1, repeatable: true } },
-  { id: 'd13', spirit: 'demon', text: '把今天某件事的步骤顺序，反过来做一次。', tags: { type: 'action', cat: 'order', time: 'any', social: 0, repeatable: true } },
-  { id: 'd14', spirit: 'demon', text: '找一件你「一直想做但嫌麻烦」的小事，只做五分钟。', tags: { type: 'action', cat: 'break', time: 'any', social: 0, repeatable: true } },
-  { id: 'd15', spirit: 'demon', text: '今天走路的时候，换一边走，看看街道有什么不同。', tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: true } },
+  { id: 'd1', spirit: 'demon', text: '今天回家的时候，换一条从没走过的路。路上找一个以前从没注意过的东西。', tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: false, place: 'outdoor' } },
+  { id: 'd2', spirit: 'demon', text: '下一餐，点一道从来没点过的菜。不好吃也没关系——那也是一次经历。', tags: { type: 'action', cat: 'food', time: 'any', social: 0, repeatable: true, place: 'any' } },
+  { id: 'd3', spirit: 'demon', text: '今天把一件每天都会做的事，换一个时间段来做。感受一下差别。', tags: { type: 'action', cat: 'time', time: 'any', social: 0, repeatable: true, place: 'any' } },
+  { id: 'd4', spirit: 'demon', text: '今天不坐电梯，改走楼梯。数一数你一共经过了多少级台阶。', tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: true, place: 'any' } },
+  { id: 'd5', spirit: 'demon', text: '买一样你从没买过的小东西——不超过十块钱的那种。', tags: { type: 'action', cat: 'consume', time: 'any', social: 0, repeatable: true, place: 'outdoor' } },
+  { id: 'd6', spirit: 'demon', text: '坐车的时候，提前一站下车，把剩下的路走完。', tags: { type: 'action', cat: 'route', time: 'day', social: 0, repeatable: true, place: 'outdoor' } },
+  { id: 'd7', spirit: 'demon', text: '今天用「不常用的那只手」做一件小事，感受一下那种别扭。', tags: { type: 'notice', cat: 'order', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
+  { id: 'd8', spirit: 'demon', text: '找一首你从来没听过的歌，完整地听完它。', tags: { type: 'action', cat: 'media', time: 'any', social: 0, repeatable: true, place: 'any' } },
+  { id: 'd9', spirit: 'demon', text: '点饮料的时候，点一杯你平时永远不会选的那款。', tags: { type: 'action', cat: 'food', time: 'any', social: 0, repeatable: true, place: 'any' } },
+  { id: 'd10', spirit: 'demon', text: '走到路口再决定往哪拐。不查地图，凭感觉走十分钟。', tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: true, place: 'outdoor' } },
+  { id: 'd11', spirit: 'demon', text: '上班或上学的路上，数一数沿途一共有几棵树。', tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: true, place: 'outdoor' } },
+  { id: 'd12', spirit: 'demon', text: '对那个每天都会遇到、但从没说过话的人，说一句「你好」。', tags: { type: 'action', cat: 'social', time: 'any', social: 1, repeatable: true, place: 'outdoor' } },
+  { id: 'd13', spirit: 'demon', text: '把今天某件事的步骤顺序，反过来做一次。', tags: { type: 'action', cat: 'order', time: 'any', social: 0, repeatable: true, place: 'any' } },
+  { id: 'd14', spirit: 'demon', text: '找一件你「一直想做但嫌麻烦」的小事，只做五分钟。', tags: { type: 'action', cat: 'break', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
+  { id: 'd15', spirit: 'demon', text: '今天走路的时候，换一边走，看看街道有什么不同。', tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: true, place: 'outdoor' } },
 
   // ============ 小天使 · 恢复 ============
-  { id: 'a1', spirit: 'angel', text: '打开你收藏夹里躺了很久的那个东西，把它看完。', tags: { type: 'action', cat: 'pickup', time: 'any', social: 0, repeatable: true } },
-  { id: 'a2', spirit: 'angel', text: '重启一件你以前很喜欢、但很久没做了的小事。', tags: { type: 'action', cat: 'restart', time: 'any', social: 0, repeatable: true } },
-  { id: 'a3', spirit: 'angel', text: '找一个很久没去的地方，再去一次。', tags: { type: 'action', cat: 'oldplace', time: 'any', social: 0, repeatable: true } },
-  { id: 'a4', spirit: 'angel', text: '给一个很久没联系的人，发一句「突然想到你」。', tags: { type: 'action', cat: 'contact', time: 'any', social: 1, repeatable: true } },
-  { id: 'a5', spirit: 'angel', text: '翻一翻以前的老照片，找一张你几乎忘了的照片。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true } },
-  { id: 'a6', spirit: 'angel', text: '重新听一首你以前单曲循环过的歌。', tags: { type: 'action', cat: 'media', time: 'any', social: 0, repeatable: true } },
-  { id: 'a7', spirit: 'angel', text: '把你以前的某个爱好重新做一次，不用做得好。', tags: { type: 'action', cat: 'restart', time: 'any', social: 0, repeatable: true } },
-  { id: 'a8', spirit: 'angel', text: '去便利店买一个你小时候爱吃的零食。', tags: { type: 'action', cat: 'consume', time: 'any', social: 0, repeatable: true } },
-  { id: 'a9', spirit: 'angel', text: '写下关于「以前的某个时候的自己」的一小段话，不用给任何人看。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true } },
-  { id: 'a10', spirit: 'angel', text: '找出一件你以前很喜欢、现在收起来的东西，把它放回看得见的地方。', tags: { type: 'action', cat: 'memory', time: 'any', social: 0, repeatable: true } },
-  { id: 'a11', spirit: 'angel', text: '看一小段小时候看过的动画或电影。', tags: { type: 'action', cat: 'media', time: 'any', social: 0, repeatable: true } },
-  { id: 'a12', spirit: 'angel', text: '重新练一个你曾经会、但很久没碰的技能——乐器、球类、手工、画画……', tags: { type: 'action', cat: 'skill', time: 'any', social: 0, repeatable: true } },
-  { id: 'a13', spirit: 'angel', text: '给「过去的自己」说一句话，把它写下来。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true } },
-  { id: 'a14', spirit: 'angel', text: '找到一样朋友送你的东西，回忆一下它是怎么来的。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true } },
-  { id: 'a15', spirit: 'angel', text: '做一件小时候特别喜欢的小事——折纸、吹泡泡、跳格子……', tags: { type: 'action', cat: 'childhood', time: 'any', social: 0, repeatable: true } },
+  { id: 'a1', spirit: 'angel', text: '打开你收藏夹里躺了很久的那个东西，把它看完。', tags: { type: 'action', cat: 'pickup', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
+  { id: 'a2', spirit: 'angel', text: '重启一件你以前很喜欢、但很久没做了的小事。', tags: { type: 'action', cat: 'restart', time: 'any', social: 0, repeatable: true, place: 'any' } },
+  { id: 'a3', spirit: 'angel', text: '找一个很久没去的地方，再去一次。', tags: { type: 'action', cat: 'oldplace', time: 'any', social: 0, repeatable: true, place: 'outdoor' } },
+  { id: 'a4', spirit: 'angel', text: '给一个很久没联系的人，发一句「突然想到你」。', tags: { type: 'action', cat: 'contact', time: 'any', social: 1, repeatable: true, place: 'indoor' } },
+  { id: 'a5', spirit: 'angel', text: '翻一翻以前的老照片，找一张你几乎忘了的照片。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
+  { id: 'a6', spirit: 'angel', text: '重新听一首你以前单曲循环过的歌。', tags: { type: 'action', cat: 'media', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
+  { id: 'a7', spirit: 'angel', text: '把你以前的某个爱好重新做一次，不用做得好。', tags: { type: 'action', cat: 'restart', time: 'any', social: 0, repeatable: true, place: 'any' } },
+  { id: 'a8', spirit: 'angel', text: '去便利店买一个你小时候爱吃的零食。', tags: { type: 'action', cat: 'consume', time: 'any', social: 0, repeatable: true, place: 'outdoor' } },
+  { id: 'a9', spirit: 'angel', text: '写下关于「以前的某个时候的自己」的一小段话，不用给任何人看。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
+  { id: 'a10', spirit: 'angel', text: '找出一件你以前很喜欢、现在收起来的东西，把它放回看得见的地方。', tags: { type: 'action', cat: 'memory', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
+  { id: 'a11', spirit: 'angel', text: '看一小段小时候看过的动画或电影。', tags: { type: 'action', cat: 'media', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
+  { id: 'a12', spirit: 'angel', text: '重新练一个你曾经会、但很久没碰的技能——乐器、球类、手工、画画……', tags: { type: 'action', cat: 'skill', time: 'any', social: 0, repeatable: true, place: 'any' } },
+  { id: 'a13', spirit: 'angel', text: '给「过去的自己」说一句话，把它写下来。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
+  { id: 'a14', spirit: 'angel', text: '找到一样朋友送你的东西，回忆一下它是怎么来的。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
+  { id: 'a15', spirit: 'angel', text: '做一件小时候特别喜欢的小事——折纸、吹泡泡、跳格子……', tags: { type: 'action', cat: 'childhood', time: 'any', social: 0, repeatable: true, place: 'any' } },
 ]
 
 export interface ChestObjectDef {
@@ -206,20 +214,36 @@ export function dailyRandom(persona: string, salt?: string, date = new Date()): 
   return mulberry32(seed(persona + '|' + (salt || '') + '|' + dayKey(date)))
 }
 
-function eggBias(egg: EggDef, persona: ChestPersonaId, emotion: EmotionLike | undefined, rnd: () => number): number {
+function eggBias(
+  egg: EggDef,
+  persona: ChestPersonaId,
+  emotion: EmotionLike | undefined,
+  rnd: () => number,
+  placeHint?: 'indoor' | 'any',
+): number {
   let s = rnd() * 2
   if (egg.tags.social === 1) s += persona === 'Rin' ? 2 : 0
   if (egg.tags.cat === 'memory' || egg.tags.cat === 'childhood') s += persona === 'Child' ? 2 : 0
   if (egg.tags.type === 'action') s += persona === 'Ash' ? 1 : 0
   if (emotion?.state === 'tired' && ['rest', 'restart'].includes(egg.tags.cat)) s += 3
   if (emotion?.state === 'bored' && egg.tags.type === 'action') s += 2
+  // 场景分流：夜晚/居家时强烈压低「要出门」的蛋，偏好在家即可完成的
+  if (placeHint === 'indoor') {
+    if (egg.tags.place === 'outdoor') s -= 6
+    else if (egg.tags.place === 'indoor') s += 2
+  }
   return s
 }
 
-export function pickFallbackEgg(persona: ChestPersonaId, emotion?: EmotionLike, salt?: string): EggDef {
+export function pickFallbackEgg(
+  persona: ChestPersonaId,
+  emotion?: EmotionLike,
+  salt?: string,
+  placeHint?: 'indoor' | 'any',
+): EggDef {
   const list = [...CHEST_EGGS]
   const rnd = dailyRandom(persona, salt)
-  const nudged = list.map((e) => ({ e, s: eggBias(e, persona, emotion, rnd) }))
+  const nudged = list.map((e) => ({ e, s: eggBias(e, persona, emotion, rnd, placeHint) }))
   nudged.sort((a, b) => b.s - a.s)
   return nudged[0].e
 }
