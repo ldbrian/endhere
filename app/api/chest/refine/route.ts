@@ -123,7 +123,9 @@ export async function POST(req: Request) {
   let emotion: EmotionLike = {}
   let final = false
   // 设备级盐：同设备同角色同日期时降级物件/彩蛋稳定（每日确定性）
-  const salt = req.headers.get('x-device-id')?.trim() || req.headers.get('eh_device_id')?.trim() || undefined
+  // 换一个彩蛋（replaceNonce）会追加随机段重新播种，让同一天也能换出不同的蛋
+  const baseSalt = req.headers.get('x-device-id')?.trim() || req.headers.get('eh_device_id')?.trim() || undefined
+  let salt = baseSalt
 
   try {
     const ip = getRequestIp(req)
@@ -149,6 +151,10 @@ export async function POST(req: Request) {
     const forceContinue = body.forceContinue === true
     // 场景分流 hint：BeginHere 按本地时段发（夜晚=indoor），决定给蛋时避开「要出门」的
     const place: 'indoor' | 'any' = body.place === 'indoor' ? 'indoor' : 'any'
+    // 换一个彩蛋：nonce 追加进盐，重播种当日随机源，避免换出同一颗蛋
+    if (body.replaceNonce && typeof body.replaceNonce === 'string' && body.replaceNonce.length > 0 && body.replaceNonce.length <= 40) {
+      salt = baseSalt ? `${baseSalt}|r${body.replaceNonce}` : `r${body.replaceNonce}`
+    }
     // 语言：BeginHere 传 lang='en' 时整段对话（含 title/name/meaning/desc/egg）全用英文
     const lang = body.lang === 'en' ? 'en' : 'zh'
 
