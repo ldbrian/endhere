@@ -633,3 +633,31 @@ export function getCurrentBookPage() {
 export function canTurnCurrentPage() {
   return useFragmentStore.getState().canTurnPage();
 }
+
+// 读取「同一设备在 BeginHere 产生的碎片」（meta.source='beginhere'），并入 mirror 分析输入。
+// BH 是 EH 的真实生活碎片上游：倾诉/彩蛋/反馈/小票都已在 fragments 表（owner_id = eh_device_id）。
+// 排除 egg_status='active' 的未完成彩蛋（无沉淀文本，避免污染模式识别）。
+export async function fetchCloudFragmentsByOwner(ownerId: string): Promise<Fragment[]> {
+  if (!ownerId) return [];
+  try {
+    const { data, error } = await supabase
+      .from('fragments')
+      .select('*')
+      .eq('owner_id', ownerId)
+      .filter('meta->>source', 'eq', 'beginhere')
+      .order('created_at', { ascending: false })
+      .limit(80);
+
+    if (!error && data && data.length > 0) {
+      // JS 侧过滤：排除进行中的彩蛋（egg_status='active'，无沉淀文本）；
+      // 不用 neq（对 NULL 会过滤掉收藏路径的碎片）
+      return (data as Fragment[]).filter(
+        (r) => (r.meta as Record<string, any>)?.beginhere?.egg_status !== 'active'
+      );
+    }
+  } catch (err) {
+    console.error('[Cloud Fragments] Fetch error:', err);
+  }
+
+  return [];
+}

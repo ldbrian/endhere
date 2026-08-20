@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { track } from '../_core/analytics';
-import { useFragmentStore } from '../_core/storage';
+import { useFragmentStore, fetchCloudFragmentsByOwner } from '../_core/storage';
 import { useWaysArchive } from '../_core/waysArchive';
 import { LENSES } from '../../lib/ways/lens';
 
@@ -179,11 +179,15 @@ export default function MirrorPage() {
   const waysHydrated = useWaysArchive((state) => state._hasHydrated);
   const [analysis, setAnalysis] = useState<MirrorAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
+  // 云端碎片数（BH 产生）：纯 BH 用户本地书为空时，只要云端有碎片也允许展示分析
+  const [cloudCount, setCloudCount] = useState(0);
 
   const completedPages = useMemo(() => book.pages.filter((page) => page.paragraphs.length > 0), [book.pages]);
   const completedPageCount = completedPages.length;
+  // 本地书页 + 云端 BH 碎片总数：进度条/空状态用（纯 BH 用户不显示「0 页」误导）
+  const totalFragments = completedPageCount + cloudCount;
   const stage = useMemo(() => getBookmarkStage(completedPageCount), [completedPageCount]);
-  const isBookmarkReady = completedPageCount > 0;
+  const isBookmarkReady = completedPageCount > 0 || cloudCount > 0;
   const evidenceCards = useMemo(() => buildEvidenceCards(book.pages), [book.pages]);
 
   useEffect(() => {
@@ -194,26 +198,57 @@ export default function MirrorPage() {
   }, [hasHydrated, completedPageCount, markMirrorViewed]);
 
   useEffect(() => {
-    if (!hasHydrated || completedPages.length === 0) {
-      setLoading(false);
-      return;
-    }
-    const fragments = completedPages.map((page) => ({
-      id: page.id,
-      text: page.paragraphs.map((p) => p.text).filter(Boolean).join('\n'),
-      title: page.title || undefined,
-      createdAt: page.opened_at || undefined,
-    }));
-    setLoading(true);
-    fetch('/api/book/mirror/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ current_fragments: fragments, previous_fragments: [] }),
-    })
-      .then((res) => res.json())
-      .then((data) => setAnalysis(data))
-      .catch(() => setAnalysis(null))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    const run = async () => {
+      if (!hasHydrated) {
+        setLoading(false);
+        return;
+      }
+      const localFragments = completedPages.map((page) => ({
+        id: page.id,
+        text: page.paragraphs.map((p) => p.text).filter(Boolean).join('\n'),
+        title: page.title || undefined,
+        createdAt: page.opened_at || undefined,
+      }));
+
+      // 云端：同一设备在 BeginHere 产生的碎片（meta.source='beginhere'），并入分析输入。
+      // 纯 BH 用户本地书可能为空，但只要云端有碎片也应能分析。
+      const ownerId = typeof window !== 'undefined' ? localStorage.getItem('eh_device_id') || '' : '';
+      let cloudFragments: { id: string; text: string; title?: string; createdAt?: string }[] = [];
+      if (ownerId) {
+        const rows = await fetchCloudFragmentsByOwner(ownerId);
+        if (cancelled) return;
+        setCloudCount(rows.length);
+        cloudFragments = rows.map((r) => ({
+          id: r.id,
+          // 小票回复优先（AI 沉淀文本），其次对话原文/反馈
+          text: r.narration_content || r.original_content || '',
+          title: r.title || undefined,
+          createdAt: r.created_at || undefined,
+        })).filter((r) => r.text.trim().length > 0);
+      }
+
+      const fragments = [...localFragments, ...cloudFragments];
+      if (fragments.length === 0) {
+        setLoading(false);
+        setAnalysis(null);
+        return;
+      }
+      setLoading(true);
+      fetch('/api/book/mirror/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_fragments: fragments, previous_fragments: [] }),
+      })
+        .then((res) => res.json())
+        .then((data) => !cancelled && setAnalysis(data))
+        .catch(() => !cancelled && setAnalysis(null))
+        .finally(() => !cancelled && setLoading(false));
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
   }, [hasHydrated, completedPages]);
 
   if (!hasHydrated) {
@@ -257,7 +292,7 @@ export default function MirrorPage() {
               className="flex h-full flex-col"
             >
               <div className="border border-[#8b6b45]/18 bg-[linear-gradient(180deg,rgba(34,27,23,0.92),rgba(21,17,15,0.96))] px-6 py-8 shadow-[0_24px_64px_rgba(0,0,0,0.24)]">
-                <BookmarkProgressBar completedPages={completedPageCount} />
+                <BookmarkProgressBar completedPages={totalFragments} />
 
                 {loading ? (
                   <div className="mt-8 text-center">
@@ -279,7 +314,7 @@ export default function MirrorPage() {
                   </div>
                 ) : (
                   <div className="mt-8 text-center">
-                    <p className="text-[18px] font-light tracking-[0.08em] text-stone-200">已记录 {completedPageCount} 页，尚未形成足够多的重复模式。</p>
+                    <p className="text-[18px] font-light tracking-[0.08em] text-stone-200">已记录 {totalFragments} 页，尚未形成足够多的重复模式。</p>
                     <p className="mt-4 text-[12px] leading-[1.9] tracking-[0.06em] text-stone-500/80">继续记录，当某个话题出现 2 次以上时会在这里显示。</p>
                   </div>
                 )}

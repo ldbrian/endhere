@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import Linkage from './Linkage'
 
 export const metadata: Metadata = {
   title: 'End Here',
@@ -37,6 +38,7 @@ export default function RootLayout({
         <main className="w-full">
           {children}
         </main>
+        <Linkage />
       </body>
     </html>
   )

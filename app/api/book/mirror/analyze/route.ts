@@ -99,7 +99,16 @@ export async function POST(req: Request) {
       response_format: { type: 'json_object' },
     });
     const raw = response.choices[0]?.message?.content || '{}';
-    return Response.json({ ...extractJson(raw), source: 'ai' });
+    const parsed = extractJson(raw);
+    // LLM 偶发返回空 patterns（DeepSeek 非确定性）：若规则引擎能产出结果则回退，
+    // 避免「有碎片却显示无模式」的假阴性。
+    const hasGroups = (safeArray(parsed.patterns).length + safeArray(parsed.life_areas).length) > 0;
+    if (!hasGroups) {
+      const fb = fallbackAnalysis(current, previous);
+      const fbHasGroups = fb.patterns.length + fb.life_areas.length > 0;
+      if (fbHasGroups) return Response.json(fb);
+    }
+    return Response.json({ ...parsed, source: 'ai' });
   } catch (error) {
     console.error('[Mirror Analyze] failed:', error);
     return Response.json(fallbackAnalysis(current, previous));

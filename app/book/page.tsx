@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { track } from './_core/analytics';
 import type { BookPage, LegacyPage, Paragraph } from './_core/storage';
-import { useFragmentStore, createEmptyPage } from './_core/storage';
+import { useFragmentStore, createEmptyPage, fetchCloudFragmentsByOwner } from './_core/storage';
 import { getPersonaDefinition, normalizePersonaId } from './_core/personas';
 import { BookNavigator } from './_core/BookNavigator/BookNavigator';
 import { extractPageTitle, formatPreviewText } from './_core/BookNavigator/utils';
@@ -594,15 +594,27 @@ export default function BookHomePage() {
   const shouldShowCover = hasHydrated && !coverDismissed;
   // Mirror bookmark state
   const completedPageCount = useMemo(() => book.pages.filter((page) => page.paragraphs.length > 0).length, [book.pages]);
+  // 云端碎片数（BH 产生）：纯 BH 用户本地书为空，只要云端有碎片也显示镜中书入口
+  const [cloudFragmentCount, setCloudFragmentCount] = useState(0);
+  useEffect(() => {
+    if (!hasHydrated) return;
+    const ownerId = typeof window !== 'undefined' ? localStorage.getItem('eh_device_id') || '' : '';
+    if (!ownerId) return;
+    let cancelled = false;
+    fetchCloudFragmentsByOwner(ownerId)
+      .then((rows) => { if (!cancelled) setCloudFragmentCount(rows.length); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [hasHydrated]);
   const mirrorBookmarkState = useMemo<MirrorBookmarkState>(() => {
-    if (completedPageCount < 1) return 'hidden'; // no pages at all, don't show bookmark
+    if (completedPageCount < 1 && cloudFragmentCount < 1) return 'hidden'; // no pages at all, don't show bookmark
     if (completedPageCount < MIRROR_REQUIRED_PAGES) return 'normal'; // has pages but not enough for mirror
     // Has enough pages — check if there's new content since last view
     const lastPageClosedAt = book.pages.filter((p) => p.paragraphs.length > 0).pop()?.closed_at;
     if (!mirrorViewedAt) return 'has-new'; // never viewed
     if (lastPageClosedAt && new Date(lastPageClosedAt).getTime() > mirrorViewedAt) return 'has-new'; // new content since last view
     return 'viewed';
-  }, [completedPageCount, mirrorViewedAt, book.pages]);
+  }, [completedPageCount, cloudFragmentCount, mirrorViewedAt, book.pages]);
   // Safety net: ensure there's always a blank page at the end
   useEffect(() => { if (hasHydrated) ensureTrailingBlankPage(); }, [hasHydrated, ensureTrailingBlankPage, book.pages.length]);
   useEffect(() => { if (!pendingTitleTask) return; const title = extractPageTitle(pendingTitleTask.paragraphs); if (!title) return; applyPageTitle(pendingTitleTask.pageId, title); }, [applyPageTitle, pendingTitleTask]);
@@ -906,7 +918,7 @@ export default function BookHomePage() {
         </div>
       </div>
 
-      {/* V6 安静的入口 —— 换个角度看 */}
+      {/* V6 安静的入口 —— 换个角度看 / 去 BeginHere 走走 */}
       <footer className="relative z-30 shrink-0 pb-6 pt-2 text-center">
         <Link
           href="/book/ways"
@@ -914,6 +926,14 @@ export default function BookHomePage() {
           className="border-b border-dashed border-stone-700/50 pb-0.5 text-[11px] tracking-[0.18em] text-stone-500/80 transition-colors duration-500 hover:border-stone-400 hover:text-stone-300"
         >
           换个角度看
+        </Link>
+        <span className="mx-2 text-stone-600/40">·</span>
+        <Link
+          href={`https://b.behere.fun/?eh_device_id=${typeof window !== 'undefined' ? (window.localStorage.getItem('eh_device_id') || '') : ''}`}
+          onClick={() => track('exit_to_beginhere')}
+          className="border-b border-dashed border-stone-700/50 pb-0.5 text-[11px] tracking-[0.18em] text-stone-500/80 transition-colors duration-500 hover:border-stone-400 hover:text-stone-300"
+        >
+          想出去走走？去 BeginHere 拿一件小事 →
         </Link>
       </footer>
     </main>
