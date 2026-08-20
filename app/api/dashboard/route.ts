@@ -187,6 +187,29 @@ export async function GET(req: NextRequest) {
     feedback: feedbackDevices.size,
   }
 
+  // 分享裂变：referral_open 记「被谁带来」，同设备只计一次；按 ref 汇总每个分享者带来的新用户
+  const refDevices = new Map<string, string>()
+  for (const r of data) {
+    if (r.event_name !== 'referral_open') continue
+    const ref = String((r.payload as Record<string, unknown> | null)?.ref || '')
+    if (ref && !refDevices.has(r.device_id)) refDevices.set(r.device_id, ref)
+  }
+  const topRefs = new Map<string, number>()
+  for (const ref of refDevices.values()) topRefs.set(ref, (topRefs.get(ref) ?? 0) + 1)
+  const topRefsList = [...topRefs.entries()]
+    .map(([ref, count]) => ({ ref, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
+  const referralFunnel = ['home_view', 'emotion_start', 'chat_start', 'receipt_generated', 'object_saved'].map((ev) => ({
+    ev,
+    n: [...refDevices.keys()].filter((d) => (byEvent.get(ev) || new Set()).has(d)).length,
+  }))
+  const referral = {
+    count: refDevices.size,
+    topRefs: topRefsList,
+    funnel: referralFunnel,
+  }
+
   const trendMap = new Map<string, { app_open: number; emotion_start: number; discovery_egg_accepted: number; receipt_generated: number }>()
   for (const r of data) {
     if (!['app_open', 'emotion_start', 'discovery_egg_accepted', 'receipt_generated'].includes(r.event_name)) continue
@@ -209,6 +232,7 @@ export async function GET(req: NextRequest) {
     metrics,
     installMetrics,
     exitMetrics,
+    referral,
     trend,
     maxTrend,
   }, { headers: corsHeaders() })
