@@ -51,6 +51,19 @@ export const CHEST_PERSONAS: Record<ChestPersonaId, ChestPersonaDef> = {
   },
 }
 
+// 渐进式陪伴：一颗蛋拆成「一次只做的最小一步」。steps 由池子人工编写，refine 选中后原样返回，
+// 保证文案质量与可恢复性（进度存 BeginHere fragment meta，退出后可继续）。
+export interface EggStep {
+  /** 上下文提示（不是步骤编号）：例如「看到那家店时」 */
+  trigger?: string
+  /** 当前最小一步的引导语（对话式，避免清单感） */
+  instruction: string
+  /** 降低这一步阻力的话：不用买东西 / 不用跟任何人说话 / 30 秒就行 */
+  friction_hint?: string
+  /** 明确完成标准：做到什么就算完成 */
+  completion_condition?: string
+}
+
 export interface EggDef {
   id: string
   spirit: 'demon' | 'angel'
@@ -64,6 +77,11 @@ export interface EggDef {
     // 完成场景：indoor=在家随时可做 / outdoor=需要出门或通勤场景 / any=两者皆可
     place: 'indoor' | 'outdoor' | 'any'
   }
+  /** 渐进式陪伴：有 steps 的蛋走「一步一陪伴」，无则保持单条任务（旧流程） */
+  steps?: EggStep[]
+  difficulty?: 1 | 2 | 3
+  estimated_duration?: string
+  requires_photo?: boolean
 }
 
 export const CHEST_EGGS: EggDef[] = [
@@ -100,6 +118,45 @@ export const CHEST_EGGS: EggDef[] = [
   { id: 'a13', spirit: 'angel', text: '给「过去的自己」说一句话，把它写下来。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
   { id: 'a14', spirit: 'angel', text: '找到一样朋友送你的东西，回忆一下它是怎么来的。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
   { id: 'a15', spirit: 'angel', text: '做一件小时候特别喜欢的小事——折纸、吹泡泡、跳格子……', tags: { type: 'action', cat: 'childhood', time: 'any', social: 0, repeatable: true, place: 'any' } },
+
+  // ============ 渐进式陪伴试点蛋（p1）============
+  // 实验：把「给一个任务」升级为「陪用户完成一次微型现实体验」。
+  // 有 steps 的蛋走「一次只做最小一步」的引导流程；steps 由人工编写，保证文案与步骤一致。
+  {
+    id: 'p1',
+    spirit: 'demon',
+    text: '回家路上，找一家你从来没进去过的小店，进去看看。',
+    tags: { type: 'action', cat: 'explore', time: 'day', social: 0, repeatable: false, place: 'outdoor' },
+    difficulty: 2,
+    estimated_duration: '5 分钟',
+    requires_photo: false,
+    steps: [
+      {
+        trigger: '现在',
+        instruction: '今天不用急着做。等你回家或出门的路上，帮我留意一下：路上有没有一家你从没进去过的小店。',
+        friction_hint: '不用专门去找，只是顺便看一眼。',
+        completion_condition: '你留意到了一家让你有点好奇的小店。',
+      },
+      {
+        trigger: '看到那家店时',
+        instruction: '就是它。不用买东西，也不用跟任何人说话。如果你愿意，进去待 30 秒就好。',
+        friction_hint: '30 秒，转身就能出来。',
+        completion_condition: '你走进了那家店。',
+      },
+      {
+        trigger: '在店里',
+        instruction: '找一样让你觉得有点意思的东西。不用买下来。',
+        friction_hint: '可以是价格牌、一个摆件、一句店里的音乐。',
+        completion_condition: '你看到了那个让你觉得有意思的东西。',
+      },
+      {
+        trigger: '做完以后',
+        instruction: '回到这里，把这一刻告诉我吧。拍不拍照都行，一句话也可以。',
+        friction_hint: '',
+        completion_condition: '你回到了 BeginHere。',
+      },
+    ],
+  },
 ]
 
 export interface ChestObjectDef {
@@ -227,6 +284,8 @@ function eggBias(
   if (egg.tags.type === 'action') s += persona === 'Ash' ? 1 : 0
   if (emotion?.state === 'tired' && ['rest', 'restart'].includes(egg.tags.cat)) s += 3
   if (emotion?.state === 'bored' && egg.tags.type === 'action') s += 2
+  // 实验期加权：让渐进式陪伴试点蛋（p1）更高频出现，保证「接受→完成」实验数据量；实验结束移除
+  if (egg.id === 'p1') s += 2
   // 场景分流：夜晚/居家时强烈压低「要出门」的蛋，偏好在家即可完成的
   if (placeHint === 'indoor') {
     if (egg.tags.place === 'outdoor') s -= 6
@@ -284,10 +343,16 @@ export interface ChestBuildLocalInput {
 export function buildLocalResult({ persona, emotion, salt }: ChestBuildLocalInput) {
   const egg = pickFallbackEgg(persona, emotion, salt)
   const obj = pickFallbackObject(persona, emotion, salt)
+  const eggPayload: Record<string, unknown> = { id: egg.id, text: egg.text }
+  if (egg.steps?.length) {
+    eggPayload.steps = egg.steps
+    if (egg.difficulty) eggPayload.difficulty = egg.difficulty
+    if (egg.estimated_duration) eggPayload.estimated_duration = egg.estimated_duration
+  }
   return {
     reply: CHEST_PERSONAS[persona]?.greeting || '嗯。',
     title: titleFromEmotion(emotion),
-    egg: { id: egg.id, text: egg.text },
+    egg: eggPayload,
     object: {
       id: obj.id,
       name: obj.baseName,

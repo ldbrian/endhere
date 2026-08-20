@@ -13,6 +13,7 @@ import {
   detectCrisis,
   CRISIS_REPLIES,
   type ChestPersonaId,
+  type EggDef,
 } from '../_pools'
 
 export const runtime = 'edge'
@@ -99,6 +100,17 @@ function normalizePersona(value: unknown): ChestPersonaId {
   return v === 'Ash' || v === 'Child' ? v : v === 'Rin' ? 'Rin' : 'Rin'
 }
 
+// 渐进式陪伴蛋（带 steps）返回完整池子字段，不走 LLM 重写——保证步骤与文案一致、可恢复
+function eggPayload(egg: EggDef): Record<string, unknown> {
+  const p: Record<string, unknown> = { id: egg.id, text: egg.text }
+  if (egg.steps?.length) {
+    p.steps = egg.steps
+    if (egg.difficulty) p.difficulty = egg.difficulty
+    if (egg.estimated_duration) p.estimated_duration = egg.estimated_duration
+  }
+  return p
+}
+
 // 截断按语言区分：中文按字（上限小），英文按字符（词汇更长，上限需放大）
 // zh 与 en 的参数顺序：cut(text, lang, zhMax, enMax)
 function cut(text: string, lang: string, zhMax: number, enMax: number): string {
@@ -178,7 +190,7 @@ export async function POST(req: Request) {
     if (!llm || process.env.CHEST_MOCK === '1') {
       if (mode === 'egg' && !final) {
         const egg = pickFallbackEgg(persona, emotion, salt, place)
-        return Response.json({ type: 'result', egg: { id: egg.id, text: egg.text } }, { headers: corsHeaders() })
+        return Response.json({ type: 'result', egg: eggPayload(egg) }, { headers: corsHeaders() })
       }
       if (mode === 'egg' && final) {
         const obj = pickFallbackObject(persona, emotion, salt)
@@ -200,7 +212,7 @@ export async function POST(req: Request) {
         return Response.json({
           type: 'offer',
           reply: CHEST_PERSONAS[persona]?.greeting || '嗯。',
-          egg: { id: egg.id, text: egg.text },
+          egg: eggPayload(egg),
         }, { headers: corsHeaders() })
       }
       return Response.json({ type: 'reply', reply: fallbackReply(persona) }, { headers: corsHeaders() })
@@ -261,6 +273,10 @@ export async function POST(req: Request) {
     // ── 探索路径：只回行动彩蛋，无情绪小票/物件 ──
     if (isEggFresh) {
       const egg = pickFallbackEgg(persona, emotion, salt, place)
+      // 渐进式陪伴蛋：步骤/文案来自池子（人工编写），不 LLM 重写，保证与步骤一致
+      if (egg.steps?.length) {
+        return Response.json({ type: 'result', egg: eggPayload(egg) }, { headers: corsHeaders() })
+      }
       const eggRaw = parsed.egg && typeof parsed.egg === 'object' ? parsed.egg as Record<string, unknown> : {}
       return Response.json({
         type: 'result',
@@ -274,6 +290,14 @@ export async function POST(req: Request) {
     // ── offer：AI 判断可进入下一阶段，给承接 + 彩蛋建议（一次返回） ──
     if (isOffer) {
       const egg = pickFallbackEgg(persona, emotion, salt, place)
+      // 渐进式陪伴蛋：步骤/文案来自池子，不 LLM 重写
+      if (egg.steps?.length) {
+        return Response.json({
+          type: 'offer',
+          reply: cut(String(parsed.reply || me.greeting), lang, 140, 400),
+          egg: eggPayload(egg),
+        }, { headers: corsHeaders() })
+      }
       const eggRaw = parsed.egg && typeof parsed.egg === 'object' ? parsed.egg as Record<string, unknown> : {}
       return Response.json({
         type: 'offer',
