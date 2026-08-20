@@ -119,9 +119,12 @@ export const CHEST_EGGS: EggDef[] = [
   { id: 'a14', spirit: 'angel', text: '找到一样朋友送你的东西，回忆一下它是怎么来的。', tags: { type: 'notice', cat: 'memory', time: 'any', social: 0, repeatable: true, place: 'indoor' } },
   { id: 'a15', spirit: 'angel', text: '做一件小时候特别喜欢的小事——折纸、吹泡泡、跳格子……', tags: { type: 'action', cat: 'childhood', time: 'any', social: 0, repeatable: true, place: 'any' } },
 
-  // ============ 渐进式陪伴试点蛋（p1）============
+  // ============ 渐进式陪伴试点蛋（p1 + p2..p6，见 PILOT_EGG_IDS）============
   // 实验：把「给一个任务」升级为「陪用户完成一次微型现实体验」。
   // 有 steps 的蛋走「一次只做最小一步」的引导流程；steps 由人工编写，保证文案与步骤一致。
+  // 覆盖 demon/angel × indoor/outdoor/any，保证夜晚（place=indoor）也能遇到陪伴蛋。
+
+  // p1 · demon · outdoor（小恶魔：偏离）
   {
     id: 'p1',
     spirit: 'demon',
@@ -152,6 +155,167 @@ export const CHEST_EGGS: EggDef[] = [
       {
         trigger: '做完以后',
         instruction: '回到这里，把这一刻告诉我吧。拍不拍照都行，一句话也可以。',
+        friction_hint: '',
+        completion_condition: '你回到了 BeginHere。',
+      },
+    ],
+  },
+
+  // p2 · demon · outdoor（小恶魔：偏离路线）
+  {
+    id: 'p2',
+    spirit: 'demon',
+    text: '今天走路的时候，换一条从没走过的路。',
+    tags: { type: 'notice', cat: 'route', time: 'day', social: 0, repeatable: false, place: 'outdoor' },
+    difficulty: 1,
+    estimated_duration: '走路顺路',
+    requires_photo: false,
+    steps: [
+      {
+        trigger: '现在',
+        instruction: '今天不用特意出门。等下次你出门或回家时，试着选一条从没走过的路，哪怕只是一小段。',
+        friction_hint: '不用绕很远，一小段就行。',
+        completion_condition: '你选了一条从没走过的路。',
+      },
+      {
+        trigger: '走在那条路上',
+        instruction: '慢下来一点，看看这条路上有什么你以前没注意过的东西——一棵形状奇怪的树、一扇特别的窗、一个招牌。',
+        friction_hint: '只是看，不用停下来拍照。',
+        completion_condition: '你发现了某个以前没注意过的东西。',
+      },
+      {
+        trigger: '回来以后',
+        instruction: '回到这里，把那个东西告诉我吧。一句话就行。',
+        friction_hint: '',
+        completion_condition: '你回到了 BeginHere。',
+      },
+    ],
+  },
+
+  // p3 · demon · any（小恶魔：随机尝鲜）
+  {
+    id: 'p3',
+    spirit: 'demon',
+    text: '找一首你从来没听过的歌，完整地听完它。',
+    tags: { type: 'action', cat: 'media', time: 'any', social: 0, repeatable: true, place: 'any' },
+    difficulty: 1,
+    estimated_duration: '一首歌',
+    requires_photo: false,
+    steps: [
+      {
+        trigger: '现在',
+        instruction: '不用现在就开始。等你想听点东西的时候，打开音乐软件，找一首你完全没听过的歌——从随机推荐里挑就行。',
+        friction_hint: '不用精心挑选，随便点一首。',
+        completion_condition: '你找到了一首没听过的歌。',
+      },
+      {
+        trigger: '播放时',
+        instruction: '戴上耳机或开着外放都行，完整地听完它。不用评价好坏，只是听完。',
+        friction_hint: '三到五分钟而已。',
+        completion_condition: '你完整听完了那首歌。',
+      },
+      {
+        trigger: '听完以后',
+        instruction: '回到这里，告诉我那首歌给你的感觉吧。一句话就行。',
+        friction_hint: '',
+        completion_condition: '你回到了 BeginHere。',
+      },
+    ],
+  },
+
+  // p4 · angel · indoor（小天使：回到过去的声音）
+  {
+    id: 'p4',
+    spirit: 'angel',
+    text: '重新听一首你以前单曲循环过的歌。',
+    tags: { type: 'action', cat: 'media', time: 'any', social: 0, repeatable: true, place: 'indoor' },
+    difficulty: 1,
+    estimated_duration: '一首歌',
+    requires_photo: false,
+    steps: [
+      {
+        trigger: '现在',
+        instruction: '想一想：你以前有没有哪首歌，曾经单曲循环过很多遍？',
+        friction_hint: '不用翻歌单，凭记忆想一首就行。',
+        completion_condition: '你想起了一首以前反复听的歌。',
+      },
+      {
+        trigger: '找到它时',
+        instruction: '把这首歌再放一遍。不用想太多，只是让它在房间里响着。',
+        friction_hint: '一首歌的时间而已。',
+        completion_condition: '那首歌又响起来了。',
+      },
+      {
+        trigger: '听完以后',
+        instruction: '回到这里，告诉我你现在的感受吧。和以前听的时候有什么不一样，都可以。',
+        friction_hint: '',
+        completion_condition: '你回到了 BeginHere。',
+      },
+    ],
+  },
+
+  // p5 · angel · indoor（小天使：物归原处）
+  {
+    id: 'p5',
+    spirit: 'angel',
+    text: '找出一件你以前很喜欢、现在收起来的东西，把它放回看得见的地方。',
+    tags: { type: 'action', cat: 'memory', time: 'any', social: 0, repeatable: true, place: 'indoor' },
+    difficulty: 1,
+    estimated_duration: '几分钟',
+    requires_photo: false,
+    steps: [
+      {
+        trigger: '现在',
+        instruction: '回忆一下，你有没有一件以前很喜欢、后来收起来的东西？不用现在就想出来。',
+        friction_hint: '想不出来也没关系，想到哪件算哪件。',
+        completion_condition: '你想到了一件以前喜欢的东西。',
+      },
+      {
+        trigger: '找到它时',
+        instruction: '把它找出来，拿在手里看一看。它现在是什么样子？',
+        friction_hint: '不用擦干净，也不用急着放回原处，先看看就好。',
+        completion_condition: '你看到了那件东西。',
+      },
+      {
+        trigger: '看完以后',
+        instruction: '把它放到一个你能看见的地方。不用讲究位置，看得见就行。',
+        friction_hint: '窗边、桌上、书架，哪儿都行。',
+        completion_condition: '那件东西回到了你能看见的地方。',
+      },
+      {
+        trigger: '做完以后',
+        instruction: '回来告诉我它是什么、现在放在哪吧。一句话也行。',
+        friction_hint: '',
+        completion_condition: '你回到了 BeginHere。',
+      },
+    ],
+  },
+
+  // p6 · demon · indoor（小恶魔：只做五分钟）
+  {
+    id: 'p6',
+    spirit: 'demon',
+    text: '找一件你「一直想做但嫌麻烦」的小事，只做五分钟。',
+    tags: { type: 'action', cat: 'break', time: 'any', social: 0, repeatable: true, place: 'indoor' },
+    difficulty: 2,
+    estimated_duration: '5 分钟',
+    requires_photo: false,
+    steps: [
+      {
+        trigger: '现在',
+        instruction: '想一想，有没有一件你「一直想做，但总觉得麻烦」的小事？不用现在动手。',
+        friction_hint: '想不起来的话，就想想那件最常被你推迟的事。',
+        completion_condition: '你想起了一件事。',
+      },
+      {
+        trigger: '想到它时',
+        instruction: '现在只做五分钟。就五分钟——先把最麻烦的部分跳过，只做最简单的第一步。',
+        friction_hint: '五分钟一到，不想做就可以停。',
+        completion_condition: '你做了五分钟。',
+      },
+      {
+        trigger: '做完以后',
+        instruction: '回到这里，告诉我你做了那五分钟，感觉怎么样。',
         friction_hint: '',
         completion_condition: '你回到了 BeginHere。',
       },
@@ -284,8 +448,9 @@ function eggBias(
   if (egg.tags.type === 'action') s += persona === 'Ash' ? 1 : 0
   if (emotion?.state === 'tired' && ['rest', 'restart'].includes(egg.tags.cat)) s += 3
   if (emotion?.state === 'bored' && egg.tags.type === 'action') s += 2
-  // 实验期加权：让渐进式陪伴试点蛋（p1）更高频出现，保证「接受→完成」实验数据量；实验结束移除
-  if (egg.id === 'p1') s += 2
+  // 渐进式陪伴实验蛋：p1..p6 带 steps，给更高频让实验拿足「接受→完成」数据；实验结束移除
+  const PILOT_EGG_IDS = new Set(['p1', 'p2', 'p3', 'p4', 'p5', 'p6'])
+  if (PILOT_EGG_IDS.has(egg.id)) s += 1.5
   // 场景分流：夜晚/居家时强烈压低「要出门」的蛋，偏好在家即可完成的
   if (placeHint === 'indoor') {
     if (egg.tags.place === 'outdoor') s -= 6
