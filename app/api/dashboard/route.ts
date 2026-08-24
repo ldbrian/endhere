@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
 
-// 埋点看板 API：服务端直连 Supabase（service_role 读权限）聚合 visit_logs 漏斗，返回 JSON。
+// 埋点看板 API：服务端直连 Supabase（service_role 读权限）聚合 visit_logs，返回 JSON。
 // 前端 BeginHere 的 /dashboard 页面调用它渲染，用户无需再跑本地脚本。
 // 鉴权：DASHBOARD_TOKEN 环境变量（?token= 或 x-dashboard-token 头）。
-// 与 client/scripts/dashboard.mjs 同口径：前缀交集按设备去重，保证后一层 ≤ 前一层。
+// 口径：不做「链条交集」漏斗（一旦某步缺埋点会拖垮后面所有数，误导）。
+// 只展示「原始去重设备数」+「两两转换率」，每个数字都是真实计数。
 
 const isTest = (id: string) =>
   /^shot-/.test(id) ||
@@ -27,62 +28,39 @@ const isTest = (id: string) =>
 
 type Row = { device_id: string; event_name: string; payload?: Record<string, unknown> | null; created_at: string }
 
-const FUNNEL_A: [string, string, string?][] = [
+// 各路径要展示的原始事件步骤：[event, label, from?, trueOnly?]
+// trueOnly=true 表示只统计 payload.completed===true（如 response 蛋「完成」）
+const PATH_A: [string, string, string?, boolean?][] = [
   ['home_view', '看到首页'],
   ['emotion_start', '开始倾诉'],
   ['emotion_submit', '提交情绪'],
   ['persona_select', '选择人格'],
   ['chat_start', '进入对话'],
-  ['egg_offered', '看到 offer', 'chat'],
-  ['chat_complete', '完成倾诉', 'chat'],
+  ['chat_complete', '完成倾诉'],
   ['receipt_generated', '生成小票'],
   ['receipt_viewed', '看到小票'],
   ['object_saved', '保存物件'],
-  ['object_share', '分享物件'],
 ]
-const FUNNEL_B: [string, string, string?][] = [
+const PATH_B: [string, string, string?, boolean?][] = [
   ['home_view', '看到首页'],
   ['discovery_egg_offered', '发现彩蛋'],
   ['discovery_egg_accepted', '接受彩蛋'],
   ['discovery_egg_completed', '做到了'],
+  ['discovery_egg_not_completed', '明确没做'],
   ['receipt_generated', '生成小票'],
   ['receipt_viewed', '看到小票'],
   ['object_saved', '保存物件'],
 ]
-// 漏斗 B 里的「没做」是与「做到了」互斥的旁支，不能进链条（否则交集≈0）
-// 单独用指标统计：接受后明确报「没做」的设备数
-const FUNNEL_C: [string, string, string?][] = [
+const PATH_C: [string, string, string?, boolean?][] = [
   ['home_view', '看到首页'],
   ['chat_start', '进入对话'],
   ['egg_offered', '收到彩蛋', 'chat'],
   ['egg_accepted', '接受彩蛋', 'chat'],
   ['egg_feedback_submitted', '彩蛋反馈', 'chat'],
-  ['egg_completed', '彩蛋完成', 'chat'],
+  ['egg_completed', '彩蛋完成', 'chat', true],
   ['receipt_generated', '生成小票'],
   ['object_saved', '保存物件'],
 ]
-
-interface FunnelStep { name: string; ev: string; n: number; rate: number | null }
-
-function buildFunnel(
-  events: [string, string, string?][],
-  byEvent: Map<string, Set<string>>,
-  byFrom: Map<string, Set<string>>,
-  custom?: Map<string, Set<string>>,
-): FunnelStep[] {
-  const steps: FunnelStep[] = []
-  let layer: Set<string> | null = null
-  for (const [ev, name, from] of events) {
-    const key = from ? `${ev}|${from}` : ev
-    const done = custom?.get(key) ?? ((from ? byFrom.get(key) : byEvent.get(ev)) || new Set<string>())
-    const next: Set<string> =
-      layer === null ? new Set(done) : new Set([...layer].filter((d) => done.has(d)))
-    layer = next
-    const prevSize = steps.length ? steps[steps.length - 1].n : null
-    steps.push({ name, ev, n: layer.size, rate: prevSize && prevSize > 0 ? (layer.size / prevSize) * 100 : null })
-  }
-  return steps
-}
 
 function corsHeaders(): Record<string, string> {
   const origin = process.env.CHEST_CORS_ORIGIN || '*'
@@ -157,9 +135,20 @@ export async function GET(req: NextRequest) {
     if (r.event_name === 'egg_completed' && p?.completed === true) eggCompletedTrue.add(r.device_id)
   }
 
-  const funnelA = buildFunnel(FUNNEL_A, byEvent, byFrom)
-  const funnelB = buildFunnel(FUNNEL_B, byEvent, byFrom)
-  const funnelC = buildFunnel(FUNNEL_C, byEvent, byFrom, new Map([['egg_completed|chat', eggCompletedTrue]]))
+  // 各路径原始去重设备数（不做链条交集，每个数字都是真实计数）
+  const stepCount = (ev: string, from?: string, trueOnly?: boolean): number => {
+    const set = trueOnly
+      ? eggCompletedTrue
+      : from
+        ? byFrom.get(`${ev}|${from}`)
+        : byEvent.get(ev)
+    return set?.size ?? 0
+  }
+  const paths = [
+    { id: 'A', name: '倾诉路径（原始设备数）', steps: PATH_A.map(([ev, label, from, trueOnly]) => ({ ev, label, n: stepCount(ev, from, trueOnly) })) },
+    { id: 'B', name: '发现彩蛋路径（原始设备数）', steps: PATH_B.map(([ev, label, from, trueOnly]) => ({ ev, label, n: stepCount(ev, from, trueOnly) })) },
+    { id: 'C', name: 'response 蛋路径（原始设备数）', steps: PATH_C.map(([ev, label, from, trueOnly]) => ({ ev, label, n: stepCount(ev, from, trueOnly) })) },
+  ]
 
   // 关键转化指标用「原始设备集合」而不是链条漏斗层：
   // 链条漏斗一旦某一步缺埋点（如 chat_start 仅 V0.3 后有）就会拖垮后面的数，
@@ -178,8 +167,9 @@ export async function GET(req: NextRequest) {
     { label: 'response蛋 接受 → 完成', a: chatAccepted.size, b: inter(chatAccepted, eggCompletedTrue).size },
   ]
   const notes = [
-    '对话漏斗（chat_start / chat_complete）自 2026-08-15（V0.3）才埋点，更早的会话不计入对话漏斗，历史窗口下该段数字偏低属正常。',
-    '发现彩蛋漏斗里「没做」是与「做到了」互斥的旁支，已单独列为「接受 → 明确没做」指标，不再进链条。',
+    '本页所有数字都是「原始去重设备数」，不做链条交集——避免某一步缺埋点拖垮后面所有数。',
+    'chat_start / chat_complete 自 2026-08-15（V0.3）才埋点，更早的会话这两步为 0 属正常。',
+    '「没做」与「做到了」互斥，已作为独立一步展示。',
   ]
 
   const exitMap = new Map<string, Set<string>>()
@@ -245,9 +235,7 @@ export async function GET(req: NextRequest) {
     total: data.length,
     devices: new Set(data.map((r) => r.device_id)).size,
     generatedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
-    funnelA,
-    funnelB,
-    funnelC,
+    paths,
     metrics,
     notes,
     installMetrics,
