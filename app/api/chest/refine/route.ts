@@ -3,6 +3,7 @@ import { checkInput, createRateLimiter, getRequestIp } from '../../../lib/inputG
 import {
   CHEST_OBJECTS,
   CHEST_PERSONAS,
+  CHEST_EGG_ADJUST,
   buildLocalResult,
   fallbackReply,
   matchObjectByText,
@@ -108,6 +109,8 @@ function eggPayload(egg: EggDef): Record<string, unknown> {
     if (egg.difficulty) p.difficulty = egg.difficulty
     if (egg.estimated_duration) p.estimated_duration = egg.estimated_duration
   }
+  // 参考答案的变体建议：用户可自己调整方向
+  if (CHEST_EGG_ADJUST[egg.id]) p.adjust = CHEST_EGG_ADJUST[egg.id]
   return p
 }
 

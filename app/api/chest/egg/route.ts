@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { CHEST_EGGS, type EggDef } from '../_pools'
+import { CHEST_EGGS, CHEST_EGG_ADJUST, type EggDef } from '../_pools'
 
 export const runtime = 'edge'
 
@@ -28,6 +28,7 @@ function eggPayload(egg: EggDef): Record<string, unknown> {
     if (egg.difficulty) p.difficulty = egg.difficulty
     if (egg.estimated_duration) p.estimated_duration = egg.estimated_duration
   }
+  if (CHEST_EGG_ADJUST[egg.id]) p.adjust = CHEST_EGG_ADJUST[egg.id]
   return p
 }
 
