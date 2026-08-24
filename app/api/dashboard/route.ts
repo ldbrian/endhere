@@ -161,23 +161,21 @@ export async function GET(req: NextRequest) {
   const funnelB = buildFunnel(FUNNEL_B, byEvent, byFrom)
   const funnelC = buildFunnel(FUNNEL_C, byEvent, byFrom, new Map([['egg_completed|chat', eggCompletedTrue]]))
 
-  const layer = (f: FunnelStep[], ev: string) => f.find((s) => s.ev === ev)?.n ?? 0
-  // 漏斗 B 的「接受层」：首页→发现→接受（供旁支「没做」计数）
-  const bAcceptedLayer = new Set(
-    [...(byEvent.get('discovery_egg_accepted') || new Set())].filter(
-      (d) => (byEvent.get('home_view') || new Set()).has(d) && (byEvent.get('discovery_egg_offered') || new Set()).has(d),
-    ),
-  )
-  const bNotCompleted = [...bAcceptedLayer].filter((d) => (byEvent.get('discovery_egg_not_completed') || new Set()).has(d)).length
+  // 关键转化指标用「原始设备集合」而不是链条漏斗层：
+  // 链条漏斗一旦某一步缺埋点（如 chat_start 仅 V0.3 后有）就会拖垮后面的数，
+  // 原始交集是诚实的「做了A又做了B」口径。
+  const devs = (ev: string) => byEvent.get(ev) || new Set<string>()
+  const inter = (a: Set<string>, b: Set<string>) => new Set([...a].filter((d) => b.has(d)))
+  const chatAccepted = byFrom.get('egg_accepted|chat') || new Set<string>()
   const metrics = [
-    { label: '首页 → 倾诉', a: layer(funnelA, 'home_view'), b: layer(funnelA, 'emotion_start') },
-    { label: '倾诉 → 小票', a: layer(funnelA, 'emotion_submit'), b: layer(funnelA, 'receipt_generated') },
-    { label: '进入对话 → 完成倾诉', a: layer(funnelA, 'chat_start'), b: layer(funnelA, 'chat_complete') },
-    { label: '发现彩蛋 → 接受', a: layer(funnelB, 'discovery_egg_offered'), b: layer(funnelB, 'discovery_egg_accepted') },
-    { label: '接受 → 完成', a: layer(funnelB, 'discovery_egg_accepted'), b: layer(funnelB, 'discovery_egg_completed') },
-    { label: '接受 → 明确没做', a: bAcceptedLayer.size, b: bNotCompleted },
-    { label: '完成 → 小票', a: layer(funnelB, 'discovery_egg_completed'), b: layer(funnelB, 'receipt_generated') },
-    { label: 'response蛋 接受 → 完成', a: layer(funnelC, 'egg_accepted'), b: layer(funnelC, 'egg_completed') },
+    { label: '首页 → 倾诉', a: devs('home_view').size, b: devs('emotion_start').size },
+    { label: '倾诉 → 小票', a: devs('emotion_submit').size, b: inter(devs('emotion_submit'), devs('receipt_generated')).size },
+    { label: '进入对话 → 完成倾诉', a: devs('chat_start').size, b: inter(devs('chat_start'), devs('chat_complete')).size },
+    { label: '发现彩蛋 → 接受', a: devs('discovery_egg_offered').size, b: inter(devs('discovery_egg_offered'), devs('discovery_egg_accepted')).size },
+    { label: '接受 → 完成', a: devs('discovery_egg_accepted').size, b: inter(devs('discovery_egg_accepted'), devs('discovery_egg_completed')).size },
+    { label: '接受 → 明确没做', a: devs('discovery_egg_accepted').size, b: inter(devs('discovery_egg_accepted'), devs('discovery_egg_not_completed')).size },
+    { label: '完成 → 小票', a: devs('discovery_egg_completed').size, b: inter(devs('discovery_egg_completed'), devs('receipt_generated')).size },
+    { label: 'response蛋 接受 → 完成', a: chatAccepted.size, b: inter(chatAccepted, eggCompletedTrue).size },
   ]
   const notes = [
     '对话漏斗（chat_start / chat_complete）自 2026-08-15（V0.3）才埋点，更早的会话不计入对话漏斗，历史窗口下该段数字偏低属正常。',
