@@ -292,6 +292,7 @@ export async function POST(req: Request) {
         egg: {
           id: egg.id,
           text: cut(String(eggRaw.text || egg.text), lang, 60, 140),
+          ...(CHEST_EGG_ADJUST[egg.id] ? { adjust: CHEST_EGG_ADJUST[egg.id] } : {}),
         },
       }, { headers: corsHeaders() })
     }
@@ -314,6 +315,7 @@ export async function POST(req: Request) {
         egg: {
           id: egg.id,
           text: cut(String(eggRaw.text || egg.text), lang, 60, 140),
+          ...(CHEST_EGG_ADJUST[egg.id] ? { adjust: CHEST_EGG_ADJUST[egg.id] } : {}),
         },
       }, { headers: corsHeaders() })
     }

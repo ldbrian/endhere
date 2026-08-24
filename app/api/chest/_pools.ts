@@ -555,6 +555,7 @@ export function buildLocalResult({ persona, emotion, salt }: ChestBuildLocalInpu
     if (egg.difficulty) eggPayload.difficulty = egg.difficulty
     if (egg.estimated_duration) eggPayload.estimated_duration = egg.estimated_duration
   }
+  if (CHEST_EGG_ADJUST[egg.id]) eggPayload.adjust = CHEST_EGG_ADJUST[egg.id]
   return {
     reply: CHEST_PERSONAS[persona]?.greeting || '嗯。',
     title: titleFromEmotion(emotion),
