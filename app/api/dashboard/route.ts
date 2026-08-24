@@ -26,6 +26,11 @@ const isTest = (id: string) =>
   /^offer-test-resume-/.test(id) ||
   /^prod-final-/.test(id)
 
+// 真实设备：eh_device_id 由 crypto.randomUUID() 生成，必然是 UUID 格式。
+// 命名设备（first-re / prod-fir 等）或非 UUID 一律视为测试/爬虫，不计入。
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const isRealDevice = (id: string) => UUID_RE.test(id) && !isTest(id)
+
 type Row = { device_id: string; event_name: string; payload?: Record<string, unknown> | null; created_at: string }
 
 // 各路径要展示的原始事件步骤：[event, label, from?, customSet?]
@@ -116,7 +121,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'FETCH_FAILED' }, { status: 502, headers: corsHeaders() })
   }
 
-  const data = includeTests ? rows : rows.filter((r) => !isTest(String(r.device_id)))
+  const data = includeTests ? rows : rows.filter((r) => isRealDevice(String(r.device_id)))
 
   const byEvent = new Map<string, Set<string>>()
   const byFrom = new Map<string, Set<string>>()
@@ -168,6 +173,23 @@ export async function GET(req: NextRequest) {
     { label: '完成 → 小票', a: devs('discovery_egg_completed').size, b: inter(devs('discovery_egg_completed'), devs('receipt_generated')).size },
     { label: 'response蛋 接受 → 完成', a: chatAccepted.size, b: inter(chatAccepted, eggCompletedTrue).size },
   ]
+
+  // 彩蛋实验追踪：验证「彩蛋是不是当前最有潜力的核心行为」的唯一指标集。
+  // 全部原始去重设备交集，前后对比只用这些数。
+  const daysPerDev = new Map<string, Set<string>>()
+  for (const r of data) {
+    const day = String(r.created_at).slice(0, 10)
+    if (!daysPerDev.has(r.device_id)) daysPerDev.set(r.device_id, new Set())
+    daysPerDev.get(r.device_id)!.add(day)
+  }
+  const eggExperiment = {
+    homeToDiscovery: inter(devs('home_view'), devs('discovery_egg_offered')).size,
+    discoveryToAccept: inter(devs('discovery_egg_offered'), devs('discovery_egg_accepted')).size,
+    acceptToDone: inter(devs('discovery_egg_accepted'), devs('discovery_egg_completed')).size,
+    doneToFeedback: inter(devs('discovery_egg_completed'), receiptEgg).size,
+    eggToPlaza: inter(devs('discovery_egg_accepted'), devs('plaza_view')).size,
+    returnVisitors: [...daysPerDev.values()].filter((ds) => ds.size >= 2).length,
+  }
   const notes = [
     '本页所有数字都是「原始去重设备数」，不做链条交集——避免某一步缺埋点拖垮后面所有数。',
     'chat_start / chat_complete 自 2026-08-15（V0.3）才埋点，更早的会话这两步为 0 属正常。',
@@ -239,6 +261,7 @@ export async function GET(req: NextRequest) {
     generatedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
     paths,
     metrics,
+    eggExperiment,
     notes,
     installMetrics,
     exitMetrics,
