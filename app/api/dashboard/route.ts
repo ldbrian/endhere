@@ -44,13 +44,13 @@ const FUNNEL_B: [string, string, string?][] = [
   ['home_view', '看到首页'],
   ['discovery_egg_offered', '发现彩蛋'],
   ['discovery_egg_accepted', '接受彩蛋'],
-  ['discovery_egg_not_completed', '没做到'],
   ['discovery_egg_completed', '做到了'],
-  ['discovery_egg_feeling_like', '感受·喜欢'],
   ['receipt_generated', '生成小票'],
   ['receipt_viewed', '看到小票'],
   ['object_saved', '保存物件'],
 ]
+// 漏斗 B 里的「没做」是与「做到了」互斥的旁支，不能进链条（否则交集≈0）
+// 单独用指标统计：接受后明确报「没做」的设备数
 const FUNNEL_C: [string, string, string?][] = [
   ['home_view', '看到首页'],
   ['chat_start', '进入对话'],
@@ -64,12 +64,17 @@ const FUNNEL_C: [string, string, string?][] = [
 
 interface FunnelStep { name: string; ev: string; n: number; rate: number | null }
 
-function buildFunnel(events: [string, string, string?][], byEvent: Map<string, Set<string>>, byFrom: Map<string, Set<string>>): FunnelStep[] {
+function buildFunnel(
+  events: [string, string, string?][],
+  byEvent: Map<string, Set<string>>,
+  byFrom: Map<string, Set<string>>,
+  custom?: Map<string, Set<string>>,
+): FunnelStep[] {
   const steps: FunnelStep[] = []
   let layer: Set<string> | null = null
   for (const [ev, name, from] of events) {
     const key = from ? `${ev}|${from}` : ev
-    const done = (from ? byFrom.get(key) : byEvent.get(ev)) || new Set<string>()
+    const done = custom?.get(key) ?? ((from ? byFrom.get(key) : byEvent.get(ev)) || new Set<string>())
     const next: Set<string> =
       layer === null ? new Set(done) : new Set([...layer].filter((d) => done.has(d)))
     layer = next
@@ -139,28 +144,44 @@ export async function GET(req: NextRequest) {
 
   const byEvent = new Map<string, Set<string>>()
   const byFrom = new Map<string, Set<string>>()
+  // response 蛋「完成」只统计 payload.completed===true（false 是没做到，不能算完成）
+  const eggCompletedTrue = new Set<string>()
   for (const r of data) {
     if (!byEvent.has(r.event_name)) byEvent.set(r.event_name, new Set())
     byEvent.get(r.event_name)!.add(r.device_id)
-    const from = (r.payload as Record<string, unknown> | null)?.from || ''
+    const p = r.payload as Record<string, unknown> | null
+    const from = p?.from || ''
     const key = `${r.event_name}|${from}`
     if (!byFrom.has(key)) byFrom.set(key, new Set())
     byFrom.get(key)!.add(r.device_id)
+    if (r.event_name === 'egg_completed' && p?.completed === true) eggCompletedTrue.add(r.device_id)
   }
 
   const funnelA = buildFunnel(FUNNEL_A, byEvent, byFrom)
   const funnelB = buildFunnel(FUNNEL_B, byEvent, byFrom)
-  const funnelC = buildFunnel(FUNNEL_C, byEvent, byFrom)
+  const funnelC = buildFunnel(FUNNEL_C, byEvent, byFrom, new Map([['egg_completed|chat', eggCompletedTrue]]))
 
   const layer = (f: FunnelStep[], ev: string) => f.find((s) => s.ev === ev)?.n ?? 0
+  // 漏斗 B 的「接受层」：首页→发现→接受（供旁支「没做」计数）
+  const bAcceptedLayer = new Set(
+    [...(byEvent.get('discovery_egg_accepted') || new Set())].filter(
+      (d) => (byEvent.get('home_view') || new Set()).has(d) && (byEvent.get('discovery_egg_offered') || new Set()).has(d),
+    ),
+  )
+  const bNotCompleted = [...bAcceptedLayer].filter((d) => (byEvent.get('discovery_egg_not_completed') || new Set()).has(d)).length
   const metrics = [
     { label: '首页 → 倾诉', a: layer(funnelA, 'home_view'), b: layer(funnelA, 'emotion_start') },
     { label: '倾诉 → 小票', a: layer(funnelA, 'emotion_submit'), b: layer(funnelA, 'receipt_generated') },
     { label: '进入对话 → 完成倾诉', a: layer(funnelA, 'chat_start'), b: layer(funnelA, 'chat_complete') },
     { label: '发现彩蛋 → 接受', a: layer(funnelB, 'discovery_egg_offered'), b: layer(funnelB, 'discovery_egg_accepted') },
     { label: '接受 → 完成', a: layer(funnelB, 'discovery_egg_accepted'), b: layer(funnelB, 'discovery_egg_completed') },
+    { label: '接受 → 明确没做', a: bAcceptedLayer.size, b: bNotCompleted },
     { label: '完成 → 小票', a: layer(funnelB, 'discovery_egg_completed'), b: layer(funnelB, 'receipt_generated') },
     { label: 'response蛋 接受 → 完成', a: layer(funnelC, 'egg_accepted'), b: layer(funnelC, 'egg_completed') },
+  ]
+  const notes = [
+    '对话漏斗（chat_start / chat_complete）自 2026-08-15（V0.3）才埋点，更早的会话不计入对话漏斗，历史窗口下该段数字偏低属正常。',
+    '发现彩蛋漏斗里「没做」是与「做到了」互斥的旁支，已单独列为「接受 → 明确没做」指标，不再进链条。',
   ]
 
   const exitMap = new Map<string, Set<string>>()
@@ -230,6 +251,7 @@ export async function GET(req: NextRequest) {
     funnelB,
     funnelC,
     metrics,
+    notes,
     installMetrics,
     exitMetrics,
     referral,
