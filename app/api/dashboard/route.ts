@@ -28,37 +28,35 @@ const isTest = (id: string) =>
 
 type Row = { device_id: string; event_name: string; payload?: Record<string, unknown> | null; created_at: string }
 
-// 各路径要展示的原始事件步骤：[event, label, from?, trueOnly?]
-// trueOnly=true 表示只统计 payload.completed===true（如 response 蛋「完成」）
-const PATH_A: [string, string, string?, boolean?][] = [
+// 各路径要展示的原始事件步骤：[event, label, from?, customSet?]
+// from 存在 → 用 byFrom(`${ev}|${from}`)；customSet 存在 → 用对应自定义集合
+const PATH_A: [string, string, string?, string?][] = [
   ['home_view', '看到首页'],
   ['emotion_start', '开始倾诉'],
   ['emotion_submit', '提交情绪'],
   ['persona_select', '选择人格'],
   ['chat_start', '进入对话'],
   ['chat_complete', '完成倾诉'],
-  ['receipt_generated', '生成小票'],
-  ['receipt_viewed', '看到小票'],
+  ['receipt_generated', '生成小票（倾诉路径）', undefined, 'receiptChat'],
   ['object_saved', '保存物件'],
 ]
-const PATH_B: [string, string, string?, boolean?][] = [
+const PATH_B: [string, string, string?, string?][] = [
   ['home_view', '看到首页'],
   ['discovery_egg_offered', '发现彩蛋'],
   ['discovery_egg_accepted', '接受彩蛋'],
   ['discovery_egg_completed', '做到了'],
   ['discovery_egg_not_completed', '明确没做'],
-  ['receipt_generated', '生成小票'],
-  ['receipt_viewed', '看到小票'],
+  ['receipt_generated', '生成小票（彩蛋路径）', undefined, 'receiptEgg'],
   ['object_saved', '保存物件'],
 ]
-const PATH_C: [string, string, string?, boolean?][] = [
+const PATH_C: [string, string, string?, string?][] = [
   ['home_view', '看到首页'],
   ['chat_start', '进入对话'],
   ['egg_offered', '收到彩蛋', 'chat'],
   ['egg_accepted', '接受彩蛋', 'chat'],
   ['egg_feedback_submitted', '彩蛋反馈', 'chat'],
-  ['egg_completed', '彩蛋完成', 'chat', true],
-  ['receipt_generated', '生成小票'],
+  ['egg_completed', '彩蛋完成', 'chat', 'eggCompletedTrue'],
+  ['receipt_generated', '生成小票（彩蛋路径）', undefined, 'receiptEgg'],
   ['object_saved', '保存物件'],
 ]
 
@@ -124,6 +122,9 @@ export async function GET(req: NextRequest) {
   const byFrom = new Map<string, Set<string>>()
   // response 蛋「完成」只统计 payload.completed===true（false 是没做到，不能算完成）
   const eggCompletedTrue = new Set<string>()
+  // 小票分来源：倾诉路径的 receipt 无 from 字段；彩蛋路径的 receipt 带 from
+  const receiptChat = new Set<string>()
+  const receiptEgg = new Set<string>()
   for (const r of data) {
     if (!byEvent.has(r.event_name)) byEvent.set(r.event_name, new Set())
     byEvent.get(r.event_name)!.add(r.device_id)
@@ -133,21 +134,22 @@ export async function GET(req: NextRequest) {
     if (!byFrom.has(key)) byFrom.set(key, new Set())
     byFrom.get(key)!.add(r.device_id)
     if (r.event_name === 'egg_completed' && p?.completed === true) eggCompletedTrue.add(r.device_id)
+    if (r.event_name === 'receipt_generated') {
+      if (p?.from) receiptEgg.add(r.device_id)
+      else receiptChat.add(r.device_id)
+    }
   }
 
+  const customSets: Record<string, Set<string>> = { eggCompletedTrue, receiptChat, receiptEgg }
   // 各路径原始去重设备数（不做链条交集，每个数字都是真实计数）
-  const stepCount = (ev: string, from?: string, trueOnly?: boolean): number => {
-    const set = trueOnly
-      ? eggCompletedTrue
-      : from
-        ? byFrom.get(`${ev}|${from}`)
-        : byEvent.get(ev)
+  const stepCount = (ev: string, from?: string, customSet?: string): number => {
+    const set = customSet ? customSets[customSet] : from ? byFrom.get(`${ev}|${from}`) : byEvent.get(ev)
     return set?.size ?? 0
   }
   const paths = [
-    { id: 'A', name: '倾诉路径（原始设备数）', steps: PATH_A.map(([ev, label, from, trueOnly]) => ({ ev, label, n: stepCount(ev, from, trueOnly) })) },
-    { id: 'B', name: '发现彩蛋路径（原始设备数）', steps: PATH_B.map(([ev, label, from, trueOnly]) => ({ ev, label, n: stepCount(ev, from, trueOnly) })) },
-    { id: 'C', name: 'response 蛋路径（原始设备数）', steps: PATH_C.map(([ev, label, from, trueOnly]) => ({ ev, label, n: stepCount(ev, from, trueOnly) })) },
+    { id: 'A', name: '倾诉路径（原始设备数）', steps: PATH_A.map(([ev, label, from, cs]) => ({ ev, label, n: stepCount(ev, from, cs) })) },
+    { id: 'B', name: '发现彩蛋路径（原始设备数）', steps: PATH_B.map(([ev, label, from, cs]) => ({ ev, label, n: stepCount(ev, from, cs) })) },
+    { id: 'C', name: 'response 蛋路径（原始设备数）', steps: PATH_C.map(([ev, label, from, cs]) => ({ ev, label, n: stepCount(ev, from, cs) })) },
   ]
 
   // 关键转化指标用「原始设备集合」而不是链条漏斗层：
