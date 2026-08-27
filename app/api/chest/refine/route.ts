@@ -9,12 +9,14 @@ import {
   matchObjectByText,
   pickFallbackEgg,
   pickFallbackObject,
+  pickEggForSituation,
   seed,
   titleFromEmotion,
   detectCrisis,
   CRISIS_REPLIES,
   type ChestPersonaId,
   type EggDef,
+  type SituationInput,
 } from '../_pools'
 
 export const runtime = 'edge'
@@ -154,6 +156,20 @@ export async function POST(req: Request) {
     const forceContinue = body.forceContinue === true
     // 场景分流 hint：BeginHere 按本地时段发（夜晚=indoor），决定给蛋时避开「要出门」的
     const place: 'indoor' | 'any' = body.place === 'indoor' ? 'indoor' : 'any'
+    // 情境彩蛋：用户告诉「此刻我在哪/多久/能不能动」，按情境匹配一颗更做得成的蛋
+    let situation: SituationInput | undefined
+    const sRaw = body.situation
+    if (sRaw && typeof sRaw === 'object') {
+      const s = sRaw as Record<string, unknown>
+      const scene = String(s.scene || '')
+      if (['home', 'out', 'commute', 'meal', 'wait', 'work'].includes(scene)) {
+        situation = { scene: scene as SituationInput['scene'] }
+        const t = String(s.time || '')
+        if (['short', 'medium', 'long'].includes(t)) situation.time = t as SituationInput['time']
+        const a = String(s.action || '')
+        if (['walk', 'stay', 'hands_off'].includes(a)) situation.action = a as SituationInput['action']
+      }
+    }
     // 换一个彩蛋：nonce 追加进盐，重播种当日随机源，避免换出同一颗蛋
     if (body.replaceNonce && typeof body.replaceNonce === 'string' && body.replaceNonce.length > 0 && body.replaceNonce.length <= 40) {
       salt = baseSalt ? `${baseSalt}|r${body.replaceNonce}` : `r${body.replaceNonce}`
@@ -281,6 +297,11 @@ export async function POST(req: Request) {
 
     // ── 探索路径：只回行动彩蛋，无情绪小票/物件 ──
     if (isEggFresh) {
+      // 情境彩蛋：按此刻情况匹配（不走 LLM，直接池子加权随机，保证「此刻做得成」）
+      if (situation) {
+        const egg = pickEggForSituation(persona, salt, situation)
+        return Response.json({ type: 'result', egg: eggPayload(egg) }, { headers: corsHeaders() })
+      }
       const egg = pickFallbackEgg(persona, emotion, salt, place)
       // 渐进式陪伴蛋：步骤/文案来自池子（人工编写），不 LLM 重写，保证与步骤一致
       if (egg.steps?.length) {

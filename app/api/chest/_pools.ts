@@ -513,6 +513,45 @@ export function pickFallbackEgg(
   return nudged[0].e
 }
 
+// ── 情境彩蛋（此刻匹配）──
+// 用户提供「现在是什么情况」：场景 + 可选时间/行动能力。
+// 原则：场景硬过滤（做得成），时间/行动软加权（只是偏好），加权随机保留惊喜。
+// 现有蛋标签较粗（place/cat），先用它们做粗映射；等池子补齐「注意力/精力/状态」维度后再细化。
+export interface SituationInput {
+  scene: 'home' | 'out' | 'commute' | 'meal' | 'wait' | 'work'
+  time?: 'short' | 'medium' | 'long'
+  action?: 'walk' | 'stay' | 'hands_off'
+}
+
+export function pickEggForSituation(persona: ChestPersonaId, salt: string | undefined, situation: SituationInput): EggDef {
+  // ① 硬过滤：场景（现有 place/cat 粗映射）
+  let pool = [...CHEST_EGGS]
+  if (situation.scene === 'home') pool = pool.filter((e) => e.tags.place !== 'outdoor')
+  else if (situation.scene === 'out' || situation.scene === 'commute') pool = pool.filter((e) => e.tags.place !== 'indoor')
+  else if (situation.scene === 'meal') pool = pool.filter((e) => e.tags.cat === 'food')
+  // 空池保底：场景过滤后为空则退回全池，绝不空手
+  if (pool.length === 0) pool = [...CHEST_EGGS]
+
+  // ② 软偏好打分（只加权不淘汰）
+  const rnd = dailyRandom(persona, salt)
+  const scored = pool.map((e) => {
+    let s = rnd() * 2
+    if (situation.time === 'short' && !e.steps && e.tags.place !== 'outdoor') s += 2
+    if (situation.time === 'long' && e.tags.cat === 'oldplace') s += 2
+    if (situation.action === 'stay' && e.tags.place === 'indoor') s += 2
+    if (situation.action === 'hands_off' && e.tags.cat === 'media') s += 3
+    return { e, s }
+  })
+  // ③ 加权随机抽取（高适配概率大，但保留惊喜）
+  const total = scored.reduce((a, b) => a + b.s, 0)
+  let r = rnd() * total
+  for (const x of scored) {
+    r -= x.s
+    if (r <= 0) return x.e
+  }
+  return scored[scored.length - 1].e
+}
+
 function objectScore(o: ChestObjectDef, persona: ChestPersonaId, emotion: EmotionLike | undefined, rnd: () => number): number {
   let s = rnd() * 2
   if (o.tags.includes(persona)) s += 3
