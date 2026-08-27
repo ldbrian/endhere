@@ -79,6 +79,13 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders() })
 }
 
+// 看板数据不需要实时：60s TTL 缓存，避免每次打开都全量拉取+计算（约 2.5s）
+// 用 globalThis 存，Next.js 函数实例间共享；TTL 过期自动重算。
+type DashCacheEntry = { t: number; body: unknown }
+const dashCache = (globalThis as unknown as { __bhDashCache?: Map<string, DashCacheEntry> }).__bhDashCache ?? new Map<string, DashCacheEntry>()
+;(globalThis as unknown as { __bhDashCache?: Map<string, DashCacheEntry> }).__bhDashCache = dashCache
+const DASH_CACHE_TTL = 60_000
+
 export async function GET(req: NextRequest) {
   const token = req.headers.get('x-dashboard-token') || req.nextUrl.searchParams.get('token') || ''
   const expected = process.env.DASHBOARD_TOKEN
@@ -89,14 +96,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401, headers: corsHeaders() })
   }
 
+  const days = Math.max(1, Math.min(90, Number(req.nextUrl.searchParams.get('days') ?? 14)))
+  const includeTests = req.nextUrl.searchParams.get('includeTests') === '1'
+  const cacheKey = `${days}|${includeTests}`
+  const hit = dashCache.get(cacheKey)
+  if (hit && Date.now() - hit.t < DASH_CACHE_TTL) {
+    return NextResponse.json(hit.body, { headers: corsHeaders() })
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const srk = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !srk) {
     return NextResponse.json({ error: 'SUPABASE_ENV_MISSING' }, { status: 503, headers: corsHeaders() })
   }
-
-  const days = Math.max(1, Math.min(90, Number(req.nextUrl.searchParams.get('days') ?? 14)))
-  const includeTests = req.nextUrl.searchParams.get('includeTests') === '1'
 
   const since = new Date()
   since.setDate(since.getDate() - days)
@@ -253,7 +265,7 @@ export async function GET(req: NextRequest) {
   const trend = [...trendMap.keys()].sort().map((d) => ({ day: d.slice(5), ...trendMap.get(d)! }))
   const maxTrend = Math.max(1, ...trend.map((t) => t.app_open))
 
-  return NextResponse.json({
+  const body = {
     days,
     includeTests,
     total: data.length,
@@ -268,5 +280,7 @@ export async function GET(req: NextRequest) {
     referral,
     trend,
     maxTrend,
-  }, { headers: corsHeaders() })
+  }
+  dashCache.set(cacheKey, { t: Date.now(), body })
+  return NextResponse.json(body, { headers: corsHeaders() })
 }
