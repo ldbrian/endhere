@@ -321,6 +321,39 @@ export const CHEST_EGGS: EggDef[] = [
       },
     ],
   },
+
+  // ============ 情境补充蛋（s1..s16，2026-08 补批）============
+  // 目的：填补「吃饭/等待/开车(免操作)/工作/带孩子」等真实高频场景的池子空白。
+  // 全部按好彩蛋标准写：可完成、短时间、完成以后「留下什么」填得出（体验类型×场景×时间×行动）。
+  // 场景硬过滤走 tags.place / tags.cat：meal→cat=food；home→place≠outdoor；out/commute→place≠indoor。
+
+  // s1-s3 · 吃饭（cat=food）
+  { id: 's1', spirit: 'demon', text: '今天点一道从来没点过的面或招牌菜。不好吃也没关系——那也是一次经历。', tags: { type: 'action', cat: 'food', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 1, estimated_duration: '5-15 分钟', requires_photo: false },
+  { id: 's2', spirit: 'demon', text: '问店员「你们家最招牌的是什么」，就点它。', tags: { type: 'action', cat: 'food', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 2, estimated_duration: '5-15 分钟', requires_photo: false },
+  { id: 's3', spirit: 'demon', text: '换一个平时不会坐的位置（靠窗/吧台/角落），看看这个店的另一面。', tags: { type: 'notice', cat: 'food', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 1, estimated_duration: '5 分钟', requires_photo: false },
+
+  // s4-s6 · 等待（原地可做）
+  { id: 's4', spirit: 'demon', text: '观察一个路过的人，猜 ta 今天正要去做什么。', tags: { type: 'notice', cat: 'observe', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 1, estimated_duration: '1-3 分钟', requires_photo: false },
+  { id: 's5', spirit: 'angel', text: '闭眼听三十秒环境声，数出三种不同的声音。', tags: { type: 'notice', cat: 'sense', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 1, estimated_duration: '1 分钟', requires_photo: false },
+  { id: 's6', spirit: 'angel', text: '给待会要见到的人，想一句第一句想说的话。', tags: { type: 'notice', cat: 'contact', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 1, estimated_duration: '1 分钟', requires_photo: false },
+
+  // s7-s9 · 开车/不方便操作（免操作可做）
+  { id: 's7', spirit: 'angel', text: '等红灯的六十秒，想一句「今天最想记住的话」。', tags: { type: 'notice', cat: 'mindful', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 1, estimated_duration: '1 分钟', requires_photo: false },
+  { id: 's8', spirit: 'demon', text: '切到一首从没主动点过的歌，听完想想为什么放着它。', tags: { type: 'action', cat: 'media', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 1, estimated_duration: '一首歌', requires_photo: false },
+  { id: 's9', spirit: 'angel', text: '记一个每天经过、但从没认真看过的路牌或建筑。', tags: { type: 'notice', cat: 'route', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 1, estimated_duration: '1 分钟', requires_photo: false },
+
+  // s10-s11 · 工作（原地、可被打断）
+  { id: 's10', spirit: 'demon', text: '泡一杯平时不会喝的东西，喝一小口再继续。', tags: { type: 'action', cat: 'consume', time: 'any', social: 0, repeatable: true, place: 'indoor' }, difficulty: 1, estimated_duration: '3 分钟', requires_photo: false },
+  { id: 's11', spirit: 'angel', text: '把桌面一件「不知道什么时候出现的」杂物，放回它该在的地方。', tags: { type: 'action', cat: 'restart', time: 'any', social: 0, repeatable: true, place: 'indoor' }, difficulty: 1, estimated_duration: '2 分钟', requires_photo: false },
+
+  // s12-s13 · 带孩子（可被打断）
+  { id: 's12', spirit: 'angel', text: '跟孩子一起数一数，这里有几种不同的颜色。', tags: { type: 'notice', cat: 'childhood', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 1, estimated_duration: '5 分钟', requires_photo: false },
+  { id: 's13', spirit: 'angel', text: '教孩子认一个你天天路过、但从没指给他看过的招牌或东西。', tags: { type: 'action', cat: 'childhood', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 1, estimated_duration: '3 分钟', requires_photo: false },
+
+  // s14-s16 · 偏离补充（避开行为变化，带「留下什么」）
+  { id: 's14', spirit: 'demon', text: '今天走路慢一半，看一个平时因为走太快而错过的东西。', tags: { type: 'notice', cat: 'notice', time: 'day', social: 0, repeatable: true, place: 'outdoor' }, difficulty: 1, estimated_duration: '顺路', requires_photo: false },
+  { id: 's15', spirit: 'demon', text: '把手机放口袋里，走一段路不看它。', tags: { type: 'action', cat: 'notice', time: 'any', social: 0, repeatable: true, place: 'any' }, difficulty: 2, estimated_duration: '5 分钟', requires_photo: false },
+  { id: 's16', spirit: 'demon', text: '去一家从没去过的店，买一样你每天都要用的东西（纸巾/水/咖啡）。', tags: { type: 'action', cat: 'consume', time: 'any', social: 0, repeatable: true, place: 'outdoor' }, difficulty: 1, estimated_duration: '5-10 分钟', requires_photo: false },
 ]
 
 // 彩蛋是「参考答案」不是任务：用户可自行调整方向，但要有可点的具体建议降门槛。
@@ -362,6 +395,22 @@ export const CHEST_EGG_ADJUST: Record<string, string[]> = {
   p4: ['换成重新看一段以前循环过的片段', '换成戴上耳机安静听一遍'],
   p5: ['换成把它拿出来用一天', '换成把它擦干净拍照留念'],
   p6: ['换成只做一分钟', '换成只做它的第一步'],
+  s1: ['换成点一碗从没吃过的汤/粉', '换成点店里最便宜的招牌'],
+  s2: ['换成问店员今天有什么推荐', '换成看看别桌都点了什么再决定'],
+  s3: ['换成坐靠窗的位置看窗外', '换成坐离厨房/吧台近的位置'],
+  s4: ['换成猜 ta 今天心情怎么样', '换成数一数这一分钟路过几个人'],
+  s5: ['换成只盯一个东西看三十秒', '换成数一种平时被忽略的声音'],
+  s6: ['换成想一句给爸妈/朋友的问候', '换成想一句今天要对自己说的话'],
+  s7: ['换成想一件今天做成了的事', '换成回想今天最开心的一瞬间'],
+  s8: ['换成随机播放里的一首歌', '换成把循环关掉随机听一段'],
+  s9: ['换成记一个每天经过的招牌颜色', '换成记一棵每天路过的树的位置'],
+  s10: ['换成泡一杯白水慢慢喝完', '换成换一种温度或喝法'],
+  s11: ['换成把桌面最乱的一角收好', '换成扔掉一件不需要的东西'],
+  s12: ['换成数一数有几种形状', '换成让孩子自己找一种颜色'],
+  s13: ['换成教认一个字的招牌', '换成让孩子指一个他想知道的'],
+  s14: ['换成走一段路完全不赶时间', '换成专门看左边的风景'],
+  s15: ['换成放口袋走完一整段', '换成不拿手机听一段歌走路'],
+  s16: ['换成去一家没去过的早餐店买早饭', '换成去一家从没进去过的便利店'],
 }
 
 export interface ChestObjectDef {
@@ -539,7 +588,7 @@ export function pickEggForSituation(persona: ChestPersonaId, salt: string | unde
     if (situation.time === 'short' && !e.steps && e.tags.place !== 'outdoor') s += 2
     if (situation.time === 'long' && e.tags.cat === 'oldplace') s += 2
     if (situation.action === 'stay' && e.tags.place === 'indoor') s += 2
-    if (situation.action === 'hands_off' && e.tags.cat === 'media') s += 3
+    if (situation.action === 'hands_off' && ['media', 'notice', 'sense', 'mindful'].includes(e.tags.cat)) s += 3
     return { e, s }
   })
   // ③ 加权随机抽取（高适配概率大，但保留惊喜）
