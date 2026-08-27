@@ -578,10 +578,22 @@ export function pickEggForSituation(persona: ChestPersonaId, salt: string | unde
   if (situation.scene === 'home') pool = pool.filter((e) => e.tags.place !== 'outdoor')
   else if (situation.scene === 'out' || situation.scene === 'commute') pool = pool.filter((e) => e.tags.place !== 'indoor')
   else if (situation.scene === 'meal') pool = pool.filter((e) => e.tags.cat === 'food')
-  // 空池保底：场景过滤后为空则退回全池，绝不空手
+
+  // ② 硬过滤：行动能力（做不做得到的硬约束，不是偏好）
+  // hands_off（开车/不方便操作）：现有 cat 标签太粗（notice/route 混了要走路/动手的蛋），
+  // 直接用白名单保证「真的能在免操作时做」——全部是听/看/想类。
+  if (situation.action === 'hands_off') {
+    const HANDS_OFF_EGGS = new Set(['d8', 'a6', 'p3', 'p4', 's5', 's7', 's8', 's9'])
+    pool = pool.filter((e) => HANDS_OFF_EGGS.has(e.id))
+  } else if (situation.action === 'stay') {
+    // 只能原地：排除需要外出/移动的蛋
+    pool = pool.filter((e) => e.tags.place !== 'outdoor')
+  }
+
+  // 空池保底：硬过滤后为空则退回全池，绝不空手
   if (pool.length === 0) pool = [...CHEST_EGGS]
 
-  // ② 软偏好打分（只加权不淘汰）
+  // ③ 软偏好打分（只加权不淘汰）
   const rnd = dailyRandom(persona, salt)
   const scored = pool.map((e) => {
     let s = rnd() * 2
@@ -591,7 +603,7 @@ export function pickEggForSituation(persona: ChestPersonaId, salt: string | unde
     if (situation.action === 'hands_off' && ['media', 'notice', 'sense', 'mindful'].includes(e.tags.cat)) s += 3
     return { e, s }
   })
-  // ③ 加权随机抽取（高适配概率大，但保留惊喜）
+  // ④ 加权随机抽取（高适配概率大，但保留惊喜）
   const total = scored.reduce((a, b) => a + b.s, 0)
   let r = rnd() * total
   for (const x of scored) {
