@@ -51,13 +51,16 @@ function NewFragmentContent() {
   const searchParams = useSearchParams();
   const requestedWindowText = searchParams.get('window')?.trim() || '';
   const entryMode = searchParams.get('entry');
+  // 上游（如 BeginHere 跳过的彩蛋）可以带一句预填引导，用户在此基础继续写；
+  // 只预填文字，不自动生成内容、不自动提交。
+  const draftText = (searchParams.get('draft') || '').slice(0, ORIGINAL_CONTENT_LIMIT);
   const entryWindow = useMemo(() => {
     if (entryMode !== 'window' || !requestedWindowText) return null;
     return findWindowByText(requestedWindowText);
   }, [entryMode, requestedWindowText]);
   const addLocalFragment = useFragmentStore((state) => state.addLocalFragment);
   const [step, setStep] = useState<Step>('writing');
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState(draftText);
   const [organized, setOrganized] = useState<OrganizedPage | null>(null);
   const [error, setError] = useState('');
   const original = normalizeFragmentText(content);

@@ -556,10 +556,61 @@ export function pickFallbackEgg(
   placeHint?: 'indoor' | 'any',
 ): EggDef {
   const list = [...CHEST_EGGS]
-  const rnd = dailyRandom(persona, salt)
-  const nudged = list.map((e) => ({ e, s: eggBias(e, persona, emotion, rnd, placeHint) }))
-  nudged.sort((a, b) => b.s - a.s)
-  return nudged[0].e
+  // 每次抽取都换一个随机源：盐/角色/情绪/场景只影响「被抽到的概率」，
+  // 不再「取分数最高那一颗」——那样同一天同一设备永远同一颗，抽蛋就失去了抽的感觉。
+  const rnd = mulberry32(
+    (seed(persona + '|' + (salt || '') + '|' + dayKey(new Date())) ^ ((Math.random() * 0x100000000) >>> 0)) >>> 0,
+  )
+  // 分数可以为负（如夜晚压低要出门的蛋）：先夹到 0，再给每个蛋一个 0.2 的保底，
+  // 保证暴雨级惩罚的蛋只是「很少」而不是「永不」，保留一点意外。
+  const scored = list.map((e) => ({ e, s: Math.max(0, eggBias(e, persona, emotion, rnd, placeHint)) + 0.2 }))
+  const total = scored.reduce((a, b) => a + b.s, 0)
+  let r = rnd() * total
+  for (const x of scored) {
+    r -= x.s
+    if (r <= 0) return x.e
+  }
+  return scored[scored.length - 1].e
+}
+
+// ── 每日一次给多颗（P1 A：每日三选一）──
+// 先按偏好加权随机抽一颗；已抽出的蛋会让「同品类 cat」「同机制 type」的候选大幅降权，
+// 保证 3 颗之间至少「口味」或「类型」有区分，避免三颗看起来是同一件事的三种说法。
+// 与 pickFallbackEgg 一样：盐/角色/情绪/场景只影响概率，每次调用重新播种，保留「抽」的感觉。
+export function pickEggChoice(
+  persona: ChestPersonaId,
+  emotion?: EmotionLike,
+  salt?: string,
+  placeHint?: 'indoor' | 'any',
+  count = 3,
+): EggDef[] {
+  const pool = [...CHEST_EGGS]
+  const picked: EggDef[] = []
+  const rnd = mulberry32(
+    (seed(persona + '|' + (salt || '') + '|choice|' + dayKey(new Date())) ^ ((Math.random() * 0x100000000) >>> 0)) >>> 0,
+  )
+  const want = Math.max(1, Math.min(count, pool.length))
+  while (picked.length < want && pool.length > 0) {
+    const scored = pool.map((e) => {
+      let s = Math.max(0, eggBias(e, persona, emotion, rnd, placeHint)) + 0.2
+      if (picked.some((p) => p.tags.cat === e.tags.cat)) s *= 0.15
+      if (picked.some((p) => p.tags.type === e.tags.type)) s *= 0.4
+      return { e, s }
+    })
+    const total = scored.reduce((a, b) => a + b.s, 0)
+    let r = rnd() * total
+    let chosen = scored[scored.length - 1].e
+    for (const x of scored) {
+      r -= x.s
+      if (r <= 0) {
+        chosen = x.e
+        break
+      }
+    }
+    picked.push(chosen)
+    pool.splice(pool.findIndex((e) => e.id === chosen.id), 1)
+  }
+  return picked
 }
 
 // ── 情境彩蛋（此刻匹配）──
@@ -644,6 +695,20 @@ export interface ChestBuildLocalInput {
   emotion?: EmotionLike
   /** 设备级盐（如 eh_device_id），同设备同角色同日期时结果稳定 */
   salt?: string
+}
+
+// 固定物品池后的小票本地收尾：只给 reply/title，不再挑物件。
+// 完成蛋的物件由 BeginHere 前端从固定物品池发放。
+export interface ChestLocalReceiptInput {
+  persona: ChestPersonaId
+  emotion?: EmotionLike
+}
+
+export function buildLocalReceipt({ persona, emotion }: ChestLocalReceiptInput) {
+  return {
+    reply: CHEST_PERSONAS[persona]?.greeting || '嗯。',
+    title: titleFromEmotion(emotion),
+  }
 }
 
 export function buildLocalResult({ persona, emotion, salt }: ChestBuildLocalInput) {
