@@ -14,6 +14,20 @@ This version has breaking changes — APIs, conventions, and file structure may 
 一句话产品定义：一本故事书。带着一个问题翻开 → 写下记忆点 → 书以人格批注接住 → 用户宣告讲完整 → 翻一张牌＋一句金句 → 合上。一页一张牌，且在最后。
 <!-- END:authority-docs -->
 
+<!-- BEGIN:p1-hard-constraints -->
+# P1 两条硬约束（改这些地方之前先读）
+
+**1. 正文只能来自用户原话。** 页正文永远是 `page.paragraphs[].text` 按顺序拼接（只补标点与换行）。
+代码里**不允许存在**让模型改写/润色/缩写正文的路径。`quote`（金句）与 `title`（标题）可以生成，正文不行——话不能代笔。
+
+**2. 牌是固定枚举，资产是固定路径。**
+- 牌名只在 `app/book/_core/cards.ts` 的 `CARD_IDS` 十张里选（灯／镜子／层／路／门／书页／蛋／潮／窗／杯子）。
+  模型给了枚举外的牌名 → `normalizeCardId` 返回 null → `fallbackCardId(persona)` 兜底并**记一条日志**，绝不让模型自由命名。
+- 资产路径只认三个：`/cards/{id}-color.webp`（落页插画）、`/cards/{id}-line.webp`（翻牌线条）、`/cards/card-back.webp`（写态中性卡背）。
+  **卡背绝不能是某张牌的线条版**——那等于提前泄露抽卡结果。
+- 牌只出意象，不存牌意，不写正位/逆位，不预测。
+<!-- END:p1-hard-constraints -->
+
 <!-- BEGIN:precommit-testing -->
 # 提交纪律（强制，任何 commit/push 之前必须全部通过）
 
