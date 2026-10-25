@@ -1,5 +1,9 @@
 ﻿'use client';
 
+// ⚠️ LEGACY-ONLY（2026-10-25 标注）：本页全仓库零入站链接，用户到不了。
+//    它同时是 _core/artifacts 与 _core/windows.ts 的唯一引用方，所以不能直接删。
+//    不纳入功能验收；删留待 UI 大改之后再议。现行页弧见 docs/authority/2026-10/EH_批注机制_2026-10-24.md
+
 import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';

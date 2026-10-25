@@ -1,3 +1,7 @@
+> ⚠️ **v3.2 历史存档（2026-10-25 标注）。**
+> 本日志止于 v3.2，未记录 V5「问题之书」转向及之后的所有改动。**不要据此判断当前状态。**
+> 当前状态以 git log + `docs/authority/2026-10/` 为准。
+
 # Changelog - 《End Here》项目全域状态流转日志
 
 # Changelog - "End Here" Global State Flow Log

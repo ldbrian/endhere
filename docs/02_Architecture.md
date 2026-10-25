@@ -1,3 +1,8 @@
+> ⚠️ **v3.2 历史存档（2026-10-25 标注）——不要照着改代码。**
+> 本文描述的 `useSpaceStore`／3x3 空间网格／软删除焚烧／PWA 沙盒等均已不在当前实现中。
+> 现行代码结构：`app/book/`（书）+ `app/book/_core/`（核心逻辑）+ `app/api/book/*`（接口）。
+> 现行依据：`app/book/_core/constitution.md` + `docs/authority/2026-10/`。
+
 Architecture - 《End Here》系统全栈技术架构白皮书 (v3.2)
 1. 核心工程与合规防线
 [ZH] 绝对单页心流（SPA-First）：基于 Next.js + Tailwind CSS，全盘废弃 MPA 跳转。由 Zustand (useSpaceStore) 管控状态流转，实现无缝失焦与淡入淡出。

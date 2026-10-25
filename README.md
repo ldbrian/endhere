@@ -2,6 +2,18 @@
 
 > A private observatory for tracking how thoughts and life gradually change over time.
 
+---
+
+> **⚠️ 本 README 描述的是 v3.2 时代的形态（门店／双轨／漫游区），与当前代码不一致。**
+>
+> 当前产品是 **一本故事书**：带着一个问题翻开，写下记忆点，书以人格批注接住，讲完整后翻一张牌＋一句金句，合上。
+>
+> - 现行依据（改代码前必读）：[`app/book/_core/constitution.md`](app/book/_core/constitution.md) ＋ [`docs/authority/2026-10/`](docs/authority/2026-10/00_INDEX.md)
+> - `docs/01`–`03` 与下方截图均为 **v3.2 历史存档**，不得据此改动
+> - 代码入口：`app/book/`（书）、`app/book/_core/`（核心逻辑）、`app/api/book/*`（接口）
+
+---
+
 ### Home
 ![Home](screenshots/home.jpeg)
 

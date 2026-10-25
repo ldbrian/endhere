@@ -80,26 +80,8 @@ function buildEvidenceCards(pages: ReturnType<typeof useFragmentStore.getState>[
     });
 }
 
-function BookmarkProgressBar({ completedPages }: { completedPages: number }) {
-  const target = 15;
-  const percent = Math.max(0, Math.min(100, (completedPages / target) * 100));
-  return (
-    <div className="mx-auto w-full max-w-[280px]">
-      <div className="mb-2 flex items-center justify-between text-[10px] tracking-[0.14em] text-stone-500/80">
-        <span>已记录</span>
-        <span>{completedPages} 页</span>
-      </div>
-      <div className="h-[8px] overflow-hidden rounded-full bg-stone-800/55">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${percent}%` }}
-          transition={{ duration: 0.55, ease: 'easeOut' }}
-          className="h-full rounded-full bg-[linear-gradient(90deg,#7b5d3d_0%,#b28a5f_55%,#d7bb8b_100%)] shadow-[0_0_12px_rgba(178,138,95,0.28)]"
-        />
-      </div>
-    </div>
-  );
-}
+// 2026-10-25 移除「已记录 N 页 / 15」进度条。
+// 理由：违反宪法约束 B —— 不奖赏数据。书攒了几页不是成就，页码轴表示位置，不表示进度。
 
 function EvidenceSlips({ items }: { items: { id: string; pageNumber: string; label: string; date: string }[] }) {
   if (items.length === 0) return null;
@@ -184,8 +166,7 @@ export default function MirrorPage() {
 
   const completedPages = useMemo(() => book.pages.filter((page) => page.paragraphs.length > 0), [book.pages]);
   const completedPageCount = completedPages.length;
-  // 本地书页 + 云端 BH 碎片总数：进度条/空状态用（纯 BH 用户不显示「0 页」误导）
-  const totalFragments = completedPageCount + cloudCount;
+  // 不再统计总页数：页数是位置，不是进度，不进 UI（宪法约束 B）
   const stage = useMemo(() => getBookmarkStage(completedPageCount), [completedPageCount]);
   const isBookmarkReady = completedPageCount > 0 || cloudCount > 0;
   const evidenceCards = useMemo(() => buildEvidenceCards(book.pages), [book.pages]);
@@ -292,8 +273,6 @@ export default function MirrorPage() {
               className="flex h-full flex-col"
             >
               <div className="border border-[#8b6b45]/18 bg-[linear-gradient(180deg,rgba(34,27,23,0.92),rgba(21,17,15,0.96))] px-6 py-8 shadow-[0_24px_64px_rgba(0,0,0,0.24)]">
-                <BookmarkProgressBar completedPages={totalFragments} />
-
                 {loading ? (
                   <div className="mt-8 text-center">
                     <p className="text-[18px] font-light tracking-[0.08em] text-stone-200">正在分析…</p>
@@ -314,8 +293,8 @@ export default function MirrorPage() {
                   </div>
                 ) : (
                   <div className="mt-8 text-center">
-                    <p className="text-[18px] font-light tracking-[0.08em] text-stone-200">已记录 {totalFragments} 页，尚未形成足够多的重复模式。</p>
-                    <p className="mt-4 text-[12px] leading-[1.9] tracking-[0.06em] text-stone-500/80">继续记录，当某个话题出现 2 次以上时会在这里显示。</p>
+                    <p className="text-[18px] font-light tracking-[0.08em] text-stone-200">还没有足够多的页可以对照。</p>
+                    <p className="mt-4 text-[12px] leading-[1.9] tracking-[0.06em] text-stone-500/80">同一件事出现两次以上时，才看得出模式。</p>
                   </div>
                 )}
 

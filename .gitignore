@@ -43,3 +43,6 @@ next-env.d.ts
 .vercel
 
 endhere-dev.log
+
+# local scratch (pdf extracts, temp)
+/.tmp/

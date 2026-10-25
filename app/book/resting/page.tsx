@@ -1,8 +1,13 @@
 ﻿'use client';
 
+// ⚠️ LEGACY-ONLY（2026-10-25 标注）：本页全仓库零入站链接，用户到不了。
+//    文案质量高（「什么都不用做」那一套），留档不等于复活一个写作流。
+//    不纳入功能验收；删留待 UI 大改之后再议。
+
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+
+type WakeLockSentinel = { release: () => Promise<void> };
 
 const STAGE1_END = 45 * 1000;
 const STAGE2_END = 3 * 60 * 1000;
@@ -25,14 +30,15 @@ export default function RestingPage() {
   const [currentText, setCurrentText] = useState<string | null>(null);
   const [opacity, setOpacity] = useState(0);
   const mountedRef = useRef(true);
-  const startTimeRef = useRef(Date.now());
-  const wakeLockRef = useRef<any>(null);
+  const startTimeRef = useRef<number>(0);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   useEffect(() => {
     const requestWakeLock = async () => {
       try {
-        if ('wakeLock' in navigator) {
-          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        const nav = navigator as Navigator & { wakeLock?: { request: (type: string) => Promise<WakeLockSentinel> } };
+        if (nav.wakeLock) {
+          wakeLockRef.current = await nav.wakeLock.request('screen');
         }
       } catch (e) {
         console.warn('[WakeLock] not available:', e);
@@ -49,6 +55,7 @@ export default function RestingPage() {
   }, []);
 
   useEffect(() => {
+    startTimeRef.current = Date.now();
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
     const set1 = STAGE1_SETS[Math.floor(Math.random() * STAGE1_SETS.length)];
     const set2 = STAGE2_SETS[Math.floor(Math.random() * STAGE2_SETS.length)];
