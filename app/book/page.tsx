@@ -17,6 +17,7 @@ import { pickBookVoice } from './_core/bookVoice';
 import { FirstPageOnboarding } from './_core/FirstPageOnboarding';
 import { FREEWRITE_OPTION_ID, BOOK_DUAL_TRACK_PROMPT } from './_core/onboarding';
 import { ReaderAnnotationOverlay, READER_ANNOTATION_DONE_KEY } from './_core/ReaderAnnotationOverlay';
+import { BackupPanel } from './_core/BackupPanel';
 
 // V5: Mirror 不需要最低页数门槛。有一页就照一页的线索。
 const MIRROR_REQUIRED_PAGES = 1;
@@ -249,6 +250,8 @@ function LegacyArchiveOverlay({ archive, onClose }: { archive: LegacyPage[]; onC
               ))}
             </div>
           )}
+
+          <BackupPanel />
         </div>
       </motion.div>
     </motion.div>

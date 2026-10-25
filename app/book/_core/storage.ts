@@ -200,6 +200,13 @@ interface BookState {
   setParagraphResponse: (pageId: string, paragraphId: string, response: { narration?: string; persona?: FragmentPersonaId; artifact?: FragmentArtifact }) => void;
   applyPageTitle: (pageId: string, title: string) => void;
   adjustPersonaPreference: (persona: string, delta: 1 | -1) => void;
+  /** 导入备份后整体落库：书、旧纸张档案、人格偏好一次写完（P2，2026-10-25） */
+  importBackupData: (payload: {
+    book: Book;
+    legacyArchive: LegacyPage[];
+    personaPreferences: PersonaPreferences;
+    focusPageId?: string;
+  }) => void;
   currentPage: () => BookPage;
   canTurnPage: () => boolean;
 }
@@ -440,6 +447,27 @@ export const useFragmentStore = create<BookState>()(
             };
           });
         },
+        importBackupData: (payload) => {
+          set((state) => {
+            let pages = payload.book.pages;
+            // 导入后如果末尾没有可写的空页，补一个——否则用户导完就没地方写了
+            const last = pages[pages.length - 1];
+            if (last && last.paragraphs.length > 0 && last.closed_at) {
+              pages = [...pages, createEmptyPage(pages.length)];
+            }
+            const focusIndex = payload.focusPageId
+              ? Math.max(0, pages.findIndex((page) => page.id === payload.focusPageId))
+              : Math.max(0, Math.min(state.currentPageIndex, pages.length - 1));
+            const nextBook: Book = { ...payload.book, owner_id: state.ownerId, pages };
+            return {
+              book: nextBook,
+              localFragments: buildLegacyFragments(nextBook),
+              legacyArchive: payload.legacyArchive,
+              personaPreferences: payload.personaPreferences,
+              currentPageIndex: focusIndex,
+            };
+          });
+        },
         mergeShopkeeperComments: (comments) => {
           set((state) => {
             const pages = state.book.pages.map((page) => ({
@@ -651,9 +679,10 @@ export async function fetchCloudFragmentsByOwner(ownerId: string): Promise<Fragm
     if (!error && data && data.length > 0) {
       // JS 侧过滤：排除进行中的彩蛋（egg_status='active'，无沉淀文本）；
       // 不用 neq（对 NULL 会过滤掉收藏路径的碎片）
-      return (data as Fragment[]).filter(
-        (r) => (r.meta as Record<string, any>)?.beginhere?.egg_status !== 'active'
-      );
+      return (data as Fragment[]).filter((r) => {
+        const meta = r.meta as { beginhere?: { egg_status?: string } } | null | undefined;
+        return meta?.beginhere?.egg_status !== 'active';
+      });
     }
   } catch (err) {
     console.error('[Cloud Fragments] Fetch error:', err);
